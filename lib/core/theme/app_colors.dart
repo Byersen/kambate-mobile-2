@@ -16,6 +16,7 @@ class AppColors {
   // Sport Discipline Badges
   static const Color soccer = Color(0xFF22C55E);
   static const Color basketball = Color(0xFFF97316);
+  static const Color nba = basketball;
   static const Color ufc = Color(0xFFEF4444);
   static const Color lol = Color(0xFF06B6D4);
   static const Color valorant = Color(0xFFFF4655);

@@ -18,10 +18,10 @@ dependencies:
   flutter_riverpod: ^2.6.1
 
   # Routing / Navigation
-  go_router: ^14.8.1
+  go_router: ^17.3.0
 
   # Backend & Realtime
-  supabase_flutter: ^2.8.4
+  supabase_flutter: ^2.16.0
 
   # Environment Variables
   flutter_dotenv: ^5.2.1
@@ -31,6 +31,7 @@ dependencies:
   intl: ^0.20.2
   google_fonts: ^6.2.1
   cached_network_image: ^3.4.1
+  shared_preferences: ^2.5.2
 
 dev_dependencies:
   flutter_test:
