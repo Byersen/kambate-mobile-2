@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/date_formatter.dart';
 import '../../../../models/event_model.dart';
 import '../../../../models/event_status.dart';
+import '../../../../models/sport_type.dart';
 import 'live_badge.dart';
 
 class MatchCard extends StatelessWidget {
@@ -19,12 +20,12 @@ class MatchCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final timeFormat = DateFormat('HH:mm');
-    final dateFormat = DateFormat('dd MMM');
+    final isEsports = event.sport == SportType.lol || event.sport == SportType.valorant;
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       clipBehavior: Clip.antiAlias,
+      elevation: event.isLive ? 2.5 : 1.0,
       child: InkWell(
         onTap: onTap,
         child: Container(
@@ -40,7 +41,7 @@ class MatchCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header: Sport badge, League, and Status/Time
+              // 1. Header: Sport badge, League Name with Tier, and Status/Time
               Row(
                 children: [
                   Container(
@@ -67,17 +68,55 @@ class MatchCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
+
+                  // League Name & Tier Badge
                   Expanded(
-                    child: Text(
-                      event.league,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            event.league,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (event.leagueModel != null) ...[
+                          const SizedBox(width: 5),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                            decoration: BoxDecoration(
+                              color: event.leagueModel!.isTier1
+                                  ? AppColors.primary.withValues(alpha: 0.15)
+                                  : AppColors.surfaceDark,
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(
+                                color: event.leagueModel!.isTier1
+                                    ? AppColors.primary.withValues(alpha: 0.4)
+                                    : AppColors.cardBorderDark,
+                                width: 0.7,
+                              ),
+                            ),
+                            child: Text(
+                              event.leagueModel!.isTier1 ? 'T1' : 'T2',
+                              style: TextStyle(
+                                color: event.leagueModel!.isTier1
+                                    ? AppColors.primary
+                                    : AppColors.textMuted,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
+
+                  // Status Indicator or Time
                   if (event.isLive)
                     LiveBadge(text: event.currentPeriod ?? 'EN VIVO')
                   else if (event.status == EventStatus.finished)
@@ -98,14 +137,17 @@ class MatchCard extends StatelessWidget {
                     )
                   else
                     Text(
-                      '${dateFormat.format(event.startTime)} • ${timeFormat.format(event.startTime)}',
+                      AppDateFormatter.formatEventTime(event.startTime),
                       style: const TextStyle(
                         color: AppColors.secondary,
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+
                   const SizedBox(width: 4),
+
+                  // Star / Bookmark Toggle
                   IconButton(
                     icon: Icon(
                       event.isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
@@ -122,12 +164,15 @@ class MatchCard extends StatelessWidget {
 
               const SizedBox(height: 12),
 
-              // Match Body (Team vs Team or Fighter vs Fighter)
+              // 2. Match Body (Adaptive by Sport Type)
               if (event.isCombat)
                 _buildCombatBody(context)
+              else if (isEsports)
+                _buildEsportsBody(context)
               else
                 _buildTeamBody(context),
 
+              // 3. Footer (Venue or Esports Format)
               if (event.venue != null) ...[
                 const SizedBox(height: 8),
                 Row(
@@ -213,6 +258,117 @@ class MatchCard extends StatelessWidget {
     );
   }
 
+  Widget _buildEsportsBody(BuildContext context) {
+    final format = event.esportsStats?.format ?? 'Bo3';
+
+    return Column(
+      children: [
+        // Format & Current Map Bar
+        Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceDark,
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'SERIE $format',
+                style: TextStyle(
+                  color: event.sport.color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              if (event.esportsStats?.currentMap != null)
+                Text(
+                  event.esportsStats!.currentMap!,
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 10,
+                  ),
+                ),
+            ],
+          ),
+        ),
+
+        // Team 1
+        Row(
+          children: [
+            _buildAvatar(event.homeTeam?.name ?? 'Equipo 1', event.homeTeam?.logoUrl),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                event.homeTeam?.name ?? 'Equipo 1',
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (event.homeScore != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: event.isLive ? event.sport.color.withValues(alpha: 0.2) : AppColors.surfaceDark,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '${event.homeScore}',
+                  style: TextStyle(
+                    color: event.isLive ? event.sport.color : AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        // Team 2
+        Row(
+          children: [
+            _buildAvatar(event.awayTeam?.name ?? 'Equipo 2', event.awayTeam?.logoUrl),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                event.awayTeam?.name ?? 'Equipo 2',
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (event.awayScore != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: event.isLive ? event.sport.color.withValues(alpha: 0.2) : AppColors.surfaceDark,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  '${event.awayScore}',
+                  style: TextStyle(
+                    color: event.isLive ? event.sport.color : AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildCombatBody(BuildContext context) {
     return Row(
       children: [
@@ -242,7 +398,7 @@ class MatchCard extends StatelessWidget {
           ),
         ),
 
-        // VS or Status
+        // VS or Result
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
@@ -251,9 +407,9 @@ class MatchCard extends StatelessWidget {
           ),
           child: Text(
             event.fightResult ?? 'VS',
-            style: const TextStyle(
-              color: AppColors.secondary,
-              fontSize: 12,
+            style: TextStyle(
+              color: event.fightResult != null ? AppColors.primary : AppColors.secondary,
+              fontSize: 11,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -301,7 +457,7 @@ class MatchCard extends StatelessWidget {
         color: AppColors.surfaceDark,
         shape: BoxShape.circle,
         border: Border.all(
-          color: AppColors.cardBorderDark,
+          color: event.sport.color.withValues(alpha: 0.4),
           width: 1,
         ),
       ),

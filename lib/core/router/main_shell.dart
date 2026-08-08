@@ -30,12 +30,12 @@ class MainShell extends StatelessWidget {
           NavigationDestination(
             icon: Icon(Icons.star_outline_rounded),
             selectedIcon: Icon(Icons.star_rounded, color: AppColors.warning),
-            label: 'Favoritos',
+            label: 'Siguiendo',
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline_rounded),
-            selectedIcon: Icon(Icons.person_rounded, color: AppColors.secondary),
-            label: 'Cuenta',
+            icon: Icon(Icons.calendar_month_outlined),
+            selectedIcon: Icon(Icons.calendar_month_rounded, color: AppColors.secondary),
+            label: 'Calendario',
           ),
         ],
       ),
