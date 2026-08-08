@@ -3,9 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../models/event_status.dart';
+import '../../../../models/sport_type.dart';
 import '../../providers/feed_provider.dart';
+import '../widgets/league_tier_selector.dart';
 import '../widgets/match_card.dart';
 import '../widgets/sport_filter_bar.dart';
+import '../widgets/sync_status_badge.dart';
 
 class FeedScreen extends ConsumerWidget {
   const FeedScreen({super.key});
@@ -13,6 +16,7 @@ class FeedScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedSport = ref.watch(selectedSportFilterProvider);
+    final selectedTier = ref.watch(selectedLeagueTierProvider);
     final feedAsync = ref.watch(feedNotifierProvider);
 
     return Scaffold(
@@ -48,16 +52,23 @@ class FeedScreen extends ConsumerWidget {
           ],
         ),
         actions: [
+          const SyncStatusBadge(),
+          const SizedBox(width: 2),
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
+            icon: const Icon(Icons.tune_rounded, size: 20),
+            tooltip: 'Mis Deportes',
+            onPressed: () => context.push('/onboarding'),
+          ),
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded, size: 20),
             tooltip: 'Actualizar',
-            onPressed: () => ref.read(feedNotifierProvider.notifier).loadEvents(),
+            onPressed: () => ref.read(feedNotifierProvider.notifier).loadEvents(forceRefresh: true),
           ),
         ],
       ),
       body: Column(
         children: [
-          // Filter Bar by Discipline
+          // 1. Sport Discipline Filter Bar (Todos, Fútbol, NBA, UFC, LoL, Valorant)
           SportFilterBar(
             selectedSport: selectedSport,
             onSportSelected: (sport) {
@@ -65,9 +76,12 @@ class FeedScreen extends ConsumerWidget {
             },
           ),
 
+          // 2. League Tier Selector (Todas, Tier 1 Élite, Tier 2 Secundarias)
+          const LeagueTierSelector(),
+
           const SizedBox(height: 4),
 
-          // Events Feed List
+          // 3. Events Feed List
           Expanded(
             child: feedAsync.when(
               loading: () => const Center(
@@ -98,16 +112,38 @@ class FeedScreen extends ConsumerWidget {
               data: (events) {
                 if (events.isEmpty) {
                   return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(selectedSport.icon, size: 48, color: AppColors.textMuted),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No hay eventos de ${selectedSport.displayName} por ahora',
-                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 15),
-                        ),
-                      ],
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(selectedSport.icon, size: 52, color: AppColors.textMuted),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No hay eventos de ${selectedSport.displayName} ${selectedTier != null ? (selectedTier == 1 ? "Tier 1" : "Tier 2") : ""}',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          const Text(
+                            'Prueba seleccionando "Todas las Ligas" u otra disciplina deportiva.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                          ),
+                          const SizedBox(height: 16),
+                          OutlinedButton(
+                            onPressed: () {
+                              ref.read(selectedSportFilterProvider.notifier).state = SportType.all;
+                              ref.read(selectedLeagueTierProvider.notifier).state = null;
+                            },
+                            child: const Text('Restablecer Filtros'),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }
@@ -120,11 +156,12 @@ class FeedScreen extends ConsumerWidget {
                   color: AppColors.primary,
                   backgroundColor: AppColors.surfaceDark,
                   onRefresh: () async {
-                    await ref.read(feedNotifierProvider.notifier).loadEvents();
+                    await ref.read(feedNotifierProvider.notifier).loadEvents(forceRefresh: true);
                   },
                   child: ListView(
                     padding: const EdgeInsets.only(bottom: 24),
                     children: [
+                      // Section 1: LIVE NOW
                       if (liveEvents.isNotEmpty) ...[
                         _buildSectionHeader(
                           context,
@@ -140,6 +177,7 @@ class FeedScreen extends ConsumerWidget {
                             )),
                       ],
 
+                      // Section 2: UPCOMING MATCHES
                       if (upcomingEvents.isNotEmpty) ...[
                         _buildSectionHeader(
                           context,
@@ -155,6 +193,7 @@ class FeedScreen extends ConsumerWidget {
                             )),
                       ],
 
+                      // Section 3: FINISHED MATCHES
                       if (finishedEvents.isNotEmpty) ...[
                         _buildSectionHeader(
                           context,
@@ -208,11 +247,12 @@ class FeedScreen extends ConsumerWidget {
             decoration: BoxDecoration(
               color: AppColors.surfaceDark,
               borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.cardBorderDark, width: 0.8),
             ),
             child: Text(
               '$count',
               style: const TextStyle(
-                color: AppColors.textMuted,
+                color: AppColors.primary,
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
               ),
