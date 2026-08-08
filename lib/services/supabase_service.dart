@@ -23,6 +23,7 @@ class SupabaseService {
           !supabaseUrl.contains('your-project-ref')) {
         await Supabase.initialize(
           url: supabaseUrl,
+          // ignore: deprecated_member_use
           anonKey: supabaseAnonKey,
         );
         _isInitialized = true;
