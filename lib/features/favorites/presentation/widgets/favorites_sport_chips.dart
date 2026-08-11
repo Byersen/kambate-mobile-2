@@ -11,22 +11,29 @@ class FavoritesSportChips extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedSport = ref.watch(favoritesSportFilterProvider);
 
+    final sports = SportType.values.where((s) => s != SportType.all).toList();
+
     return SizedBox(
       height: 42,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: SportType.values.length,
+        itemCount: sports.length,
         separatorBuilder: (_, _) => const SizedBox(width: 8),
         itemBuilder: (context, index) {
-          final sport = SportType.values[index];
+          final sport = sports[index];
           final isSelected = selectedSport == sport;
 
           return _SportTagChip(
             sport: sport,
             isSelected: isSelected,
             onTap: () {
-              ref.read(favoritesSportFilterProvider.notifier).state = sport;
+              final notifier = ref.read(favoritesSportFilterProvider.notifier);
+              if (notifier.state == sport) {
+                notifier.state = SportType.all;
+              } else {
+                notifier.state = sport;
+              }
             },
           );
         },
