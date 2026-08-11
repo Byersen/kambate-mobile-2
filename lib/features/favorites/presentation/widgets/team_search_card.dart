@@ -44,7 +44,6 @@ class TeamSearchCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
-                // Team / Fighter Avatar
                 Container(
                   width: 40,
                   height: 40,
@@ -68,7 +67,6 @@ class TeamSearchCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
 
-                // Info: Name, Sport Badge & League
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -138,7 +136,6 @@ class TeamSearchCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
 
-                // Star / Bookmark Favorite Button
                 IconButton(
                   icon: AnimatedSwitcher(
                     duration: const Duration(milliseconds: 200),

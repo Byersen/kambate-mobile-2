@@ -6,7 +6,7 @@ class ParticipantModel {
   final String? logoUrl;
   final String? photoUrl;
   final String? country;
-  final String? record; // e.g. "29-0-0" for fighters
+  final String? record;
   final String? sportId;
 
   const ParticipantModel({

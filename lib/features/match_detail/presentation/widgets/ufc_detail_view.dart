@@ -17,7 +17,6 @@ class UfcDetailView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Official Result & Finish Details (if finished)
         if (event.fightResult != null || ufcStats?.method != null) ...[
           _buildSectionTitle('RESULTADO OFICIAL DEL COMBATE'),
           Card(
@@ -70,7 +69,6 @@ class UfcDetailView extends StatelessWidget {
           const SizedBox(height: 16),
         ],
 
-        // 2. Tale of the Tape (Cara a Cara Físico y Récord)
         _buildSectionTitle('TALE OF THE TAPE • CARA A CARA'),
         Card(
           margin: const EdgeInsets.symmetric(vertical: 6),
@@ -94,7 +92,6 @@ class UfcDetailView extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        // 3. Significant Strikes & Grappling Stats
         _buildSectionTitle('ESTADÍSTICAS DEL COMBATE'),
         Card(
           margin: const EdgeInsets.symmetric(vertical: 6),

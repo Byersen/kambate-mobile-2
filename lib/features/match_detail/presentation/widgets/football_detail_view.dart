@@ -18,7 +18,6 @@ class FootballDetailView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Match Events Timeline
         _buildSectionTitle('LÍNEA DE TIEMPO DEL PARTIDO'),
         Card(
           margin: const EdgeInsets.symmetric(vertical: 6),
@@ -70,7 +69,6 @@ class FootballDetailView extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        // 2. Comparative Match Statistics
         _buildSectionTitle('ESTADÍSTICAS DEL ENCUENTRO'),
         Card(
           margin: const EdgeInsets.symmetric(vertical: 6),
@@ -127,7 +125,6 @@ class FootballDetailView extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        // 3. Formations & Lineups
         _buildSectionTitle('ALINEACIONES Y TÁCTICA'),
         Card(
           margin: const EdgeInsets.symmetric(vertical: 6),

@@ -5,7 +5,7 @@ class StatComparisonBar extends StatelessWidget {
   final String label;
   final String homeValueText;
   final String awayValueText;
-  final double homeRatio; // 0.0 to 1.0 (portion for home)
+  final double homeRatio;
   final Color? accentColor;
 
   const StatComparisonBar({

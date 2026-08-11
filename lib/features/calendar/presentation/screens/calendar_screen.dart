@@ -86,7 +86,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         title: const Text('Calendario Deportivo'),
         elevation: 0,
         actions: [
-          // "Hoy" Quick Action Button
           TextButton.icon(
             onPressed: _goToToday,
             icon: const Icon(Icons.today_rounded, size: 16, color: AppColors.primary),
@@ -106,7 +105,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, _) => Center(child: Text('Error al cargar calendario: $err')),
         data: (allEvents) {
-          // 1. Filter by Followed Teams if toggle is active
           var availableEvents = allEvents;
           if (_onlyFollowed && favoriteTeamIds.isNotEmpty) {
             availableEvents = availableEvents.where((e) {
@@ -115,12 +113,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             }).toList();
           }
 
-          // 2. Filter by Selected Sport
           if (_selectedSport != SportType.all) {
             availableEvents = availableEvents.where((e) => e.sport == _selectedSport).toList();
           }
 
-          // 3. Map events by Date (yyyy-MM-dd)
           final Map<String, List<EventModel>> eventsByDay = {};
           for (final event in availableEvents) {
             final key =
@@ -134,10 +130,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
           return Column(
             children: [
-              // Sport Filter Chips + Siguiendo Toggle
               _buildFilterBar(),
 
-              // Month Header with Prev/Next Navigation
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
                 child: Row(
@@ -171,11 +165,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 ),
               ),
 
-              // Interactive Calendar Grid with Multi-color sport dots
               _buildMonthGrid(eventsByDay),
               const SizedBox(height: 10),
 
-              // Selected Date Section Header
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                 child: Row(
@@ -211,7 +203,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               ),
               const SizedBox(height: 4),
 
-              // Events List for Selected Day
               Expanded(
                 child: selectedDayEvents.isEmpty
                     ? Center(
@@ -265,10 +256,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                           final event = selectedDayEvents[index];
                           return MatchCard(
                             event: event,
+                            isFollowed: true,
                             onTap: () => context.push('/detail/${event.id}', extra: event),
-                            onFavoriteToggle: () => ref
-                                .read(feedNotifierProvider.notifier)
-                                .toggleFavorite(event.id),
                           );
                         },
                       ),
@@ -288,7 +277,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
-            // Following Toggle Chip
             GestureDetector(
               onTap: () => setState(() => _onlyFollowed = !_onlyFollowed),
               child: AnimatedContainer(
@@ -326,7 +314,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             Container(width: 1, height: 20, color: AppColors.cardBorderDark),
             const SizedBox(width: 8),
 
-            // Sports Filter Chips
             ..._filterSports.map((sport) {
               final isSelected = _selectedSport == sport;
               final sportColor = sport == SportType.all ? AppColors.primary : sport.color;
@@ -379,14 +366,11 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final year = _currentMonth.year;
     final month = _currentMonth.month;
 
-    // Number of days in month
     final daysInMonth = DateTime(year, month + 1, 0).day;
-    // First day of week (1 = Monday ... 7 = Sunday)
     final firstWeekday = DateTime(year, month, 1).weekday;
 
     final List<Widget> dayWidgets = [];
 
-    // Weekday headers (L, M, M, J, V, S, D)
     for (final dayName in _weekDays) {
       dayWidgets.add(
         Center(
@@ -402,12 +386,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       );
     }
 
-    // Blank cells before first day
     for (int i = 1; i < firstWeekday; i++) {
       dayWidgets.add(const SizedBox.shrink());
     }
 
-    // Days of month
     for (int day = 1; day <= daysInMonth; day++) {
       final date = DateTime(year, month, day);
       final key = '$year-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
@@ -420,7 +402,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           DateTime.now().month == month &&
           DateTime.now().day == day;
 
-      // Extract unique sport colors for the dots
       final uniqueSports = dayEvents.map((e) => e.sport).toSet().take(3).toList();
 
       dayWidgets.add(
@@ -454,7 +435,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal,
                   ),
                 ),
-                // Multi-color Dots
                 if (hasEvents)
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,

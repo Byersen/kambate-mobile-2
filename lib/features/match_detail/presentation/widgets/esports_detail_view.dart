@@ -18,7 +18,6 @@ class EsportsDetailView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Series Map Breakdown
         _buildSectionTitle('DESGLOSE DE MAPAS • SERIE $format'),
         Card(
           margin: const EdgeInsets.symmetric(vertical: 6),
@@ -59,7 +58,6 @@ class EsportsDetailView extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        // 2. Esports In-Game Comparative Stats
         _buildSectionTitle(isLol ? 'ESTADÍSTICAS GLOBALES DE PARTIDA' : 'ESTADÍSTICAS DE ENCUENTRO'),
         Card(
           margin: const EdgeInsets.symmetric(vertical: 6),

@@ -113,7 +113,7 @@ class NbaStatsModel {
 class UfcStatsModel {
   final String id;
   final String? eventId;
-  final String? method; // KO/TKO, Submission, Decision
+  final String? method;
   final int? round;
   final String? time;
   final String? winnerName;
@@ -165,7 +165,7 @@ class EsportsStatsModel {
   final String? eventId;
   final int homeScore;
   final int awayScore;
-  final String? format; // Bo1, Bo3, Bo5
+  final String? format;
   final String? map;
   final Map<String, dynamic>? extraStats;
 

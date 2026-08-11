@@ -35,7 +35,6 @@ class MatchHeaderHero extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       child: Column(
         children: [
-          // 1. League Name, Tier Badge and Sport Type
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -103,7 +102,6 @@ class MatchHeaderHero extends StatelessWidget {
 
           const SizedBox(height: 16),
 
-          // 2. Scoreboard Body (Adaptive Combat vs Team)
           if (event.isCombat)
             _buildCombatScoreboard(sportColor)
           else
@@ -111,7 +109,6 @@ class MatchHeaderHero extends StatelessWidget {
 
           const SizedBox(height: 14),
 
-          // 3. Status Banner
           if (event.isLive)
             LiveBadge(text: event.currentPeriod ?? 'EN VIVO')
           else if (event.status == EventStatus.finished)
@@ -142,7 +139,6 @@ class MatchHeaderHero extends StatelessWidget {
               ),
             ),
 
-          // 4. Venue Location
           if (event.venue != null) ...[
             const SizedBox(height: 10),
             Row(
@@ -170,7 +166,6 @@ class MatchHeaderHero extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Home Team
         Expanded(
           child: Column(
             children: [
@@ -191,7 +186,6 @@ class MatchHeaderHero extends StatelessWidget {
           ),
         ),
 
-        // Central Score or VS
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: event.homeScore != null && event.awayScore != null
@@ -229,7 +223,6 @@ class MatchHeaderHero extends StatelessWidget {
                 ),
         ),
 
-        // Away Team
         Expanded(
           child: Column(
             children: [
@@ -257,7 +250,6 @@ class MatchHeaderHero extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
-        // Fighter 1
         Expanded(
           child: Column(
             children: [
@@ -292,7 +284,6 @@ class MatchHeaderHero extends StatelessWidget {
           ),
         ),
 
-        // VS or Result Badge
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
@@ -311,7 +302,6 @@ class MatchHeaderHero extends StatelessWidget {
           ),
         ),
 
-        // Fighter 2
         Expanded(
           child: Column(
             children: [

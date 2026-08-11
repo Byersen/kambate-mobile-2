@@ -16,7 +16,6 @@ class NbaDetailView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. Quarter-by-Quarter Scoreboard Table
         _buildSectionTitle('PUNTUACIÓN POR CUARTOS'),
         Card(
           margin: const EdgeInsets.symmetric(vertical: 6),
@@ -76,7 +75,6 @@ class NbaDetailView extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        // 2. Comparative Team Statistics
         _buildSectionTitle('ESTADÍSTICAS DEL PARTIDO'),
         Card(
           margin: const EdgeInsets.symmetric(vertical: 6),
@@ -133,7 +131,6 @@ class NbaDetailView extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        // 3. Top Game Performers / Leaders
         _buildSectionTitle('LÍDERES INDIVIDUALES'),
         Card(
           margin: const EdgeInsets.symmetric(vertical: 6),

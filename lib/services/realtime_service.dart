@@ -35,7 +35,7 @@ class RealtimeService {
     }
 
     if (_eventChannel != null) {
-      return; // Already subscribed
+      return;
     }
 
     _setConnectionState(RealtimeConnectionState.connecting);
@@ -73,7 +73,6 @@ class RealtimeService {
             _setConnectionState(RealtimeConnectionState.connected);
           } else if (status == RealtimeSubscribeStatus.closed || status == RealtimeSubscribeStatus.channelError) {
             debugPrint('RealtimeService channel notice: $error');
-            // If REST API is initialized, keep live state active while scheduling background reconnect
             if (SupabaseService.isInitialized) {
               _setConnectionState(RealtimeConnectionState.connected);
               _scheduleReconnect();

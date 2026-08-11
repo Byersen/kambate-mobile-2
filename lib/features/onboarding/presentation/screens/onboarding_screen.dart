@@ -14,7 +14,6 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  // All 5 sports available
   final List<SportType> _allSports = [
     SportType.soccer,
     SportType.nba,
@@ -23,7 +22,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     SportType.ufc,
   ];
 
-  // Selected sports set (default: all selected for best first impression)
   final Set<SportType> _selectedSports = {
     SportType.soccer,
     SportType.nba,
@@ -58,7 +56,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     setState(() {
       if (_selectedSports.length == _allSports.length) {
         _selectedSports.clear();
-        _selectedSports.add(SportType.soccer); // keep at least one
+        _selectedSports.add(SportType.soccer);
       } else {
         _selectedSports.addAll(_allSports);
       }
@@ -72,7 +70,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       await CacheService.saveSelectedSports(sportSlugs);
       await CacheService.setOnboardingCompleted(true);
 
-      // If user selected only 1 sport, set that as default filter; otherwise keep All
       if (_selectedSports.length == 1) {
         ref.read(selectedSportFilterProvider.notifier).state = _selectedSports.first;
       } else {
@@ -98,12 +95,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Header Section
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
               child: Column(
                 children: [
-                  // Kambate Live Logo Badge
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
@@ -164,7 +159,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 14),
-                  // Select All / Selection Counter Bar
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -194,7 +188,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
             ),
 
-            // Sports Cards List
             Expanded(
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -215,7 +208,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
             ),
 
-            // Bottom CTA Button
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
               child: SizedBox(
@@ -308,7 +300,6 @@ class _SportSelectionCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Sport Icon Container
             Container(
               width: 44,
               height: 44,
@@ -329,7 +320,6 @@ class _SportSelectionCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 14),
-            // Sport Name & Description
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -376,7 +366,6 @@ class _SportSelectionCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
-            // Checkbox Indicator
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: 26,

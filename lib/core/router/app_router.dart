@@ -16,20 +16,17 @@ GoRouter createRouter({String initialLocation = '/feed'}) {
     navigatorKey: _rootNavigatorKey,
     initialLocation: initialLocation,
     routes: [
-      // Onboarding Screen Route (Outside MainShell)
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: '/onboarding',
         builder: (context, state) => const OnboardingScreen(),
       ),
 
-      // Main App Shell (3 Tabs: Partidos, Siguiendo, Calendario)
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return MainShell(navigationShell: navigationShell);
         },
         branches: [
-          // Tab 1: Partidos (Feed)
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -38,21 +35,18 @@ GoRouter createRouter({String initialLocation = '/feed'}) {
               ),
             ],
           ),
-          // Tab 2: Siguiendo (Equipos & Favoritos)
           StatefulShellBranch(
             routes: [
               GoRoute(
                 path: '/following',
                 builder: (context, state) => const FavoritesScreen(),
               ),
-              // Legacy alias for compatibility
               GoRoute(
                 path: '/favorites',
                 redirect: (context, state) => '/following',
               ),
             ],
           ),
-          // Tab 3: Calendario (Agenda Mensual)
           StatefulShellBranch(
             routes: [
               GoRoute(
@@ -64,7 +58,6 @@ GoRouter createRouter({String initialLocation = '/feed'}) {
         ],
       ),
 
-      // Match Detail Route
       GoRoute(
         parentNavigatorKey: _rootNavigatorKey,
         path: '/detail/:id',

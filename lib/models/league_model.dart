@@ -3,7 +3,7 @@ class LeagueModel {
   final String name;
   final String slug;
   final String? country;
-  final int tier; // 1 = Tier 1 (Top/Premium), 2 = Tier 2 (Secundarias)
+  final int tier;
   final bool isActive;
   final String? sportId;
 
