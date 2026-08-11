@@ -55,6 +55,7 @@ enum SportType {
     if (value == null) return SportType.all;
     switch (value.toLowerCase()) {
       case 'soccer':
+      case 'football':
       case 'futbol':
       case 'fútbol':
         return SportType.soccer;

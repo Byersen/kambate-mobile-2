@@ -14,8 +14,18 @@ final SeasonModel kCurrentSeason = SeasonModel(
   isCurrent: true,
 );
 
+DateTime _getTodayAt(int hour, int minute) {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day, hour, minute);
+}
+
+DateTime _getDateOffset(int daysOffset, int hour, int minute) {
+  final now = DateTime.now();
+  final target = now.add(Duration(days: daysOffset));
+  return DateTime(target.year, target.month, target.day, hour, minute);
+}
+
 final List<EventModel> kMockEvents = [
-  // 1. Soccer - Live (Tier 1)
   EventModel(
     id: 'soccer-1',
     sport: SportType.soccer,
@@ -29,7 +39,7 @@ final List<EventModel> kMockEvents = [
     ),
     seasonModel: kCurrentSeason,
     status: EventStatus.live,
-    startTime: DateTime.now().subtract(const Duration(minutes: 68)),
+    startTime: _getTodayAt(15, 0),
     currentPeriod: "68'",
     venue: 'Santiago Bernabéu, Madrid',
     homeTeam: const TeamModel(id: 'rm', name: 'Real Madrid', shortName: 'RMA'),
@@ -46,7 +56,6 @@ final List<EventModel> kMockEvents = [
     isFavorite: true,
   ),
 
-  // 2. NBA - Live (Tier 1)
   EventModel(
     id: 'nba-1',
     sport: SportType.nba,
@@ -60,7 +69,7 @@ final List<EventModel> kMockEvents = [
     ),
     seasonModel: kCurrentSeason,
     status: EventStatus.live,
-    startTime: DateTime.now().subtract(const Duration(minutes: 95)),
+    startTime: _getTodayAt(19, 30),
     currentPeriod: 'Q4 03:42',
     venue: 'Crypto.com Arena, Los Angeles',
     homeTeam: const TeamModel(id: 'lal', name: 'Los Angeles Lakers', shortName: 'LAL'),
@@ -76,7 +85,6 @@ final List<EventModel> kMockEvents = [
     isFavorite: true,
   ),
 
-  // 3. LoL - Live (Tier 1)
   EventModel(
     id: 'lol-1',
     sport: SportType.lol,
@@ -90,7 +98,7 @@ final List<EventModel> kMockEvents = [
     ),
     seasonModel: kCurrentSeason,
     status: EventStatus.live,
-    startTime: DateTime.now().subtract(const Duration(minutes: 40)),
+    startTime: _getTodayAt(10, 0),
     currentPeriod: 'Juego 3 (1-1)',
     homeTeam: const TeamModel(id: 't1', name: 'T1 Telecom', shortName: 'T1'),
     awayTeam: const TeamModel(id: 'geng', name: 'Gen.G Esports', shortName: 'GEN'),
@@ -106,7 +114,6 @@ final List<EventModel> kMockEvents = [
     isFavorite: true,
   ),
 
-  // 4. UFC - Main Event (Scheduled - Tier 1)
   EventModel(
     id: 'ufc-1',
     sport: SportType.ufc,
@@ -120,7 +127,7 @@ final List<EventModel> kMockEvents = [
     ),
     seasonModel: kCurrentSeason,
     status: EventStatus.scheduled,
-    startTime: DateTime.now().add(const Duration(hours: 3, minutes: 30)),
+    startTime: _getTodayAt(22, 0),
     venue: 'Etihad Arena, Abu Dhabi',
     fighter1: const FighterModel(
       id: 'f1',
@@ -139,7 +146,6 @@ final List<EventModel> kMockEvents = [
     isFavorite: true,
   ),
 
-  // 5. Valorant - Scheduled (Tier 1)
   EventModel(
     id: 'val-1',
     sport: SportType.valorant,
@@ -153,7 +159,7 @@ final List<EventModel> kMockEvents = [
     ),
     seasonModel: kCurrentSeason,
     status: EventStatus.scheduled,
-    startTime: DateTime.now().add(const Duration(hours: 5)),
+    startTime: _getTodayAt(18, 0),
     homeTeam: const TeamModel(id: 'sen', name: 'Sentinels', shortName: 'SEN'),
     awayTeam: const TeamModel(id: 'kru', name: 'KRÜ Esports', shortName: 'KRÜ'),
     esportsStats: const EsportsStatsModel(
@@ -165,7 +171,6 @@ final List<EventModel> kMockEvents = [
     ),
   ),
 
-  // 6. Soccer - Scheduled Chilean Match (Tier 2 / Local League)
   EventModel(
     id: 'soccer-2',
     sport: SportType.soccer,
@@ -179,15 +184,14 @@ final List<EventModel> kMockEvents = [
     ),
     seasonModel: kCurrentSeason,
     status: EventStatus.scheduled,
-    startTime: DateTime.now().add(const Duration(hours: 7)),
+    startTime: _getTodayAt(20, 0),
     venue: 'Estadio Monumental, Santiago',
     homeTeam: const TeamModel(id: 'cc', name: 'Colo-Colo', shortName: 'CC'),
     awayTeam: const TeamModel(id: 'uch', name: 'Universidad de Chile', shortName: 'UCH'),
   ),
 
-  // 7. Soccer - Finished (Tier 1)
   EventModel(
-    id: 'soccer-3',
+    id: 'soccer-yesterday-1',
     sport: SportType.soccer,
     league: 'LaLiga EA Sports',
     leagueModel: const LeagueModel(
@@ -199,7 +203,7 @@ final List<EventModel> kMockEvents = [
     ),
     seasonModel: kCurrentSeason,
     status: EventStatus.finished,
-    startTime: DateTime.now().subtract(const Duration(hours: 4)),
+    startTime: _getDateOffset(-1, 16, 0),
     venue: 'Estadi Olímpic Lluís Companys, Barcelona',
     homeTeam: const TeamModel(id: 'fcb', name: 'FC Barcelona', shortName: 'BAR'),
     awayTeam: const TeamModel(id: 'atm', name: 'Atlético de Madrid', shortName: 'ATM'),
@@ -214,9 +218,8 @@ final List<EventModel> kMockEvents = [
     ),
   ),
 
-  // 8. NBA - Finished (Tier 1)
   EventModel(
-    id: 'nba-2',
+    id: 'nba-yesterday-1',
     sport: SportType.nba,
     league: 'NBA Eastern Conference',
     leagueModel: const LeagueModel(
@@ -228,7 +231,7 @@ final List<EventModel> kMockEvents = [
     ),
     seasonModel: kCurrentSeason,
     status: EventStatus.finished,
-    startTime: DateTime.now().subtract(const Duration(hours: 6)),
+    startTime: _getDateOffset(-1, 20, 30),
     homeTeam: const TeamModel(id: 'bos', name: 'Boston Celtics', shortName: 'BOS'),
     awayTeam: const TeamModel(id: 'mil', name: 'Milwaukee Bucks', shortName: 'MIL'),
     homeScore: 118,
@@ -241,11 +244,10 @@ final List<EventModel> kMockEvents = [
     ),
   ),
 
-  // 9. UFC - Finished (Tier 2 / Fight Night)
   EventModel(
-    id: 'ufc-2',
+    id: 'ufc-yesterday-1',
     sport: SportType.ufc,
-    league: 'UFC Fight Night: Prelims',
+    league: 'UFC Fight Night',
     leagueModel: const LeagueModel(
       id: 'l-ufc-fn',
       name: 'UFC Fight Night',
@@ -255,7 +257,7 @@ final List<EventModel> kMockEvents = [
     ),
     seasonModel: kCurrentSeason,
     status: EventStatus.finished,
-    startTime: DateTime.now().subtract(const Duration(hours: 8)),
+    startTime: _getDateOffset(-1, 21, 0),
     fighter1: const FighterModel(
       id: 'f4',
       name: 'Alex Pereira',
@@ -280,28 +282,138 @@ final List<EventModel> kMockEvents = [
     ),
   ),
 
-  // 10. LoL - Scheduled (Tier 2 / Regional League)
   EventModel(
-    id: 'lol-2',
-    sport: SportType.lol,
-    league: 'Liga Latinoamérica (LLA)',
+    id: 'soccer-tomorrow-1',
+    sport: SportType.soccer,
+    league: 'Premier League',
     leagueModel: const LeagueModel(
-      id: 'l-lla',
-      name: 'Liga Latinoamérica',
-      slug: 'lla',
-      tier: 2,
-      country: 'Latinoamérica',
+      id: 'l-pl',
+      name: 'Premier League',
+      slug: 'premier-league',
+      tier: 1,
+      country: 'Inglaterra',
     ),
     seasonModel: kCurrentSeason,
     status: EventStatus.scheduled,
-    startTime: DateTime.now().add(const Duration(hours: 8)),
-    homeTeam: const TeamModel(id: 'est', name: 'Estral Esports', shortName: 'EST'),
-    awayTeam: const TeamModel(id: 'r7', name: 'Movistar R7', shortName: 'R7'),
+    startTime: _getDateOffset(1, 15, 30),
+    venue: 'Emirates Stadium, Londres',
+    homeTeam: const TeamModel(id: 'ars', name: 'Arsenal FC', shortName: 'ARS'),
+    awayTeam: const TeamModel(id: 'che', name: 'Chelsea FC', shortName: 'CHE'),
+  ),
+
+  EventModel(
+    id: 'nba-tomorrow-1',
+    sport: SportType.nba,
+    league: 'NBA Western Conference',
+    leagueModel: const LeagueModel(
+      id: 'l-nba',
+      name: 'NBA',
+      slug: 'nba',
+      tier: 1,
+      country: 'Estados Unidos',
+    ),
+    seasonModel: kCurrentSeason,
+    status: EventStatus.scheduled,
+    startTime: _getDateOffset(1, 21, 0),
+    venue: 'Ball Arena, Denver',
+    homeTeam: const TeamModel(id: 'den', name: 'Denver Nuggets', shortName: 'DEN'),
+    awayTeam: const TeamModel(id: 'dal', name: 'Dallas Mavericks', shortName: 'DAL'),
+  ),
+
+  EventModel(
+    id: 'lol-tomorrow-1',
+    sport: SportType.lol,
+    league: 'LEC Europa',
+    leagueModel: const LeagueModel(
+      id: 'l-lec',
+      name: 'LEC Europa',
+      slug: 'lec',
+      tier: 1,
+      country: 'Europa',
+    ),
+    seasonModel: kCurrentSeason,
+    status: EventStatus.scheduled,
+    startTime: _getDateOffset(1, 12, 0),
+    homeTeam: const TeamModel(id: 'fnc_lol', name: 'Fnatic LoL', shortName: 'FNC'),
+    awayTeam: const TeamModel(id: 'g2_lol', name: 'G2 Esports', shortName: 'G2'),
     esportsStats: const EsportsStatsModel(
       id: 'es-3',
       format: 'Bo3',
       homeScore: 0,
       awayScore: 0,
+    ),
+  ),
+
+  EventModel(
+    id: 'soccer-future-1',
+    sport: SportType.soccer,
+    league: 'Bundesliga',
+    leagueModel: const LeagueModel(
+      id: 'l-bundesliga',
+      name: 'Bundesliga',
+      slug: 'bundesliga',
+      tier: 1,
+      country: 'Alemania',
+    ),
+    seasonModel: kCurrentSeason,
+    status: EventStatus.scheduled,
+    startTime: _getDateOffset(2, 14, 30),
+    venue: 'Allianz Arena, Múnich',
+    homeTeam: const TeamModel(id: 'bay', name: 'Bayern Munich', shortName: 'BAY'),
+    awayTeam: const TeamModel(id: 'bvb', name: 'Borussia Dortmund', shortName: 'BVB'),
+  ),
+
+  EventModel(
+    id: 'val-future-1',
+    sport: SportType.valorant,
+    league: 'VCT Americas',
+    leagueModel: const LeagueModel(
+      id: 'l-vct-am',
+      name: 'VCT Americas',
+      slug: 'vct-americas',
+      tier: 1,
+      country: 'América',
+    ),
+    seasonModel: kCurrentSeason,
+    status: EventStatus.scheduled,
+    startTime: _getDateOffset(2, 19, 0),
+    homeTeam: const TeamModel(id: 'lev', name: 'Leviatán', shortName: 'LEV'),
+    awayTeam: const TeamModel(id: 'sen', name: 'Sentinels', shortName: 'SEN'),
+    esportsStats: const EsportsStatsModel(
+      id: 'es-4',
+      format: 'Bo3',
+      homeScore: 0,
+      awayScore: 0,
+    ),
+  ),
+
+  EventModel(
+    id: 'ufc-future-1',
+    sport: SportType.ufc,
+    league: 'UFC 309: Championship',
+    leagueModel: const LeagueModel(
+      id: 'l-ufc-309',
+      name: 'UFC PPV',
+      slug: 'ufc-ppv',
+      tier: 1,
+      country: 'Estados Unidos',
+    ),
+    seasonModel: kCurrentSeason,
+    status: EventStatus.scheduled,
+    startTime: _getDateOffset(3, 23, 0),
+    fighter1: const FighterModel(
+      id: 'f3',
+      name: 'Islam Makhachev',
+      nickname: 'Islam',
+      record: '26-1-0',
+      weightClass: 'Ligero (155 lbs)',
+    ),
+    fighter2: const FighterModel(
+      id: 'f6',
+      name: 'Arman Tsarukyan',
+      nickname: 'Ahalkalakets',
+      record: '22-3-0',
+      weightClass: 'Ligero (155 lbs)',
     ),
   ),
 ];

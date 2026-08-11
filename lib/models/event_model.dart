@@ -16,25 +16,21 @@ class EventModel {
   final SeasonModel? seasonModel;
   final EventStatus status;
   final DateTime startTime;
-  final String? currentPeriod; // e.g. "74'", "Q3 05:12", "Round 2", "Map 2"
+  final String? currentPeriod;
   final String? venue;
   final String? score;
 
-  // Generic & Relational Participants
   final List<ParticipantModel> participants;
 
-  // For Team Sports (Soccer, NBA, LoL, Valorant)
   final TeamModel? homeTeam;
   final TeamModel? awayTeam;
   final int? homeScore;
   final int? awayScore;
 
-  // For Combat Sports (UFC / MMA)
   final FighterModel? fighter1;
   final FighterModel? fighter2;
-  final String? fightResult; // e.g. "KO / TKO - R2 3:15"
+  final String? fightResult;
 
-  // Specialized Stats (1:1 from Supabase)
   final FootballStatsModel? footballStats;
   final NbaStatsModel? nbaStats;
   final UfcStatsModel? ufcStats;
@@ -136,7 +132,6 @@ class EventModel {
   }
 
   factory EventModel.fromJson(Map<String, dynamic> json) {
-    // 1. Sport resolving
     String? rawSport;
     if (json['sport'] is Map<String, dynamic>) {
       rawSport = json['sport']['slug']?.toString() ?? json['sport']['name']?.toString();
@@ -145,18 +140,16 @@ class EventModel {
     }
     final sport = SportType.fromString(rawSport);
 
-    // 2. Status resolving
     final status = EventStatus.fromString(json['status']?.toString());
 
-    // 3. Start time resolving (startDate from Supabase / start_time from mock)
     DateTime parsedDate;
     try {
       if (json['startDate'] != null) {
-        parsedDate = DateTime.parse(json['startDate'].toString());
+        parsedDate = DateTime.parse(json['startDate'].toString()).toLocal();
       } else if (json['start_time'] != null) {
-        parsedDate = DateTime.parse(json['start_time'].toString());
+        parsedDate = DateTime.parse(json['start_time'].toString()).toLocal();
       } else if (json['startTime'] != null) {
-        parsedDate = DateTime.parse(json['startTime'].toString());
+        parsedDate = DateTime.parse(json['startTime'].toString()).toLocal();
       } else {
         parsedDate = DateTime.now();
       }
@@ -164,7 +157,6 @@ class EventModel {
       parsedDate = DateTime.now();
     }
 
-    // 4. League resolving (relation object or string)
     LeagueModel? leagueModel;
     String leagueName = 'Competición';
     if (json['league_model'] is Map<String, dynamic>) {
@@ -179,7 +171,6 @@ class EventModel {
       leagueName = json['tournament'].toString();
     }
 
-    // 5. Season resolving
     SeasonModel? seasonModel;
     if (json['season_model'] is Map<String, dynamic>) {
       seasonModel = SeasonModel.fromJson(json['season_model'] as Map<String, dynamic>);
@@ -187,7 +178,6 @@ class EventModel {
       seasonModel = SeasonModel.fromJson(json['season'] as Map<String, dynamic>);
     }
 
-    // 6. Participants resolving
     List<ParticipantModel> participants = [];
     if (json['participants'] is List) {
       participants = (json['participants'] as List)
@@ -195,7 +185,6 @@ class EventModel {
           .toList();
     }
 
-    // 7. Teams and scores
     TeamModel? homeTeam;
     TeamModel? awayTeam;
     if (json['home_team'] != null) {
@@ -224,7 +213,6 @@ class EventModel {
       );
     }
 
-    // 8. Combat fighters
     FighterModel? fighter1;
     FighterModel? fighter2;
     if (json['fighter1'] != null) {
@@ -251,7 +239,6 @@ class EventModel {
       );
     }
 
-    // 9. Stats objects
     FootballStatsModel? footballStats;
     if (json['footballStats'] is Map<String, dynamic>) {
       footballStats = FootballStatsModel.fromJson(json['footballStats'] as Map<String, dynamic>);
@@ -280,7 +267,6 @@ class EventModel {
       esportsStats = EsportsStatsModel.fromJson(json['esports_stats'] as Map<String, dynamic>);
     }
 
-    // Scores
     int? homeScore = json['home_score'] is int
         ? json['home_score'] as int
         : int.tryParse(json['home_score']?.toString() ?? '');

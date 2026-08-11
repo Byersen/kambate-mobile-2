@@ -22,13 +22,19 @@ final selectedLeagueTierProvider = StateProvider<int?>((ref) {
   return null;
 });
 
+/// Selected date filter for the main feed carousel (defaults to today)
+final selectedFeedDateProvider = StateProvider<DateTime>((ref) {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day);
+});
+
 class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
   final FeedRepository _repository;
   final Ref _ref;
   StreamSubscription<Map<String, dynamic>>? _realtimeSubscription;
 
   FeedNotifier(this._repository, this._ref) : super(const AsyncValue.loading()) {
-    loadEvents();
+    loadEvents(forceRefresh: true);
     _listenToRealtimeUpdates();
   }
 
@@ -43,7 +49,6 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
         if (index != -1) {
           final oldEvent = events[index];
 
-          // Parse updated fields from record
           int? newHomeScore;
           int? newAwayScore;
           if (record['home_score'] != null) {
@@ -72,7 +77,6 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
           updatedList[index] = updatedEvent;
           state = AsyncValue.data(updatedList);
 
-          // Update local cache with updated event
           CacheService.saveEvents(updatedList);
           debugPrint('FeedNotifier: Realtime updated event $updatedId in state');
         }
@@ -81,7 +85,6 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
   }
 
   Future<void> loadEvents({bool forceRefresh = false}) async {
-    // If not forcing refresh and state already has data, don't show full loading spinner (stale-while-revalidate)
     if (!state.hasValue) {
       state = const AsyncValue.loading();
     }
@@ -96,7 +99,6 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
         forceRefresh: forceRefresh,
       );
 
-      // Restore saved favorite state
       final events = rawEvents.map((e) {
         if (favoriteIds.contains(e.id)) {
           return e.copyWith(isFavorite: true);
@@ -121,7 +123,6 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
 
       state = AsyncValue.data(updatedEvents);
 
-      // Persist favorite IDs to local cache
       final favIds = updatedEvents
           .where((e) => e.isFavorite)
           .map((e) => e.id)
@@ -142,12 +143,10 @@ final feedNotifierProvider =
   final repository = ref.watch(feedRepositoryProvider);
   final notifier = FeedNotifier(repository, ref);
 
-  // Re-fetch when the selected sport filter changes
   ref.listen<SportType>(selectedSportFilterProvider, (_, _) {
     notifier.loadEvents();
   });
 
-  // Re-fetch when league tier filter changes
   ref.listen<int?>(selectedLeagueTierProvider, (_, _) {
     notifier.loadEvents();
   });

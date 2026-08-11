@@ -17,7 +17,6 @@ class MatchDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch feed state to reflect favorite toggles in real time
     final feedAsync = ref.watch(feedNotifierProvider);
     final currentEvent = feedAsync.maybeWhen(
       data: (events) => events.firstWhere(
@@ -30,34 +29,18 @@ class MatchDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(currentEvent.league),
-        actions: [
-          IconButton(
-            icon: Icon(
-              currentEvent.isFavorite ? Icons.star_rounded : Icons.star_outline_rounded,
-              color: currentEvent.isFavorite ? AppColors.warning : AppColors.textPrimary,
-              size: 24,
-            ),
-            tooltip: currentEvent.isFavorite ? 'Quitar de favoritos' : 'Agregar a favoritos',
-            onPressed: () {
-              ref.read(feedNotifierProvider.notifier).toggleFavorite(currentEvent.id);
-            },
-          ),
-        ],
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
-          // 1. Dynamic Hero Header Scoreboard
           MatchHeaderHero(event: currentEvent),
 
           const SizedBox(height: 18),
 
-          // 2. Sport Specialized Content View
           _buildSpecializedContent(currentEvent),
 
           const SizedBox(height: 18),
 
-          // 3. Match Information Metadata Card
           _buildMatchInfoCard(currentEvent),
 
           const SizedBox(height: 24),
@@ -106,7 +89,12 @@ class MatchDetailScreen extends ConsumerWidget {
                 _buildInfoRow('Liga / Torneo', event.league),
                 if (event.leagueModel != null) ...[
                   const Divider(color: AppColors.cardBorderDark),
-                  _buildInfoRow('Nivel de Liga', event.leagueModel!.isTier1 ? 'Tier 1 (Élite Internacional)' : 'Tier 2 (Desarrollo / Regional)'),
+                  _buildInfoRow(
+                    'Nivel de Liga',
+                    event.leagueModel!.isTier1
+                        ? 'Tier 1 (Élite Internacional)'
+                        : 'Tier 2 (Desarrollo / Regional)',
+                  ),
                 ],
                 if (event.seasonModel != null) ...[
                   const Divider(color: AppColors.cardBorderDark),

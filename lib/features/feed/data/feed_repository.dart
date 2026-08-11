@@ -6,143 +6,137 @@ import '../../../services/realtime_service.dart';
 import '../../../services/supabase_service.dart';
 import 'mock_events.dart';
 
+/// The select fragment shared by all queries.
+const _kEventSelect = '''
+  id,
+  externalId,
+  startDate,
+  status,
+  score,
+  sport:Sport(id, name, slug),
+  league:League(id, name, slug, country, tier, isActive),
+  season:Season(id, name, slug, isCurrent),
+  participants:Participant(id, name, externalId, logoUrl),
+  footballStats:FootballStats(*),
+  nbaStats:NbaStats(*),
+  ufcStats:UfcStats(*),
+  esportsStats:EsportsStats(*)
+''';
+
 class FeedRepository {
   FeedRepository() {
-    // Initiate Realtime listener automatically
     RealtimeService().subscribeToEvents();
   }
 
-  /// Get events with offline cache-first strategy and Supabase sync
+  /// Get ALL events from the current season.
+  /// The database only stores current-season data, so no date filtering is needed.
+  /// Sport / tier filters are applied in-memory to avoid PostgREST inner-join issues.
   Future<List<EventModel>> getEvents({
     SportType? sport,
     int? leagueTier,
     bool forceRefresh = false,
   }) async {
-    // 1. If not forcing refresh, try to load from local cache first
     if (!forceRefresh) {
       final cached = await CacheService.getCachedEvents();
       if (cached != null && cached.isNotEmpty) {
-        debugPrint('FeedRepository: Loaded ${cached.length} events from local offline cache');
-        var filtered = cached;
-        if (sport != null && sport != SportType.all) {
-          filtered = filtered.where((e) => e.sport == sport).toList();
-        }
-        if (leagueTier != null) {
-          filtered = filtered
-              .where((e) => e.leagueModel == null || e.leagueModel!.tier == leagueTier)
-              .toList();
-        }
+        debugPrint('FeedRepository: Loaded ${cached.length} events from local cache');
+        final filtered = _applyFilters(cached, sport, leagueTier);
         if (filtered.isNotEmpty) {
-          // Trigger asynchronous background refresh without blocking
-          _syncFromSupabaseBackground(sport: sport, leagueTier: leagueTier);
+          _syncFromSupabaseBackground();
           return filtered;
         }
       }
     }
 
-    // 2. Fetch fresh data from Supabase
     try {
       final client = SupabaseService.client;
       if (client != null) {
-        var query = client.from('Event').select('''
-          id,
-          externalId,
-          startDate,
-          status,
-          score,
-          currentPeriod,
-          venue,
-          sport:Sport(id, name, slug),
-          league:League(id, name, slug, country, tier, isActive),
-          season:Season(id, name, slug, isCurrent),
-          participants:Participant(id, name, slug, shortName, logoUrl, photoUrl, country, record),
-          footballStats:FootballStats(*),
-          nbaStats:NbaStats(*),
-          ufcStats:UfcStats(*),
-          esportsStats:EsportsStats(*)
-        ''');
+        final List<EventModel> allEvents = [];
+        int offset = 0;
+        const int pageSize = 1000;
+        
+        while (true) {
+          final response = await client
+              .from('Event')
+              .select(_kEventSelect)
+              .order('startDate', ascending: true)
+              .range(offset, offset + pageSize - 1);
 
-        if (sport != null && sport != SportType.all) {
-          query = query.eq('sport.slug', sport.id);
+          final List<dynamic> data = response as List<dynamic>;
+          if (data.isEmpty) break;
+          
+          allEvents.addAll(data.map((item) => EventModel.fromJson(item as Map<String, dynamic>)));
+          
+          if (data.length < pageSize) break;
+          offset += pageSize;
         }
 
-        final response = await query.order('startDate', ascending: true);
-        final List<dynamic> data = response as List<dynamic>;
+        if (allEvents.isNotEmpty) {
+          await CacheService.saveEvents(allEvents);
+          debugPrint('FeedRepository: Synced ${allEvents.length} events from Supabase via pagination');
 
-        if (data.isNotEmpty) {
-          final events = data
-              .map((item) => EventModel.fromJson(item as Map<String, dynamic>))
-              .toList();
-
-          // Persist full list to local offline cache
-          await CacheService.saveEvents(events);
-          debugPrint('FeedRepository: Successfully synced ${events.length} events from Supabase');
-
-          if (leagueTier != null) {
-            return events
-                .where((e) => e.leagueModel?.tier == leagueTier)
-                .toList();
-          }
-          return events;
+          return _applyFilters(allEvents, sport, leagueTier);
         }
       }
     } catch (e) {
-      debugPrint('FeedRepository Supabase query error ($e). Falling back to cached/mock data.');
+      debugPrint('FeedRepository Supabase query error: $e — using cache/mock fallback');
     }
 
-    // 3. Fallback to cached events or enriched local mock events
     final cachedFallback = await CacheService.getCachedEvents();
-    List<EventModel> results = cachedFallback != null && cachedFallback.isNotEmpty
+    final List<EventModel> fallback = cachedFallback != null && cachedFallback.isNotEmpty
         ? cachedFallback
         : List<EventModel>.from(kMockEvents);
 
-    // Save initial mock data to cache for first-time offline availability
     if (cachedFallback == null || cachedFallback.isEmpty) {
       await CacheService.saveEvents(kMockEvents);
     }
 
-    if (sport != null && sport != SportType.all) {
-      results = results.where((e) => e.sport == sport).toList();
-    }
+    return _applyFilters(fallback, sport, leagueTier);
+  }
 
+  /// Apply sport and league-tier filters in-memory.
+  List<EventModel> _applyFilters(
+      List<EventModel> events, SportType? sport, int? leagueTier) {
+    var result = events;
+    if (sport != null && sport != SportType.all) {
+      result = result.where((e) => e.sport == sport).toList();
+    }
     if (leagueTier != null) {
-      results = results
+      result = result
           .where((e) => e.leagueModel == null || e.leagueModel!.tier == leagueTier)
           .toList();
     }
-
-    return results;
+    return result;
   }
 
-  void _syncFromSupabaseBackground({SportType? sport, int? leagueTier}) async {
+  /// Background sync — updates the local cache without blocking the UI.
+  void _syncFromSupabaseBackground() async {
     try {
       final client = SupabaseService.client;
       if (client != null) {
-        final response = await client.from('Event').select('''
-          id,
-          externalId,
-          startDate,
-          status,
-          score,
-          currentPeriod,
-          venue,
-          sport:Sport(id, name, slug),
-          league:League(id, name, slug, country, tier, isActive),
-          season:Season(id, name, slug, isCurrent),
-          participants:Participant(id, name, slug, shortName, logoUrl, photoUrl, country, record),
-          footballStats:FootballStats(*),
-          nbaStats:NbaStats(*),
-          ufcStats:UfcStats(*),
-          esportsStats:EsportsStats(*)
-        ''').order('startDate', ascending: true);
+        final List<EventModel> allEvents = [];
+        int offset = 0;
+        const int pageSize = 1000;
+        
+        while (true) {
+          final response = await client
+              .from('Event')
+              .select(_kEventSelect)
+              .order('startDate', ascending: true)
+              .range(offset, offset + pageSize - 1);
 
-        final List<dynamic> data = response as List<dynamic>;
-        if (data.isNotEmpty) {
-          final events = data
-              .map((item) => EventModel.fromJson(item as Map<String, dynamic>))
-              .toList();
-          await CacheService.saveEvents(events);
-          debugPrint('FeedRepository: Background cache sync completed (${events.length} events)');
+          final List<dynamic> data = response as List<dynamic>;
+          if (data.isEmpty) break;
+          
+          allEvents.addAll(data.map((item) => EventModel.fromJson(item as Map<String, dynamic>)));
+          
+          if (data.length < pageSize) break;
+          offset += pageSize;
+        }
+
+        if (allEvents.isNotEmpty) {
+          await CacheService.saveEvents(allEvents);
+          debugPrint('FeedRepository: Background sync completed — ${allEvents.length} events cached');
         }
       }
     } catch (_) {}
@@ -152,30 +146,18 @@ class FeedRepository {
     try {
       final client = SupabaseService.client;
       if (client != null) {
-        final response = await client.from('Event').select('''
-          id,
-          externalId,
-          startDate,
-          status,
-          score,
-          currentPeriod,
-          venue,
-          sport:Sport(id, name, slug),
-          league:League(id, name, slug, country, tier, isActive),
-          season:Season(id, name, slug, isCurrent),
-          participants:Participant(id, name, slug, shortName, logoUrl, photoUrl, country, record),
-          footballStats:FootballStats(*),
-          nbaStats:NbaStats(*),
-          ufcStats:UfcStats(*),
-          esportsStats:EsportsStats(*)
-        ''').eq('id', id).maybeSingle();
+        final response = await client
+            .from('Event')
+            .select(_kEventSelect)
+            .eq('id', id)
+            .maybeSingle();
 
         if (response != null) {
           return EventModel.fromJson(response);
         }
       }
     } catch (e) {
-      debugPrint('FeedRepository getEventById Supabase error: $e');
+      debugPrint('FeedRepository getEventById error: $e');
     }
 
     final cached = await CacheService.getCachedEvents();
@@ -192,3 +174,5 @@ class FeedRepository {
     }
   }
 }
+
+
