@@ -52,21 +52,48 @@ final allAvailableTeamsProvider = Provider<List<SearchableTeamItem>>((ref) {
 
   final Map<String, SearchableTeamItem> itemsMap = {};
 
+  int getLeaguePriority(String league) {
+    final l = league.toLowerCase();
+    if (['arg', 'argentin', 'liga prof', 'copa de la liga', 'copa argentina',
+         'bra', 'brasileir', 'copa do brasil', 'paulista', 'carioca',
+         'chi', 'chile', 'campeonato itaú', 'copa chile',
+         'col', 'colombia', 'liga betplay',
+         'mex', 'mx', 'usa', 'mls', 'major league',
+         'esp', 'eng', 'ita', 'ger', 'fra', 'ned', 'por', 'tur', 
+         'premier', 'laliga', 'bundesliga', 'serie a', 'ligue 1', 'eredivisie', 'primeira', 'süper lig', 'super lig'].any((x) => l.contains(x))) {
+      return 1;
+    }
+    if (['libertadores', 'sudamericana', 'recopa', 'conmebol', 
+         'champions', 'europa league', 'conference', 'uefa'].any((x) => l.contains(x))) {
+      return 2;
+    }
+    return 3;
+  }
+
+  void updateTeamLeagueIfNeeded(String teamId, SearchableTeamItem newTeam) {
+    if (!itemsMap.containsKey(teamId)) {
+      itemsMap[teamId] = newTeam;
+    } else {
+      final existingTeam = itemsMap[teamId]!;
+      final existingPriority = getLeaguePriority(existingTeam.league);
+      final newPriority = getLeaguePriority(newTeam.league);
+      
+      if (newPriority < existingPriority) {
+        itemsMap[teamId] = existingTeam.copyWith(league: newTeam.league);
+      }
+    }
+  }
+
   for (final event in events) {
     final leagueName = event.league;
     final sport = event.sport;
     final isCombat = event.isCombat;
 
-    final l = leagueName.toLowerCase();
-    if (l.contains('champions') || l.contains('uefa') || l.contains('conference') || l.contains('europa league')) {
-      continue;
-    }
-
     if (isCombat) {
       if (event.fighter1 != null && event.fighter1!.id.isNotEmpty) {
-        itemsMap.putIfAbsent(
+        updateTeamLeagueIfNeeded(
           event.fighter1!.id,
-          () => SearchableTeamItem(
+          SearchableTeamItem(
             id: event.fighter1!.id,
             name: event.fighter1!.name,
             shortName: event.fighter1!.nickname,
@@ -80,9 +107,9 @@ final allAvailableTeamsProvider = Provider<List<SearchableTeamItem>>((ref) {
         );
       }
       if (event.fighter2 != null && event.fighter2!.id.isNotEmpty) {
-        itemsMap.putIfAbsent(
+        updateTeamLeagueIfNeeded(
           event.fighter2!.id,
-          () => SearchableTeamItem(
+          SearchableTeamItem(
             id: event.fighter2!.id,
             name: event.fighter2!.name,
             shortName: event.fighter2!.nickname,
@@ -97,9 +124,9 @@ final allAvailableTeamsProvider = Provider<List<SearchableTeamItem>>((ref) {
       }
     } else {
       if (event.homeTeam != null && event.homeTeam!.id.isNotEmpty) {
-        itemsMap.putIfAbsent(
+        updateTeamLeagueIfNeeded(
           event.homeTeam!.id,
-          () => SearchableTeamItem(
+          SearchableTeamItem(
             id: event.homeTeam!.id,
             name: event.homeTeam!.name,
             shortName: event.homeTeam!.shortName,
@@ -111,9 +138,9 @@ final allAvailableTeamsProvider = Provider<List<SearchableTeamItem>>((ref) {
         );
       }
       if (event.awayTeam != null && event.awayTeam!.id.isNotEmpty) {
-        itemsMap.putIfAbsent(
+        updateTeamLeagueIfNeeded(
           event.awayTeam!.id,
-          () => SearchableTeamItem(
+          SearchableTeamItem(
             id: event.awayTeam!.id,
             name: event.awayTeam!.name,
             shortName: event.awayTeam!.shortName,
@@ -128,9 +155,9 @@ final allAvailableTeamsProvider = Provider<List<SearchableTeamItem>>((ref) {
 
     for (final p in event.participants) {
       if (p.id.isEmpty) continue;
-      itemsMap.putIfAbsent(
+      updateTeamLeagueIfNeeded(
         p.id,
-        () => SearchableTeamItem(
+        SearchableTeamItem(
           id: p.id,
           name: p.name,
           shortName: p.shortName,
@@ -183,4 +210,36 @@ final followedTeamsListProvider = Provider<List<SearchableTeamItem>>((ref) {
   final favoriteIds = ref.watch(favoriteTeamIdsProvider);
 
   return allTeams.where((team) => favoriteIds.contains(team.id)).toList();
+});
+
+// ─── Ligas seguidas ────────────────────────────────────────────────────────────
+/// Notifier que guarda los nombres (lowercase) de ligas que el usuario sigue
+class FavoriteLeaguesNotifier extends StateNotifier<Set<String>> {
+  FavoriteLeaguesNotifier() : super({}) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    final cached = await CacheService.getFollowedLeagues();
+    if (cached.isNotEmpty) {
+      state = cached;
+    }
+  }
+
+  void toggle(String leagueName) {
+    final lower = leagueName.toLowerCase();
+    if (state.contains(lower)) {
+      state = {...state}..remove(lower);
+    } else {
+      state = {...state, lower};
+    }
+    CacheService.saveFollowedLeagues(state);
+  }
+
+  bool isFollowing(String leagueName) => state.contains(leagueName.toLowerCase());
+}
+
+final followedLeaguesProvider =
+    StateNotifierProvider<FavoriteLeaguesNotifier, Set<String>>((ref) {
+  return FavoriteLeaguesNotifier();
 });

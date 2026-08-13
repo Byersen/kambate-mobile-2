@@ -10,6 +10,7 @@ class CacheService {
   static const String _kOnboardingKey = 'kambate_onboarding_completed_v1';
   static const String _kSelectedSportsKey = 'kambate_selected_sports_v1';
   static const String _kFollowedTeamsKey = 'kambate_followed_teams_set';
+  static const String _kFollowedLeaguesKey = 'kambate_followed_leagues_set';
 
   /// Save events list to offline cache
   static Future<void> saveEvents(List<EventModel> events) async {
@@ -137,6 +138,26 @@ class CacheService {
     return {};
   }
 
+  /// Save followed leagues (lowercase names)
+  static Future<void> saveFollowedLeagues(Set<String> leagues) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_kFollowedLeaguesKey, leagues.toList());
+    } catch (e) {
+      debugPrint('CacheService.saveFollowedLeagues error: $e');
+    }
+  }
+
+  /// Get followed leagues (lowercase names)
+  static Future<Set<String>> getFollowedLeagues() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList(_kFollowedLeaguesKey);
+      if (list != null) return list.toSet();
+    } catch (_) {}
+    return {};
+  }
+
   /// Clear all cached data
   static Future<void> clearCache() async {
     try {
@@ -147,6 +168,7 @@ class CacheService {
       await prefs.remove(_kOnboardingKey);
       await prefs.remove(_kSelectedSportsKey);
       await prefs.remove(_kFollowedTeamsKey);
+      await prefs.remove(_kFollowedLeaguesKey);
     } catch (_) {}
   }
 }

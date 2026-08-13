@@ -28,9 +28,9 @@ class MainShell extends StatelessWidget {
             label: 'Partidos',
           ),
           NavigationDestination(
-            icon: Icon(Icons.star_outline_rounded),
-            selectedIcon: Icon(Icons.star_rounded, color: AppColors.warning),
-            label: 'Siguiendo',
+            icon: Icon(Icons.explore_outlined),
+            selectedIcon: Icon(Icons.explore_rounded, color: AppColors.secondary),
+            label: 'Buscar',
           ),
           NavigationDestination(
             icon: Icon(Icons.calendar_month_outlined),

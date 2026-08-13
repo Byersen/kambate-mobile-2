@@ -15,7 +15,7 @@ class AppColors {
   static const Color basketball = Color(0xFFF97316);
   static const Color nba = basketball;
   static const Color ufc = Color(0xFFEF4444);
-  static const Color lol = Color(0xFF06B6D4);
+  static const Color lol = Color(0xFF3B82F6);
   static const Color valorant = Color(0xFFFF4655);
 
   static const Color textPrimary = Color(0xFFF8FAFC);

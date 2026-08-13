@@ -56,14 +56,16 @@ class TeamSearchCard extends StatelessWidget {
                     ),
                   ),
                   alignment: Alignment.center,
-                  child: Text(
-                    initials,
-                    style: TextStyle(
-                      color: sportColor,
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: (team.logoUrl != null || team.photoUrl != null)
+                      ? Image.network(
+                          (team.logoUrl ?? team.photoUrl)!,
+                          width: 32,
+                          height: 32,
+                          fit: BoxFit.contain,
+                          errorBuilder: (context, error, stackTrace) => _buildInitials(initials, sportColor),
+                        )
+                      : _buildInitials(initials, sportColor),
                 ),
                 const SizedBox(width: 12),
 
@@ -153,6 +155,17 @@ class TeamSearchCard extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildInitials(String initials, Color sportColor) {
+    return Text(
+      initials,
+      style: TextStyle(
+        color: sportColor,
+        fontSize: 13,
+        fontWeight: FontWeight.bold,
       ),
     );
   }

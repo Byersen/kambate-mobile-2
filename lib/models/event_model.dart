@@ -145,11 +145,19 @@ class EventModel {
     DateTime parsedDate;
     try {
       if (json['startDate'] != null) {
-        parsedDate = DateTime.parse(json['startDate'].toString()).toLocal();
+        String dateStr = json['startDate'].toString();
+        if (!dateStr.endsWith('Z')) {
+          dateStr += 'Z'; // Force UTC parsing
+        }
+        parsedDate = DateTime.parse(dateStr).toLocal();
       } else if (json['start_time'] != null) {
-        parsedDate = DateTime.parse(json['start_time'].toString()).toLocal();
+        String dateStr = json['start_time'].toString();
+        if (!dateStr.endsWith('Z')) dateStr += 'Z';
+        parsedDate = DateTime.parse(dateStr).toLocal();
       } else if (json['startTime'] != null) {
-        parsedDate = DateTime.parse(json['startTime'].toString()).toLocal();
+        String dateStr = json['startTime'].toString();
+        if (!dateStr.endsWith('Z')) dateStr += 'Z';
+        parsedDate = DateTime.parse(dateStr).toLocal();
       } else {
         parsedDate = DateTime.now();
       }

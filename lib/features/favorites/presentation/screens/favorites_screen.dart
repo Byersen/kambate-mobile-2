@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../models/sport_type.dart';
 import '../../models/searchable_team_item.dart';
@@ -57,7 +58,6 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Siguiendo'),
         elevation: 0,
         bottom: TabBar(
           controller: _tabController,
@@ -66,20 +66,20 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
           unselectedLabelColor: AppColors.textMuted,
           labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
           tabs: [
+            const Tab(text: 'Explorar'),
             Tab(
               text: followedTeams.isEmpty
                   ? 'Mis equipos'
                   : 'Mis equipos (${followedTeams.length})',
             ),
-            const Tab(text: 'Explorar'),
           ],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
         children: [
-          _buildFollowingTab(followedTeams, favoriteTeamIds),
           _buildExploreTab(allTeams, favoriteTeamIds, isSearching, query),
+          _buildFollowingTab(followedTeams, favoriteTeamIds),
         ],
       ),
     );
@@ -259,47 +259,83 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
     );
   }
 
-  String _getRegionForLeague(String league) {
+  String _getCountryOrConfederation(String league) {
     final l = league.toLowerCase();
     
-    if (['mex', 'usa', 'mls', 'mx', 'concacaf', 'major league'].any((x) => l.contains(x))) return 'NORTEAMÉRICA';
+    if (['mex', 'mx'].any((x) => l.contains(x))) return 'México';
+    if (['usa', 'mls', 'major league'].any((x) => l.contains(x))) return 'Estados Unidos';
     
-    if (['conmebol', 'arg', 'bra', 'chi', 'col', 'libertadores', 'sudamericana', 'argentina', 'brasil', 'chile', 'colombia', 'brasileirão', 'argentine', 'brazilian', 'chilean', 'colombian'].any((x) => l.contains(x))) return 'SUDAMÉRICA';
+    if (['libertadores', 'sudamericana', 'recopa', 'conmebol'].any((x) => l.contains(x))) return 'CONMEBOL';
+    if (['arg', 'argentin', 'liga prof', 'copa de la liga', 'copa argentina'].any((x) => l.contains(x))) return 'Argentina';
+    if (['bra', 'brasileir', 'copa do brasil', 'paulista', 'carioca'].any((x) => l.contains(x))) return 'Brasil';
+    if (['chi', 'chile', 'campeonato itaú', 'copa chile'].any((x) => l.contains(x))) return 'Chile';
     
-    if (['fifa', 'mundial', 'world cup', 'selecciones', 'copa américa', 'eurocopa', 'internacional', 'friendlies', 'amistosos'].any((x) => l.contains(x))) return 'SELECCIONES';
+    if (['esp', 'españa', 'spanish', 'laliga'].any((x) => l.contains(x))) return 'España';
+    if (['eng', 'inglaterra', 'english', 'premier'].any((x) => l.contains(x))) return 'Inglaterra';
+    if (['ita', 'italian', 'serie a'].any((x) => l.contains(x))) return 'Italia';
+    if (['ger', 'german', 'bundesliga'].any((x) => l.contains(x))) return 'Alemania';
+    if (['fra', 'french', 'ligue 1'].any((x) => l.contains(x))) return 'Francia';
+    if (['ned', 'dutch', 'eredivisie', 'paises bajos', 'países bajos'].any((x) => l.contains(x))) return 'Países Bajos';
+    if (['por', 'portuguese', 'primeira', 'portugal'].any((x) => l.contains(x))) return 'Portugal';
     
-    if (['esp', 'eng', 'ita', 'ger', 'fra', 'ned', 'por', 'tur', 'uefa', 'champions', 'europa', 'premier', 'laliga', 'bundesliga', 'serie a', 'ligue 1', 'eredivisie', 'primeira', 'españa', 'inglaterra', 'spanish', 'english', 'italian', 'german', 'french', 'dutch', 'portuguese', 'turkish', 'süper lig', 'super lig'].any((x) => l.contains(x))) return 'EUROPA';
+    if (['champions', 'europa league', 'conference', 'supercopa de europa', 'uefa'].any((x) => l.contains(x))) return 'UEFA';
     
-    if (l.contains('liga')) return 'EUROPA';
+    if (['mundial', 'world cup'].any((x) => l.contains(x))) return 'Mundial';
+    if (['copa américa'].any((x) => l.contains(x))) return 'Copa América';
+    if (['eurocopa'].any((x) => l.contains(x))) return 'Eurocopa';
+    
+    return 'Otros';
+  }
 
+  String _getRegionForLeague(String league) {
+    final country = _getCountryOrConfederation(league).toUpperCase();
+    if (['MÉXICO', 'ESTADOS UNIDOS'].contains(country)) return 'NORTEAMÉRICA';
+    if (['CONMEBOL', 'ARGENTINA', 'BRASIL', 'CHILE'].contains(country)) return 'SUDAMÉRICA';
+    if (['UEFA', 'ESPAÑA', 'INGLATERRA', 'ITALIA', 'ALEMANIA', 'FRANCIA', 'PAÍSES BAJOS', 'PORTUGAL'].contains(country)) return 'EUROPA';
+    if (['MUNDIAL', 'COPA AMÉRICA', 'EUROCOPA'].contains(country)) return 'INTERNACIONAL';
+    
     return 'RESTO DEL MUNDO';
   }
 
   String _getPrettyLeagueName(String league) {
     final l = league.toLowerCase();
     
-    if (l.contains('mex') || l.contains('mx')) return 'MEX - LIGA MX';
-    if (l.contains('usa') || l.contains('mls') || l.contains('major league')) return 'USA - MLS';
+    if (l.contains('mex') || l.contains('mx')) return 'Liga MX';
+    if (l.contains('usa') || l.contains('mls') || l.contains('major league')) return 'MLS';
     
-    if (l.contains('arg') || l.contains('argentin')) return 'ARG - LIGA PROF. DE FÚTBOL';
-    if (l.contains('bra') || l.contains('brazilian') || l.contains('brasileir')) return 'BRA - BRASILEIRÃO';
-    if (l.contains('chi') || l.contains('chile')) return 'CHI - PRIMERA DIVISIÓN';
-    if (l.contains('col') || l.contains('colombia')) return 'COL - PRIMERA A';
-    if (l.contains('libertadores')) return 'CONMEBOL LIBERTADORES';
-    if (l.contains('sudamericana')) return 'CONMEBOL SUDAMERICANA';
+    if (l.contains('copa argentina')) return 'Copa Argentina';
+    if (l.contains('copa de la liga')) return 'Copa de la Liga';
+    if (l.contains('arg') || l.contains('argentin') || l.contains('liga prof')) return 'Liga Profesional';
     
-    if (l.contains('esp') || l.contains('spanish') || l.contains('laliga')) return 'ESP - LALIGA';
-    if (l.contains('eng') || l.contains('english') || l.contains('premier')) return 'ENG - PREMIER LEAGUE';
-    if (l.contains('ita') || l.contains('italian') || l.contains('serie a')) return 'ITA - SERIE A';
-    if (l.contains('ger') || l.contains('german') || l.contains('bundesliga')) return 'GER - BUNDESLIGA';
-    if (l.contains('fra') || l.contains('french') || l.contains('ligue 1')) return 'FRA - LIGUE 1';
-    if (l.contains('ned') || l.contains('dutch') || l.contains('eredivisie')) return 'NED - EREDIVISIE';
-    if (l.contains('por') || l.contains('portuguese') || l.contains('primeira')) return 'POR - PRIMEIRA LIGA';
-    if (l.contains('tur') || l.contains('turkish') || l.contains('süper') || l.contains('super')) return 'TUR - SÜPER LIG';
+    if (l.contains('copa do brasil')) return 'Copa do Brasil';
+    if (l.contains('bra') || l.contains('brazilian') || l.contains('brasileir')) return 'Brasileirão';
     
-    if (l.contains('fifa') || l.contains('world cup') || l.contains('mundial')) return 'COPA MUNDIAL DE LA FIFA';
-    if (l.contains('copa américa')) return 'COPA AMÉRICA';
-    if (l.contains('eurocopa') || (l.contains('uefa') && l.contains('euro'))) return 'EUROCOPA';
+    if (l.contains('copa chile')) return 'Copa Chile';
+    if (l.contains('chi') || l.contains('chile') || l.contains('campeonato itaú')) return 'Primera División';
+    
+    if (l.contains('col') || l.contains('colombia')) return 'Primera A';
+    
+    if (l.contains('libertadores')) return 'Copa Libertadores';
+    if (l.contains('sudamericana')) return 'Copa Sudamericana';
+    if (l.contains('recopa')) return 'Recopa Sudamericana';
+    
+    if (l.contains('champions')) return 'Champions League';
+    if (l.contains('europa league') || (l.contains('europa') && !l.contains('eurocopa'))) return 'Europa League';
+    if (l.contains('conference')) return 'Conference League';
+    if (l.contains('supercopa de europa')) return 'Supercopa de Europa';
+    
+    if (l.contains('esp') || l.contains('spanish') || l.contains('laliga')) return 'LaLiga';
+    if (l.contains('eng') || l.contains('english') || l.contains('premier')) return 'Premier League';
+    if (l.contains('ita') || l.contains('italian') || l.contains('serie a')) return 'Serie A';
+    if (l.contains('ger') || l.contains('german') || l.contains('bundesliga')) return 'Bundesliga';
+    if (l.contains('fra') || l.contains('french') || l.contains('ligue 1')) return 'Ligue 1';
+    if (l.contains('ned') || l.contains('dutch') || l.contains('eredivisie')) return 'Eredivisie';
+    if (l.contains('por') || l.contains('portuguese') || l.contains('primeira')) return 'Primeira Liga';
+    if (l.contains('tur') || l.contains('turkish') || l.contains('süper') || l.contains('super')) return 'Süper Lig';
+    
+    if (l.contains('fifa') || l.contains('world cup') || l.contains('mundial')) return 'Copa Mundial';
+    if (l.contains('copa américa')) return 'Copa América';
+    if (l.contains('eurocopa') || (l.contains('uefa') && l.contains('euro'))) return 'Eurocopa';
 
     return league.toUpperCase();
   }
@@ -329,8 +365,12 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
       );
     }
 
-    final soccerByRegion = <String, Map<String, List<SearchableTeamItem>>>{};
-    final otherBySportLeague = <String, List<SearchableTeamItem>>{};
+    final soccerByRegion = <String, Map<String, Map<String, List<SearchableTeamItem>>>>{};
+    final otherBySportLeague = <SportType, Map<String, List<SearchableTeamItem>>>{
+      SportType.ufc: {},
+      SportType.lol: {},
+      SportType.valorant: {},
+    };
     List<SearchableTeamItem> nbaTeams = [];
 
     for (final team in teams) {
@@ -338,12 +378,16 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
         nbaTeams.add(team);
       } else if (team.sport == SportType.soccer) {
         final region = _getRegionForLeague(team.league);
+        if (region == 'RESTO DEL MUNDO') continue;
+        
+        final country = _getCountryOrConfederation(team.league);
         final prettyLeague = _getPrettyLeagueName(team.league);
         soccerByRegion.putIfAbsent(region, () => {});
-        soccerByRegion[region]!.putIfAbsent(prettyLeague, () => []).add(team);
+        soccerByRegion[region]!.putIfAbsent(country, () => {});
+        soccerByRegion[region]![country]!.putIfAbsent(prettyLeague, () => []).add(team);
       } else {
-        final key = '${team.sport.displayName} · ${team.league}';
-        otherBySportLeague.putIfAbsent(key, () => []).add(team);
+        otherBySportLeague.putIfAbsent(team.sport, () => {});
+        otherBySportLeague[team.sport]!.putIfAbsent(team.league, () => []).add(team);
       }
     }
 
@@ -352,18 +396,18 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
     if (nbaTeams.isNotEmpty) {
       children.add(
         _CollapsibleSection(
-          headerBuilder: (isExpanded) => _buildLeagueHeader('BALONCESTO · NBA', isExpanded),
+          headerBuilder: (isExpanded) => _buildTopLevelHeader('NBA', isExpanded, SportType.nba),
           initiallyExpanded: false,
-          content: _buildNbaGrid(nbaTeams, favoriteTeamIds),
+          contentBuilder: (context) => _buildNbaGrid(nbaTeams, favoriteTeamIds),
         ),
       );
     }
 
     int getRegionOrder(String r) {
-      if (r == 'EUROPA') return 1;
-      if (r == 'NORTEAMÉRICA') return 2;
-      if (r == 'SUDAMÉRICA') return 3;
-      if (r == 'SELECCIONES') return 4;
+      if (r == 'SUDAMÉRICA') return 1;
+      if (r == 'EUROPA') return 2;
+      if (r == 'NORTEAMÉRICA') return 3;
+      if (r == 'INTERNACIONAL') return 4;
       return 5;
     }
 
@@ -371,32 +415,89 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
       ..sort((a, b) => getRegionOrder(a).compareTo(getRegionOrder(b)));
 
     for (final region in sortedRegions) {
-      final leaguesMap = soccerByRegion[region]!;
+      final countriesMap = soccerByRegion[region]!;
       final regionContent = <Widget>[];
+
+      // Define standard country ordering
+      int getCountryOrder(String c) {
+        if (c == 'CONMEBOL' || c == 'UEFA') return 1;
+        if (c == 'Chile' || c == 'España' || c == 'México' || c == 'Copa América') return 2;
+        if (c == 'Argentina' || c == 'Inglaterra' || c == 'Estados Unidos' || c == 'Eurocopa') return 3;
+        if (c == 'Brasil' || c == 'Italia' || c == 'Mundial') return 4;
+        if (c == 'Alemania') return 5;
+        if (c == 'Francia') return 6;
+        if (c == 'Países Bajos') return 7;
+        if (c == 'Portugal') return 8;
+        return 9;
+      }
+
+      final sortedCountries = countriesMap.keys.toList()..sort((a, b) => getCountryOrder(a).compareTo(getCountryOrder(b)));
+      
+      for (final country in sortedCountries) {
+        final leaguesMap = countriesMap[country]!;
+        final countryContent = <Widget>[];
+
+        final sortedLeagues = leaguesMap.keys.toList()..sort();
+        for (final league in sortedLeagues) {
+          final leagueTeams = leaguesMap[league]!..sort((a, b) => a.name.compareTo(b.name));
+          countryContent.add(
+                _buildLeagueHeader(league, country, false, SportType.soccer),
+          );
+        }
+
+        regionContent.add(
+          _CollapsibleSection(
+            headerBuilder: (isExpanded) => _buildCountryHeader(country, isExpanded, SportType.soccer, leaguesMap.length),
+            initiallyExpanded: false,
+            contentBuilder: (context) => Column(children: countryContent),
+          ),
+        );
+      }
+
+      children.add(
+        _CollapsibleSection(
+          headerBuilder: (isExpanded) => _buildTopLevelHeader(region, isExpanded, SportType.soccer),
+          initiallyExpanded: false,
+          contentBuilder: (context) => Column(children: regionContent),
+        ),
+      );
+    }
+
+    final sortedSports = otherBySportLeague.keys.toList()
+      ..sort((a, b) => a.displayName.compareTo(b.displayName));
+      
+    for (final sport in sortedSports) {
+      final leaguesMap = otherBySportLeague[sport]!;
+      final sportContent = <Widget>[];
 
       final sortedLeagues = leaguesMap.keys.toList()..sort();
       for (final league in sortedLeagues) {
         final leagueTeams = leaguesMap[league]!..sort((a, b) => a.name.compareTo(b.name));
-        regionContent.add(
-          _CollapsibleSection(
-            headerBuilder: (isExpanded) => _buildLeagueHeader(league, isExpanded),
-            initiallyExpanded: false,
-            content: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 3.2,
-                ),
-                itemCount: leagueTeams.length,
-                itemBuilder: (context, index) => _buildSimpleCard(
-                  leagueTeams[index],
-                  favoriteTeamIds.contains(leagueTeams[index].id),
-                ),
+        
+        if (sport == SportType.ufc) {
+          sportContent.add(
+            _buildLeagueHeader(league, sport.displayName, false, sport),
+          );
+        } else {
+          sportContent.add(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _buildLeagueHeader(league, sport.displayName, false, sport),
+              ],
+            ),
+          );
+        }
+      }
+
+      if (sportContent.isEmpty) {
+        sportContent.add(
+          const Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Center(
+              child: Text(
+                'No hay equipos disponibles por ahora.',
+                style: TextStyle(color: AppColors.textMuted, fontSize: 13),
               ),
             ),
           ),
@@ -405,38 +506,9 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
 
       children.add(
         _CollapsibleSection(
-          headerBuilder: (isExpanded) => _buildRegionHeader(region, isExpanded),
+          headerBuilder: (isExpanded) => _buildTopLevelHeader(sport.displayName, isExpanded, sport),
           initiallyExpanded: false,
-          content: Column(children: regionContent),
-        ),
-      );
-    }
-
-    final sortedOther = otherBySportLeague.keys.toList()..sort();
-    for (final key in sortedOther) {
-      final leagueTeams = otherBySportLeague[key]!..sort((a, b) => a.name.compareTo(b.name));
-      children.add(
-        _CollapsibleSection(
-          headerBuilder: (isExpanded) => _buildLeagueHeader(key, isExpanded),
-          initiallyExpanded: false,
-          content: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childAspectRatio: 3.2,
-              ),
-              itemCount: leagueTeams.length,
-              itemBuilder: (context, index) => _buildSimpleCard(
-                leagueTeams[index],
-                favoriteTeamIds.contains(leagueTeams[index].id),
-              ),
-            ),
-          ),
+          contentBuilder: (context) => Column(children: sportContent),
         ),
       );
     }
@@ -525,10 +597,22 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
                   border: Border.all(color: AppColors.cardBorderDark),
                 ),
                 alignment: Alignment.center,
-                child: Text(
-                  initials,
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 9, fontWeight: FontWeight.bold),
-                ),
+                clipBehavior: Clip.antiAlias,
+                child: (team.logoUrl != null || team.photoUrl != null)
+                    ? Image.network(
+                        (team.logoUrl ?? team.photoUrl)!,
+                        width: 18,
+                        height: 18,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => Text(
+                          initials,
+                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 9, fontWeight: FontWeight.bold),
+                        ),
+                      )
+                    : Text(
+                        initials,
+                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 9, fontWeight: FontWeight.bold),
+                      ),
               ),
               const SizedBox(width: 8),
               Expanded(
@@ -551,49 +635,92 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
     );
   }
 
-  Widget _buildRegionHeader(String label, bool isExpanded) {
+  Widget _buildTopLevelHeader(String label, bool isExpanded, SportType sport) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.cardDark,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: sport.color.withValues(alpha: 0.8), width: 1.2),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label.toUpperCase(),
+              style: TextStyle(
+                color: sport.color,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 0.5,
+              ),
+            ),
+            Icon(
+              isExpanded
+                  ? Icons.keyboard_arrow_up_rounded
+                  : Icons.keyboard_arrow_down_rounded,
+              color: AppColors.textSecondary,
+              size: 22,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getCountryFlag(String country) {
+    switch (country.toUpperCase()) {
+      case 'CHILE': return '🇨🇱';
+      case 'ARGENTINA': return '🇦🇷';
+      case 'BRASIL': return '🇧🇷';
+      case 'MÉXICO': return '🇲🇽';
+      case 'ESTADOS UNIDOS': return '🇺🇸';
+      case 'ESPAÑA': return '🇪🇸';
+      case 'INGLATERRA': return '🏴󠁧󠁢󠁥󠁮󠁧󠁿';
+      case 'ITALIA': return '🇮🇹';
+      case 'ALEMANIA': return '🇩🇪';
+      case 'FRANCIA': return '🇫🇷';
+      case 'PAÍSES BAJOS': return '🇳🇱';
+      case 'PORTUGAL': return '🇵🇹';
+      case 'CONMEBOL': return '🌎';
+      case 'UEFA': return '🇪🇺';
+      case 'INTERNACIONAL': return '🌐';
+      case 'MUNDIAL': return '🏆';
+      default: return '🏳️';
+    }
+  }
+
+  Widget _buildCountryHeader(String label, bool isExpanded, SportType sport, [int leagueCount = 0]) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 16, 4),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceDark,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppColors.cardBorderDark),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  label == 'EUROPA'
-                      ? Icons.public
-                      : label == 'NORTEAMÉRICA'
-                          ? Icons.map
-                          : label == 'SUDAMÉRICA'
-                              ? Icons.south_america
-                              : Icons.language,
-                  size: 14,
-                  color: AppColors.soccer,
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  label.toUpperCase(),
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-              ],
+          Text(_getCountryFlag(label), style: const TextStyle(fontSize: 16)),
+          const SizedBox(width: 12),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(width: 8),
-          Expanded(
-            child: Container(height: 1, color: AppColors.cardBorderDark),
-          ),
-          const SizedBox(width: 8),
+          if (leagueCount > 0)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.surfaceDark,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '$leagueCount',
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+            ),
+          const Spacer(),
           Icon(
             isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
             color: AppColors.textMuted,
@@ -604,39 +731,50 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
     );
   }
 
-  Widget _buildLeagueHeader(String label, bool isExpanded) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppColors.surfaceDark,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppColors.cardBorderDark),
+  Widget _buildLeagueHeader(String label, String subtitle, bool isExpanded, SportType sport) {
+    return InkWell(
+      onTap: () => context.push('/league/${Uri.encodeComponent(label)}', extra: sport),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: AppColors.surfaceDark,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: AppColors.cardBorderDark),
+              ),
+              child: Icon(sport.icon, size: 20, color: sport.color.withValues(alpha: 0.5)),
             ),
-            child: Text(
-              label.toUpperCase(),
-              style: const TextStyle(
-                color: AppColors.textMuted,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 0.8,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Container(height: 1, color: AppColors.cardBorderDark),
-          ),
-          const SizedBox(width: 8),
-          Icon(
-            isExpanded ? Icons.keyboard_arrow_up_rounded : Icons.keyboard_arrow_down_rounded,
-            color: AppColors.textMuted,
-            size: 20,
-          ),
-        ],
+            const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppColors.textMuted),
+          ],
+        ),
       ),
     );
   }
@@ -649,7 +787,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: sport.color.withValues(alpha: 0.15),
+              color: Colors.transparent,
               borderRadius: BorderRadius.circular(6),
               border: Border.all(color: sport.color.withValues(alpha: 0.4)),
             ),
@@ -667,7 +805,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
           Expanded(
             child: Container(
               height: 1,
-              color: AppColors.cardBorderDark,
+              color: sport.color.withValues(alpha: 0.3),
             ),
           ),
           const SizedBox(width: 8),
@@ -686,12 +824,12 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
 
 class _CollapsibleSection extends StatefulWidget {
   final Widget Function(bool isExpanded) headerBuilder;
-  final Widget content;
+  final WidgetBuilder contentBuilder;
   final bool initiallyExpanded;
 
   const _CollapsibleSection({
     required this.headerBuilder,
-    required this.content,
+    required this.contentBuilder,
     this.initiallyExpanded = false,
   });
 
@@ -701,15 +839,19 @@ class _CollapsibleSection extends StatefulWidget {
 
 class _CollapsibleSectionState extends State<_CollapsibleSection> {
   late bool _isExpanded;
+  bool _hasBeenExpanded = false;
 
   @override
   void initState() {
     super.initState();
     _isExpanded = widget.initiallyExpanded;
+    if (_isExpanded) _hasBeenExpanded = true;
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isExpanded) _hasBeenExpanded = true;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -721,7 +863,9 @@ class _CollapsibleSectionState extends State<_CollapsibleSection> {
         ),
         AnimatedCrossFade(
           firstChild: const SizedBox(width: double.infinity, height: 0),
-          secondChild: widget.content,
+          secondChild: _hasBeenExpanded 
+              ? widget.contentBuilder(context) 
+              : const SizedBox(width: double.infinity, height: 0),
           crossFadeState: _isExpanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
           duration: const Duration(milliseconds: 200),
         ),

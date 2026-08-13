@@ -22,13 +22,13 @@ enum SportType {
   ),
   ufc(
     id: 'ufc',
-    displayName: 'UFC / MMA',
+    displayName: 'MMA - UFC',
     icon: Icons.sports_mma,
     color: AppColors.ufc,
   ),
   lol(
     id: 'lol',
-    displayName: 'LoL',
+    displayName: 'League of Legends',
     icon: Icons.sports_esports,
     color: AppColors.lol,
   ),

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/date_formatter.dart';
 import '../../../../models/event_model.dart';
+import '../../../../models/event_status.dart';
 import '../../../../models/sport_type.dart';
 import '../../../favorites/providers/favorites_provider.dart';
 import '../../../feed/presentation/widgets/match_card.dart';
@@ -128,7 +129,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
           final selectedDayEvents = eventsByDay[selectedDayKey] ?? [];
 
-          return Column(
+          return ListView(
+            padding: const EdgeInsets.only(bottom: 24),
             children: [
               _buildFilterBar(),
 
@@ -203,65 +205,56 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               ),
               const SizedBox(height: 4),
 
-              Expanded(
-                child: selectedDayEvents.isEmpty
-                    ? Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24.0),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  color: AppColors.surfaceDark,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(color: AppColors.cardBorderDark),
-                                ),
-                                child: const Icon(
-                                  Icons.event_busy_rounded,
-                                  size: 40,
-                                  color: AppColors.textMuted,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                _onlyFollowed
-                                    ? 'No hay partidos de tus equipos seguidos este día'
-                                    : 'No hay partidos programados para esta fecha',
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: AppColors.textPrimary,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Toca los días con puntos verdes o naranjas para ver otros encuentros.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
+              if (selectedDayEvents.isEmpty)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: AppColors.surfaceDark,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: AppColors.cardBorderDark),
+                          ),
+                          child: const Icon(
+                            Icons.event_busy_rounded,
+                            size: 40,
+                            color: AppColors.textMuted,
                           ),
                         ),
-                      )
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(bottom: 24),
-                        itemCount: selectedDayEvents.length,
-                        itemBuilder: (context, index) {
-                          final event = selectedDayEvents[index];
-                          return MatchCard(
-                            event: event,
-                            isFollowed: true,
-                            onTap: () => context.push('/detail/${event.id}', extra: event),
-                          );
-                        },
-                      ),
-              ),
+                        const SizedBox(height: 12),
+                        Text(
+                          _onlyFollowed
+                              ? 'No hay partidos de tus equipos seguidos este día'
+                              : 'No hay partidos programados para esta fecha',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: AppColors.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        const Text(
+                          'Toca los días con puntos verdes o naranjas para ver otros encuentros.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                ...selectedDayEvents.map((event) => _SimpleMatchRow(
+                      event: event,
+                      onTap: () => context.push('/detail/${event.id}', extra: event),
+                    )),
             ],
           );
         },
@@ -474,6 +467,84 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         crossAxisCount: 7,
         childAspectRatio: 1.2,
         children: dayWidgets,
+      ),
+    );
+  }
+}
+
+class _SimpleMatchRow extends StatelessWidget {
+  final EventModel event;
+  final VoidCallback onTap;
+
+  const _SimpleMatchRow({required this.event, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    String? team1Name = event.homeTeam?.name ?? event.fighter1?.name;
+    String? team2Name = event.awayTeam?.name ?? event.fighter2?.name;
+    if (event.sport == SportType.lol || event.sport == SportType.valorant) {
+      if (event.participants.isNotEmpty) team1Name = event.participants[0].name;
+      if (event.participants.length > 1) team2Name = event.participants[1].name;
+    }
+    team1Name ??= '—';
+    team2Name ??= '—';
+
+    final h = event.startTime.hour.toString().padLeft(2, '0');
+    final m = event.startTime.minute.toString().padLeft(2, '0');
+    final timeStr = event.isLive
+        ? 'EN VIVO'
+        : (event.status == EventStatus.finished ? 'FIN' : '$h:$m');
+    final timeColor = event.isLive ? AppColors.liveRed : AppColors.textMuted;
+
+    String matchText = '$team1Name vs $team2Name';
+    if ((event.isLive || event.status == EventStatus.finished) &&
+        event.homeScore != null &&
+        event.awayScore != null) {
+      matchText = '$team1Name ${event.homeScore} - ${event.awayScore} $team2Name';
+    }
+
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: AppColors.cardDark,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: event.sport.color.withValues(alpha: 0.6),
+            width: 0.8,
+          ),
+        ),
+        child: Row(
+          children: [
+            SizedBox(
+              width: 50,
+              child: Text(
+                timeStr,
+                style: TextStyle(
+                  color: timeColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(width: 1, height: 16, color: AppColors.cardBorderDark),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                matchText,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
