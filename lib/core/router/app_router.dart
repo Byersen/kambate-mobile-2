@@ -7,6 +7,8 @@ import '../../features/feed/presentation/screens/feed_screen.dart';
 import '../../features/match_detail/presentation/screens/match_detail_screen.dart';
 import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../models/event_model.dart';
+import '../../models/sport_type.dart';
+import '../../features/league_detail/presentation/screens/league_detail_screen.dart';
 import 'main_shell.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -84,6 +86,18 @@ GoRouter createRouter({String initialLocation = '/feed'}) {
               }
               return MatchDetailScreen(event: snapshot.data!);
             },
+          );
+        },
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/league/:name',
+        builder: (context, state) {
+          final leagueName = state.pathParameters['name'] ?? '';
+          final extraSport = state.extra as SportType?;
+          return LeagueDetailScreen(
+            leagueName: Uri.decodeComponent(leagueName),
+            sport: extraSport ?? SportType.soccer,
           );
         },
       ),
