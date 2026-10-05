@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 class AppTheme {
@@ -20,7 +19,8 @@ class AppTheme {
       ),
     );
     return base.copyWith(
-      textTheme: GoogleFonts.interTextTheme(base.textTheme).apply(
+      textTheme: base.textTheme.apply(
+        fontFamily: 'Inter',
         bodyColor: AppColors.textPrimary,
         displayColor: AppColors.textPrimary,
       ),

@@ -1,5 +1,3 @@
-import 'dart:io';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,9 +15,11 @@ import 'package:kambate_mobile/models/event_status.dart';
 import 'package:kambate_mobile/models/sport_type.dart';
 import 'package:kambate_mobile/models/team_model.dart';
 import 'feed_repository_test.dart' show TestRepository;
+import 'support/preview.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+  setUpAll(loadPreviewFonts);
 
   setUp(() {
     GoogleFonts.config.allowRuntimeFetching = false;
@@ -185,14 +185,7 @@ void main() {
       final boundary =
           app.preview.currentContext!.findRenderObject()
               as RenderRepaintBoundary;
-      final image = await boundary.toImage(pixelRatio: 2);
-      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-      await tester.runAsync(() async {
-        final file = File('build/previews/inicio-b.png');
-        await file.parent.create(recursive: true);
-        await file.writeAsBytes(bytes!.buffer.asUint8List());
-      });
-      image.dispose();
+      await capturePreview(tester, boundary, 'inicio-b');
     }
   });
 }
