@@ -2,11 +2,7 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 
 enum EventStatus {
-  live(
-    id: 'live',
-    displayName: 'EN VIVO',
-    color: AppColors.liveRed,
-  ),
+  live(id: 'live', displayName: 'EN VIVO', color: AppColors.liveRed),
   scheduled(
     id: 'scheduled',
     displayName: 'PROGRAMADO',
@@ -17,10 +13,16 @@ enum EventStatus {
     displayName: 'FINALIZADO',
     color: AppColors.textMuted,
   ),
-  postponed(
-    id: 'postponed',
-    displayName: 'APLAZADO',
-    color: AppColors.warning,
+  postponed(id: 'postponed', displayName: 'APLAZADO', color: AppColors.warning),
+  canceled(
+    id: 'canceled',
+    displayName: 'CANCELADO',
+    color: AppColors.textMuted,
+  ),
+  archived(
+    id: 'archived',
+    displayName: 'ARCHIVADO',
+    color: AppColors.textMuted,
   );
 
   final String id;
@@ -46,8 +48,12 @@ enum EventStatus {
         return EventStatus.finished;
       case 'postponed':
       case 'aplazado':
-      case 'cancelled':
         return EventStatus.postponed;
+      case 'canceled':
+      case 'cancelled':
+        return EventStatus.canceled;
+      case 'archived':
+        return EventStatus.archived;
       case 'scheduled':
       case 'upcoming':
       default:

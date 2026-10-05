@@ -4,7 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/event_model.dart';
 
 class CacheService {
-  static const String _kEventsKey = 'kambate_cached_events_v1';
+  // v1 podía contener partidos de demostración guardados como datos reales.
+  static const String _kEventsKey = 'kambate_cached_events_v2';
   static const String _kLastSyncKey = 'kambate_last_sync_timestamp';
   static const String _kFavoritesKey = 'kambate_favorites_set';
   static const String _kOnboardingKey = 'kambate_onboarding_completed_v1';

@@ -72,8 +72,9 @@ class EventModel {
 
   String get participant1Name =>
       isCombat ? (fighter1?.name ?? 'Peleador 1') : (homeTeam?.name ?? 'Local');
-  String get participant2Name =>
-      isCombat ? (fighter2?.name ?? 'Peleador 2') : (awayTeam?.name ?? 'Visitante');
+  String get participant2Name => isCombat
+      ? (fighter2?.name ?? 'Peleador 2')
+      : (awayTeam?.name ?? 'Visitante');
 
   EventModel copyWith({
     String? id,
@@ -134,7 +135,9 @@ class EventModel {
   factory EventModel.fromJson(Map<String, dynamic> json) {
     String? rawSport;
     if (json['sport'] is Map<String, dynamic>) {
-      rawSport = json['sport']['slug']?.toString() ?? json['sport']['name']?.toString();
+      rawSport =
+          json['sport']['slug']?.toString() ??
+          json['sport']['name']?.toString();
     } else {
       rawSport = json['sport']?.toString() ?? json['discipline']?.toString();
     }
@@ -146,17 +149,30 @@ class EventModel {
     try {
       if (json['startDate'] != null) {
         String dateStr = json['startDate'].toString();
-        if (!dateStr.endsWith('Z')) {
+        if (!RegExp(
+          r'(Z|[+-]\d{2}:?\d{2})$',
+          caseSensitive: false,
+        ).hasMatch(dateStr)) {
           dateStr += 'Z'; // Force UTC parsing
         }
         parsedDate = DateTime.parse(dateStr).toLocal();
       } else if (json['start_time'] != null) {
         String dateStr = json['start_time'].toString();
-        if (!dateStr.endsWith('Z')) dateStr += 'Z';
+        if (!RegExp(
+          r'(Z|[+-]\d{2}:?\d{2})$',
+          caseSensitive: false,
+        ).hasMatch(dateStr)) {
+          dateStr += 'Z';
+        }
         parsedDate = DateTime.parse(dateStr).toLocal();
       } else if (json['startTime'] != null) {
         String dateStr = json['startTime'].toString();
-        if (!dateStr.endsWith('Z')) dateStr += 'Z';
+        if (!RegExp(
+          r'(Z|[+-]\d{2}:?\d{2})$',
+          caseSensitive: false,
+        ).hasMatch(dateStr)) {
+          dateStr += 'Z';
+        }
         parsedDate = DateTime.parse(dateStr).toLocal();
       } else {
         parsedDate = DateTime.now();
@@ -168,10 +184,14 @@ class EventModel {
     LeagueModel? leagueModel;
     String leagueName = 'Competición';
     if (json['league_model'] is Map<String, dynamic>) {
-      leagueModel = LeagueModel.fromJson(json['league_model'] as Map<String, dynamic>);
+      leagueModel = LeagueModel.fromJson(
+        json['league_model'] as Map<String, dynamic>,
+      );
       leagueName = leagueModel.name;
     } else if (json['league'] is Map<String, dynamic>) {
-      leagueModel = LeagueModel.fromJson(json['league'] as Map<String, dynamic>);
+      leagueModel = LeagueModel.fromJson(
+        json['league'] as Map<String, dynamic>,
+      );
       leagueName = leagueModel.name;
     } else if (json['league'] != null) {
       leagueName = json['league'].toString();
@@ -181,9 +201,13 @@ class EventModel {
 
     SeasonModel? seasonModel;
     if (json['season_model'] is Map<String, dynamic>) {
-      seasonModel = SeasonModel.fromJson(json['season_model'] as Map<String, dynamic>);
+      seasonModel = SeasonModel.fromJson(
+        json['season_model'] as Map<String, dynamic>,
+      );
     } else if (json['season'] is Map<String, dynamic>) {
-      seasonModel = SeasonModel.fromJson(json['season'] as Map<String, dynamic>);
+      seasonModel = SeasonModel.fromJson(
+        json['season'] as Map<String, dynamic>,
+      );
     }
 
     List<ParticipantModel> participants = [];
@@ -224,7 +248,9 @@ class EventModel {
     FighterModel? fighter1;
     FighterModel? fighter2;
     if (json['fighter1'] != null) {
-      fighter1 = FighterModel.fromJson(json['fighter1'] as Map<String, dynamic>);
+      fighter1 = FighterModel.fromJson(
+        json['fighter1'] as Map<String, dynamic>,
+      );
     } else if (participants.isNotEmpty && sport == SportType.ufc) {
       fighter1 = FighterModel(
         id: participants[0].id,
@@ -236,7 +262,9 @@ class EventModel {
     }
 
     if (json['fighter2'] != null) {
-      fighter2 = FighterModel.fromJson(json['fighter2'] as Map<String, dynamic>);
+      fighter2 = FighterModel.fromJson(
+        json['fighter2'] as Map<String, dynamic>,
+      );
     } else if (participants.length > 1 && sport == SportType.ufc) {
       fighter2 = FighterModel(
         id: participants[1].id,
@@ -249,53 +277,83 @@ class EventModel {
 
     FootballStatsModel? footballStats;
     if (json['footballStats'] is Map<String, dynamic>) {
-      footballStats = FootballStatsModel.fromJson(json['footballStats'] as Map<String, dynamic>);
+      footballStats = FootballStatsModel.fromJson(
+        json['footballStats'] as Map<String, dynamic>,
+      );
     } else if (json['football_stats'] is Map<String, dynamic>) {
-      footballStats = FootballStatsModel.fromJson(json['football_stats'] as Map<String, dynamic>);
+      footballStats = FootballStatsModel.fromJson(
+        json['football_stats'] as Map<String, dynamic>,
+      );
     }
 
     NbaStatsModel? nbaStats;
     if (json['nbaStats'] is Map<String, dynamic>) {
-      nbaStats = NbaStatsModel.fromJson(json['nbaStats'] as Map<String, dynamic>);
+      nbaStats = NbaStatsModel.fromJson(
+        json['nbaStats'] as Map<String, dynamic>,
+      );
     } else if (json['nba_stats'] is Map<String, dynamic>) {
-      nbaStats = NbaStatsModel.fromJson(json['nba_stats'] as Map<String, dynamic>);
+      nbaStats = NbaStatsModel.fromJson(
+        json['nba_stats'] as Map<String, dynamic>,
+      );
     }
 
     UfcStatsModel? ufcStats;
     if (json['ufcStats'] is Map<String, dynamic>) {
-      ufcStats = UfcStatsModel.fromJson(json['ufcStats'] as Map<String, dynamic>);
+      ufcStats = UfcStatsModel.fromJson(
+        json['ufcStats'] as Map<String, dynamic>,
+      );
     } else if (json['ufc_stats'] is Map<String, dynamic>) {
-      ufcStats = UfcStatsModel.fromJson(json['ufc_stats'] as Map<String, dynamic>);
+      ufcStats = UfcStatsModel.fromJson(
+        json['ufc_stats'] as Map<String, dynamic>,
+      );
     }
 
     EsportsStatsModel? esportsStats;
     if (json['esportsStats'] is Map<String, dynamic>) {
-      esportsStats = EsportsStatsModel.fromJson(json['esportsStats'] as Map<String, dynamic>);
+      esportsStats = EsportsStatsModel.fromJson(
+        json['esportsStats'] as Map<String, dynamic>,
+      );
     } else if (json['esports_stats'] is Map<String, dynamic>) {
-      esportsStats = EsportsStatsModel.fromJson(json['esports_stats'] as Map<String, dynamic>);
+      esportsStats = EsportsStatsModel.fromJson(
+        json['esports_stats'] as Map<String, dynamic>,
+      );
     }
 
     int? homeScore = json['home_score'] is int
         ? json['home_score'] as int
         : int.tryParse(json['home_score']?.toString() ?? '');
-    homeScore ??= footballStats?.homeGoals ?? nbaStats?.homePoints ?? esportsStats?.homeScore;
+    final scoreParts = RegExp(
+      r'^\s*(\d+)\s*[-–:]\s*(\d+)\s*$',
+    ).firstMatch(json['score']?.toString() ?? '');
+    homeScore ??= scoreParts != null ? int.parse(scoreParts.group(1)!) : null;
+    homeScore ??=
+        footballStats?.homeGoals ??
+        nbaStats?.homePoints ??
+        esportsStats?.homeScore;
 
     int? awayScore = json['away_score'] is int
         ? json['away_score'] as int
         : int.tryParse(json['away_score']?.toString() ?? '');
-    awayScore ??= footballStats?.awayGoals ?? nbaStats?.awayPoints ?? esportsStats?.awayScore;
+    awayScore ??= scoreParts != null ? int.parse(scoreParts.group(2)!) : null;
+    awayScore ??=
+        footballStats?.awayGoals ??
+        nbaStats?.awayPoints ??
+        esportsStats?.awayScore;
 
     return EventModel(
       id: json['id']?.toString() ?? '',
-      externalId: json['external_id']?.toString() ?? json['externalId']?.toString(),
+      externalId:
+          json['external_id']?.toString() ?? json['externalId']?.toString(),
       sport: sport,
       league: leagueName,
       leagueModel: leagueModel,
       seasonModel: seasonModel,
       status: status,
       startTime: parsedDate,
-      currentPeriod: json['current_period']?.toString() ??
+      currentPeriod:
+          json['current_period']?.toString() ??
           json['currentPeriod']?.toString() ??
+          footballStats?.extraStats?['clock']?.toString() ??
           nbaStats?.quarter,
       venue: json['venue']?.toString(),
       score: json['score']?.toString(),
@@ -306,7 +364,8 @@ class EventModel {
       awayScore: awayScore,
       fighter1: fighter1,
       fighter2: fighter2,
-      fightResult: json['fight_result']?.toString() ??
+      fightResult:
+          json['fight_result']?.toString() ??
           json['fightResult']?.toString() ??
           ufcStats?.method,
       footballStats: footballStats,
@@ -329,8 +388,8 @@ class EventModel {
       'league_model': leagueModel?.toJson(),
       'season_model': seasonModel?.toJson(),
       'status': status.id,
-      'start_time': startTime.toIso8601String(),
-      'startDate': startTime.toIso8601String(),
+      'start_time': startTime.toUtc().toIso8601String(),
+      'startDate': startTime.toUtc().toIso8601String(),
       'current_period': currentPeriod,
       'venue': venue,
       'score': score,
