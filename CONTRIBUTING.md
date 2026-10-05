@@ -2,7 +2,9 @@
 
 ## Ramas y publicación
 
-- Trabajar directamente en `develop`, según la decisión del propietario.
+- Para cada tarea, crear una rama nueva a partir de `develop` y realizar allí los cambios y commits.
+- Ejecutar las verificaciones pertinentes antes de integrar la tarea. Si funcionan y no hay conflictos, hacer merge de la rama de trabajo a `develop`, sin pedir una nueva autorización.
+- Si fallan las verificaciones o aparecen conflictos, corregirlos y volver a validar antes de integrar.
 - Preparar commits locales pequeños y relacionados con un issue.
 - Antes de cada commit, revisar el diff y seleccionar archivos explícitamente; conservar aparte los cambios previos que no pertenezcan a la tarea.
 - Comunicar los hashes, el alcance y las verificaciones de los commits preparados.
