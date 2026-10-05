@@ -1,5 +1,6 @@
 import 'event_status.dart';
 import 'fighter_model.dart';
+import 'football_detail_model.dart';
 import 'league_model.dart';
 import 'participant_model.dart';
 import 'season_model.dart';
@@ -317,6 +318,32 @@ class EventModel {
       esportsStats = EsportsStatsModel.fromJson(
         json['esports_stats'] as Map<String, dynamic>,
       );
+    }
+
+    final footballDetail = FootballDetailModel.parse(
+      footballStats?.extraStats?['detail'],
+    );
+    if (sport == SportType.soccer && footballDetail != null) {
+      final home = participants
+          .where((p) => p.id == footballDetail.homeParticipantId)
+          .firstOrNull;
+      final away = participants
+          .where((p) => p.id == footballDetail.awayParticipantId)
+          .firstOrNull;
+      if (home != null && away != null) {
+        homeTeam = TeamModel(
+          id: home.id,
+          name: home.name,
+          shortName: home.shortName,
+          logoUrl: home.logoUrl,
+        );
+        awayTeam = TeamModel(
+          id: away.id,
+          name: away.name,
+          shortName: away.shortName,
+          logoUrl: away.logoUrl,
+        );
+      }
     }
 
     int? homeScore = json['home_score'] is int

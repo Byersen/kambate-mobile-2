@@ -1,216 +1,157 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../models/event_model.dart';
-import 'stat_comparison_bar.dart';
+import '../../../../models/event_status.dart';
+import '../../../../models/football_detail_model.dart';
 
-class FootballDetailView extends StatelessWidget {
+class FootballDetailView extends StatefulWidget {
   final EventModel event;
-
   const FootballDetailView({super.key, required this.event});
+  @override
+  State<FootballDetailView> createState() => _FootballDetailViewState();
+}
 
+class _FootballDetailViewState extends State<FootballDetailView> {
+  int _section = 0;
   @override
   Widget build(BuildContext context) {
-    final stats = event.footballStats;
-    final homeGoals = stats?.homeGoals ?? event.homeScore ?? 0;
-    final homeCards = stats?.homeCards ?? 1;
-    final awayCards = stats?.awayCards ?? 2;
-
+    final event = widget.event;
+    final parsed = FootballDetailModel.parse(
+      event.footballStats?.extraStats?['detail'],
+    );
+    final detail =
+        parsed?.homeParticipantId == event.homeTeam?.id &&
+            parsed?.awayParticipantId == event.awayTeam?.id
+        ? parsed
+        : null;
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildSectionTitle('LÍNEA DE TIEMPO DEL PARTIDO'),
-        Card(
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                _buildTimelineItem(
-                  minute: "34'",
-                  isHome: true,
-                  icon: Icons.sports_soccer,
-                  iconColor: AppColors.primary,
-                  title: '¡Gol de Real Madrid!',
-                  subtitle: 'Vinícius Jr (Asistencia de Bellingham)',
-                ),
-                const Divider(color: AppColors.cardBorderDark, height: 20),
-                _buildTimelineItem(
-                  minute: "45+2'",
-                  isHome: false,
-                  icon: Icons.sports_soccer,
-                  iconColor: AppColors.secondary,
-                  title: '¡Gol de Manchester City!',
-                  subtitle: 'Erling Haaland (Cabezazo)',
-                ),
-                const Divider(color: AppColors.cardBorderDark, height: 20),
-                _buildTimelineItem(
-                  minute: "58'",
-                  isHome: false,
-                  icon: Icons.square,
-                  iconColor: Colors.amber,
-                  title: 'Tarjeta Amarilla',
-                  subtitle: 'Rodri (Falta táctica)',
-                ),
-                if (homeGoals >= 2 || event.isLive) ...[
-                  const Divider(color: AppColors.cardBorderDark, height: 20),
-                  _buildTimelineItem(
-                    minute: "68'",
-                    isHome: true,
-                    icon: Icons.sports_soccer,
-                    iconColor: AppColors.primary,
-                    title: '¡Gol de Real Madrid!',
-                    subtitle: 'Rodrygo (Remate al ángulo)',
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final (index, label) in [
+                'Resumen',
+                'Estadísticas',
+                'Alineaciones',
+              ].indexed)
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(label),
+                    selected: _section == index,
+                    showCheckmark: false,
+                    selectedColor: AppColors.primary,
+                    side: BorderSide.none,
+                    backgroundColor: AppColors.surfaceMuted,
+                    labelStyle: TextStyle(
+                      color: _section == index
+                          ? AppColors.onPrimary
+                          : AppColors.textPrimary,
+                    ),
+                    onSelected: (_) => setState(() => _section = index),
                   ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: switch (_section) {
+              0 => _summary(event, detail),
+              1 => _statistics(event, detail),
+              _ => Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _lineup(event.participant1Name, detail?.homeLineup),
+                  const Divider(height: 32),
+                  _lineup(event.participant2Name, detail?.awayLineup),
                 ],
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        _buildSectionTitle('ESTADÍSTICAS DEL ENCUENTRO'),
-        Card(
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                StatComparisonBar(
-                  label: 'Posesión de Balón',
-                  homeValueText: '54%',
-                  awayValueText: '46%',
-                  homeRatio: 0.54,
-                  accentColor: AppColors.soccer,
-                ),
-                StatComparisonBar(
-                  label: 'Tiros Totales',
-                  homeValueText: '14',
-                  awayValueText: '10',
-                  homeRatio: 14 / 24,
-                  accentColor: AppColors.soccer,
-                ),
-                StatComparisonBar(
-                  label: 'Tiros a Puerta',
-                  homeValueText: '6',
-                  awayValueText: '4',
-                  homeRatio: 6 / 10,
-                  accentColor: AppColors.soccer,
-                ),
-                StatComparisonBar(
-                  label: 'Córners',
-                  homeValueText: '7',
-                  awayValueText: '3',
-                  homeRatio: 7 / 10,
-                  accentColor: AppColors.soccer,
-                ),
-                StatComparisonBar(
-                  label: 'Faltas Cometidas',
-                  homeValueText: '11',
-                  awayValueText: '13',
-                  homeRatio: 11 / 24,
-                  accentColor: AppColors.soccer,
-                ),
-                StatComparisonBar(
-                  label: 'Tarjetas Amarillas',
-                  homeValueText: '$homeCards',
-                  awayValueText: '$awayCards',
-                  homeRatio: (homeCards + awayCards > 0) ? homeCards / (homeCards + awayCards) : 0.5,
-                  accentColor: Colors.amber,
-                ),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        _buildSectionTitle('ALINEACIONES Y TÁCTICA'),
-        Card(
-          margin: const EdgeInsets.symmetric(vertical: 6),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildTacticalBadge(event.homeTeam?.name ?? 'Local', '4-3-3', AppColors.soccer),
-                Container(
-                  width: 1,
-                  height: 48,
-                  color: AppColors.cardBorderDark,
-                ),
-                _buildTacticalBadge(event.awayTeam?.name ?? 'Visitante', '4-2-3-1', AppColors.secondary),
-              ],
-            ),
+              ),
+            },
           ),
         ),
       ],
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        color: AppColors.textMuted,
-        fontSize: 11,
-        fontWeight: FontWeight.bold,
-        letterSpacing: 0.8,
-      ),
+  Widget _summary(EventModel event, FootballDetailModel? detail) {
+    final incidents = detail?.timeline;
+    if (incidents == null || incidents.isEmpty) {
+      return _empty(
+        Icons.sports_soccer_outlined,
+        'Cronología del partido',
+        event.status == EventStatus.scheduled
+            ? 'El partido aún no comienza. La cronología aparecerá cuando esté disponible.'
+            : incidents == null
+            ? 'La cronología no está disponible para este encuentro.'
+            : 'No hay incidencias registradas en los datos recibidos.',
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _title('Cronología del partido'),
+        for (final incident in incidents) ...[
+          const SizedBox(height: 18),
+          _incident(event, incident),
+        ],
+      ],
     );
   }
 
-  Widget _buildTimelineItem({
-    required String minute,
-    required bool isHome,
-    required IconData icon,
-    required Color iconColor,
-    required String title,
-    required String subtitle,
-  }) {
+  Widget _incident(EventModel event, FootballIncident item) {
+    final (label, icon, color) = switch (item.kind) {
+      'goal' => ('Gol', Icons.sports_soccer, AppColors.primary),
+      'yellowCard' => (
+        'Tarjeta amarilla',
+        Icons.square_rounded,
+        AppColors.warning,
+      ),
+      'redCard' => ('Tarjeta roja', Icons.square_rounded, AppColors.error),
+      _ => ('Cambio', Icons.swap_horiz_rounded, AppColors.textSecondary),
+    };
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 38,
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceDark,
-            borderRadius: BorderRadius.circular(6),
-          ),
-          alignment: Alignment.center,
+        SizedBox(
+          width: 54,
           child: Text(
-            minute,
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-            ),
+            item.minute ?? '—',
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
         ),
-        const SizedBox(width: 10),
-        Icon(icon, size: 16, color: iconColor),
-        const SizedBox(width: 10),
+        Icon(icon, size: 19, color: color),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
               Text(
-                title,
-                style: const TextStyle(
-                  color: AppColors.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                subtitle,
+                item.side == 'home'
+                    ? event.participant1Name
+                    : event.participant2Name,
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
                 ),
               ),
+              if (item.player != null)
+                Text(
+                  '${item.kind == 'substitution' ? 'Entra: ' : ''}${item.player}',
+                ),
+              if (item.secondaryPlayer != null)
+                Text(
+                  '${item.kind == 'substitution' ? 'Sale' : 'Asistencia'}: ${item.secondaryPlayer}',
+                  style: const TextStyle(
+                    color: AppColors.textSecondary,
+                    fontSize: 12,
+                  ),
+                ),
             ],
           ),
         ),
@@ -218,35 +159,173 @@ class FootballDetailView extends StatelessWidget {
     );
   }
 
-  Widget _buildTacticalBadge(String teamName, String formation, Color color) {
+  Widget _statistics(EventModel event, FootballDetailModel? detail) {
+    final stats = detail?.statistics ?? [];
+    if (stats.isEmpty) {
+      return _empty(
+        Icons.bar_chart_rounded,
+        'Estadísticas no disponibles',
+        event.status == EventStatus.scheduled
+            ? 'Las estadísticas se publicarán cuando comience el partido y haya cobertura.'
+            : 'No se han recibido estadísticas para este encuentro.',
+      );
+    }
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(
-          teamName,
-          style: const TextStyle(
-            color: AppColors.textPrimary,
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: color.withValues(alpha: 0.4)),
-          ),
-          child: Text(
-            formation,
-            style: TextStyle(
-              color: color,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+        _title('Comparativa de equipos'),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                event.participant1Name,
+                style: const TextStyle(color: AppColors.primary),
+              ),
             ),
-          ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(event.participant2Name, textAlign: TextAlign.end),
+            ),
+          ],
         ),
+        const SizedBox(height: 8),
+        const Text(
+          '— Dato no disponible',
+          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+        ),
+        for (final stat in stats) ...[
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  stat.display(stat.home),
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+              Expanded(
+                flex: 2,
+                child: Text(stat.label, textAlign: TextAlign.center),
+              ),
+              Expanded(
+                child: Text(
+                  stat.display(stat.away),
+                  textAlign: TextAlign.end,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (stat.home != null &&
+              stat.away != null &&
+              stat.home! + stat.away! > 0)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                minHeight: 6,
+                value: stat.home! / (stat.home! + stat.away!),
+                color: AppColors.primary,
+                backgroundColor: AppColors.textMuted,
+              ),
+            )
+          else
+            const Divider(height: 6, thickness: 2),
+        ],
       ],
     );
   }
+
+  Widget _lineup(String team, FootballLineup? lineup) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      _title(team),
+      const SizedBox(height: 8),
+      if (lineup?.formation != null)
+        Text(
+          'Formación ${lineup!.formation}',
+          style: const TextStyle(color: AppColors.primary),
+        ),
+      if (lineup == null)
+        const Text(
+          'Alineación no disponible',
+          style: TextStyle(color: AppColors.textSecondary),
+        )
+      else ...[
+        _players('Titulares', lineup.starters),
+        _players('Suplentes', lineup.substitutes),
+      ],
+    ],
+  );
+
+  Widget _players(String title, List<FootballPlayer>? players) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      const SizedBox(height: 14),
+      Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      if (players == null || players.isEmpty)
+        const Text(
+          'Información no disponible',
+          style: TextStyle(color: AppColors.textSecondary),
+        )
+      else
+        for (final player in players)
+          Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 40,
+                  child: Text(
+                    player.number ?? '—',
+                    style: const TextStyle(color: AppColors.primary),
+                  ),
+                ),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(player.name),
+                      if (player.position != null)
+                        Text(
+                          player.position!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+    ],
+  );
+
+  Widget _title(String text) => Text(
+    text,
+    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+  );
+  Widget _empty(IconData icon, String title, String message) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 20),
+    child: Column(
+      children: [
+        Icon(icon, size: 32, color: AppColors.textMuted),
+        const SizedBox(height: 12),
+        Text(
+          title,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: AppColors.textSecondary),
+        ),
+      ],
+    ),
+  );
 }

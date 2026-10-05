@@ -6,6 +6,7 @@ import '../../../../models/sport_type.dart';
 import '../../../feed/providers/feed_provider.dart';
 import '../widgets/esports_detail_view.dart';
 import '../widgets/football_detail_view.dart';
+import '../widgets/football_match_header.dart';
 import '../widgets/match_header_hero.dart';
 import '../widgets/nba_detail_view.dart';
 import '../widgets/ufc_detail_view.dart';
@@ -19,21 +20,26 @@ class MatchDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final feedAsync = ref.watch(feedNotifierProvider);
     final currentEvent = feedAsync.maybeWhen(
-      data: (events) => events.firstWhere(
-        (e) => e.id == event.id,
-        orElse: () => event,
-      ),
+      data: (events) =>
+          events.firstWhere((e) => e.id == event.id, orElse: () => event),
       orElse: () => event,
     );
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(currentEvent.league),
+        title: Text(
+          currentEvent.sport == SportType.soccer
+              ? 'Detalle del partido'
+              : currentEvent.league,
+        ),
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         children: [
-          MatchHeaderHero(event: currentEvent),
+          if (currentEvent.sport == SportType.soccer)
+            FootballMatchHeader(event: currentEvent)
+          else
+            MatchHeaderHero(event: currentEvent),
 
           const SizedBox(height: 18),
 
@@ -41,7 +47,8 @@ class MatchDetailScreen extends ConsumerWidget {
 
           const SizedBox(height: 18),
 
-          _buildMatchInfoCard(currentEvent),
+          if (currentEvent.sport != SportType.soccer)
+            _buildMatchInfoCard(currentEvent),
 
           const SizedBox(height: 24),
         ],
@@ -120,7 +127,13 @@ class MatchDetailScreen extends ConsumerWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 13,
+            ),
+          ),
           Flexible(
             child: Text(
               value,
