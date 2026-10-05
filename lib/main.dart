@@ -13,11 +13,7 @@ Future<void> main() async {
   final String initialLocation = onboardingCompleted ? '/feed' : '/onboarding';
   final router = createRouter(initialLocation: initialLocation);
 
-  runApp(
-    ProviderScope(
-      child: KambateApp(router: router),
-    ),
-  );
+  runApp(ProviderScope(child: KambateApp(router: router)));
 }
 
 class KambateApp extends StatelessWidget {
@@ -30,7 +26,7 @@ class KambateApp extends StatelessWidget {
     return MaterialApp.router(
       title: 'Kambate',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
       routerConfig: router,
     );
   }

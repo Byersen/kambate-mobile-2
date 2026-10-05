@@ -118,7 +118,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         child: const Text(
                           'KAMBATE',
                           style: TextStyle(
-                            color: Colors.black,
+                            color: AppColors.onPrimary,
                             fontSize: 16,
                             fontWeight: FontWeight.w900,
                             letterSpacing: 1.5,
@@ -217,7 +217,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   onPressed: _isSaving ? null : _handleContinue,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.black,
+                    foregroundColor: AppColors.onPrimary,
                     elevation: 6,
                     shadowColor: AppColors.primary.withValues(alpha: 0.5),
                     shape: RoundedRectangleBorder(
@@ -230,7 +230,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                           height: 22,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.5,
-                            color: Colors.black,
+                            color: AppColors.onPrimary,
                           ),
                         )
                       : Row(
@@ -382,7 +382,7 @@ class _SportSelectionCard extends StatelessWidget {
                   ? const Icon(
                       Icons.check,
                       size: 16,
-                      color: Colors.black,
+                      color: AppColors.onPrimary,
                     )
                   : null,
             ),

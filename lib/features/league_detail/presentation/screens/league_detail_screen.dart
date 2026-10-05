@@ -193,7 +193,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen> with Si
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (_, __) => const Center(child: Text('Error al cargar partidos')),
+      error: (_, _) => const Center(child: Text('Error al cargar partidos')),
     );
   }
 

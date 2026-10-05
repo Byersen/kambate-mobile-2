@@ -7,7 +7,6 @@ import '../../../../models/event_model.dart';
 import '../../../../models/event_status.dart';
 import '../../../../models/sport_type.dart';
 import '../../../favorites/providers/favorites_provider.dart';
-import '../../../feed/presentation/widgets/match_card.dart';
 import '../../../feed/providers/feed_provider.dart';
 
 class CalendarScreen extends ConsumerStatefulWidget {
@@ -288,13 +287,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                     Icon(
                       _onlyFollowed ? Icons.star_rounded : Icons.star_outline_rounded,
                       size: 14,
-                      color: _onlyFollowed ? Colors.black : AppColors.warning,
+                      color: _onlyFollowed ? AppColors.onPrimary : AppColors.warning,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       'Siguiendo',
                       style: TextStyle(
-                        color: _onlyFollowed ? Colors.black : AppColors.textPrimary,
+                        color: _onlyFollowed ? AppColors.onPrimary : AppColors.textPrimary,
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                       ),
@@ -422,7 +421,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   '$day',
                   style: TextStyle(
                     color: isSelected
-                        ? Colors.black
+                        ? AppColors.onPrimary
                         : (isToday ? AppColors.primary : AppColors.textPrimary),
                     fontSize: 12,
                     fontWeight: isSelected || isToday ? FontWeight.bold : FontWeight.normal,
@@ -432,7 +431,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: uniqueSports.map((sport) {
-                      final dotColor = isSelected ? Colors.black : sport.color;
+                      final dotColor = isSelected ? AppColors.onPrimary : sport.color;
                       return Container(
                         margin: const EdgeInsets.symmetric(horizontal: 1, vertical: 1),
                         width: 3.5,

@@ -17,6 +17,12 @@ final selectedSportFilterProvider = StateProvider<SportType>((ref) {
   return SportType.all;
 });
 
+final selectedEventStatusProvider = StateProvider<EventStatus?>((ref) => null);
+final feedDataSourceProvider = StateProvider<FeedDataSource>(
+  (ref) => FeedDataSource.remote,
+);
+final feedLastUpdatedProvider = StateProvider<DateTime?>((ref) => null);
+
 /// League Tier filter (null = Todas las ligas, 1 = Tier 1 Élite, 2 = Tier 2 Secundarias)
 final selectedLeagueTierProvider = StateProvider<int?>((ref) {
   return null;
@@ -33,7 +39,8 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
   final Ref _ref;
   StreamSubscription<Map<String, dynamic>>? _realtimeSubscription;
 
-  FeedNotifier(this._repository, this._ref) : super(const AsyncValue.loading()) {
+  FeedNotifier(this._repository, this._ref)
+    : super(const AsyncValue.loading()) {
     loadEvents(forceRefresh: true);
     _listenToRealtimeUpdates();
   }
@@ -45,12 +52,21 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
       if (updatedId == null) return;
 
       state.whenData((events) {
-        final index = events.indexWhere((e) => e.id == updatedId || e.externalId == updatedId);
+        final index = events.indexWhere(
+          (e) => e.id == updatedId || e.externalId == updatedId,
+        );
         if (index != -1) {
           final oldEvent = events[index];
 
           int? newHomeScore;
           int? newAwayScore;
+          final scoreMatch = RegExp(
+            r'^\s*(\d+)\s*[-–:]\s*(\d+)\s*$',
+          ).firstMatch(record['score']?.toString() ?? '');
+          if (scoreMatch != null) {
+            newHomeScore = int.parse(scoreMatch.group(1)!);
+            newAwayScore = int.parse(scoreMatch.group(2)!);
+          }
           if (record['home_score'] != null) {
             newHomeScore = int.tryParse(record['home_score'].toString());
           }
@@ -67,7 +83,8 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
             homeScore: newHomeScore ?? oldEvent.homeScore,
             awayScore: newAwayScore ?? oldEvent.awayScore,
             score: record['score']?.toString() ?? oldEvent.score,
-            currentPeriod: record['current_period']?.toString() ??
+            currentPeriod:
+                record['current_period']?.toString() ??
                 record['currentPeriod']?.toString() ??
                 oldEvent.currentPeriod,
             status: newStatus ?? oldEvent.status,
@@ -78,7 +95,9 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
           state = AsyncValue.data(updatedList);
 
           CacheService.saveEvents(updatedList);
-          debugPrint('FeedNotifier: Realtime updated event $updatedId in state');
+          debugPrint(
+            'FeedNotifier: Realtime updated event $updatedId in state',
+          );
         }
       });
     });
@@ -89,15 +108,9 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
       state = const AsyncValue.loading();
     }
     try {
-      final selectedSport = _ref.read(selectedSportFilterProvider);
-      final selectedTier = _ref.read(selectedLeagueTierProvider);
       final favoriteIds = await CacheService.getFavoriteIds();
 
-      final rawEvents = await _repository.getEvents(
-        sport: selectedSport,
-        leagueTier: selectedTier,
-        forceRefresh: forceRefresh,
-      );
+      final rawEvents = await _repository.getEvents(forceRefresh: forceRefresh);
 
       final events = rawEvents.map((e) {
         if (favoriteIds.contains(e.id)) {
@@ -106,9 +119,13 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
         return e;
       }).toList();
 
+      if (!mounted) return;
+      _ref.read(feedDataSourceProvider.notifier).state = _repository.source;
+      _ref.read(feedLastUpdatedProvider.notifier).state =
+          _repository.lastUpdated;
       state = AsyncValue.data(events);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      if (mounted) state = AsyncValue.error(e, st);
     }
   }
 
@@ -140,19 +157,11 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
 
 final feedNotifierProvider =
     StateNotifierProvider<FeedNotifier, AsyncValue<List<EventModel>>>((ref) {
-  final repository = ref.watch(feedRepositoryProvider);
-  final notifier = FeedNotifier(repository, ref);
+      final repository = ref.watch(feedRepositoryProvider);
+      final notifier = FeedNotifier(repository, ref);
 
-  ref.listen<SportType>(selectedSportFilterProvider, (_, _) {
-    notifier.loadEvents();
-  });
-
-  ref.listen<int?>(selectedLeagueTierProvider, (_, _) {
-    notifier.loadEvents();
-  });
-
-  return notifier;
-});
+      return notifier;
+    });
 
 final favoriteEventsProvider = Provider<List<EventModel>>((ref) {
   final feedState = ref.watch(feedNotifierProvider);

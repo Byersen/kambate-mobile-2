@@ -1,77 +1,81 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
 class AppTheme {
-  static ThemeData get darkTheme {
-    return ThemeData(
+  static ThemeData get lightTheme {
+    final base = ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
-      scaffoldBackgroundColor: AppColors.backgroundDark,
-      colorScheme: const ColorScheme.dark(
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: AppColors.background,
+      colorScheme: const ColorScheme.light(
         primary: AppColors.primary,
         secondary: AppColors.secondary,
-        surface: AppColors.surfaceDark,
+        surface: AppColors.surface,
         error: AppColors.error,
-        onPrimary: Colors.black,
-        onSecondary: Colors.black,
+        onPrimary: AppColors.onPrimary,
+        onSecondary: AppColors.onPrimary,
         onSurface: AppColors.textPrimary,
       ),
-      textTheme: GoogleFonts.interTextTheme(
-        ThemeData(brightness: Brightness.dark).textTheme,
-      ).copyWith(
-        displayLarge: GoogleFonts.outfit(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.bold,
-        ),
-        displayMedium: GoogleFonts.outfit(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.bold,
-        ),
-        titleLarge: GoogleFonts.outfit(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.w700,
-        ),
-        titleMedium: GoogleFonts.outfit(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.w600,
-        ),
-        bodyLarge: GoogleFonts.inter(
-          color: AppColors.textPrimary,
-          fontWeight: FontWeight.normal,
-        ),
-        bodyMedium: GoogleFonts.inter(
-          color: AppColors.textSecondary,
-          fontWeight: FontWeight.normal,
-        ),
+    );
+    return base.copyWith(
+      textTheme: GoogleFonts.interTextTheme(base.textTheme).apply(
+        bodyColor: AppColors.textPrimary,
+        displayColor: AppColors.textPrimary,
       ),
       appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.backgroundDark,
+        backgroundColor: AppColors.background,
+        foregroundColor: AppColors.textPrimary,
         elevation: 0,
-        centerTitle: true,
         scrolledUnderElevation: 0,
-        titleTextStyle: TextStyle(
-          color: AppColors.textPrimary,
-          fontSize: 20,
-          fontWeight: FontWeight.bold,
-        ),
-        iconTheme: IconThemeData(color: AppColors.textPrimary),
+        centerTitle: false,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
+      ),
+      dividerTheme: const DividerThemeData(
+        color: AppColors.border,
+        thickness: 1,
       ),
       cardTheme: CardThemeData(
-        color: AppColors.cardDark,
+        color: AppColors.surface,
         elevation: 0,
+        margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: AppColors.cardBorderDark, width: 1),
+          side: const BorderSide(color: AppColors.border),
         ),
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: AppColors.surfaceDark,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textMuted,
-        type: BottomNavigationBarType.fixed,
-        elevation: 8,
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: AppColors.surface,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: AppColors.primary.withValues(alpha: 0.1),
+        labelTextStyle: WidgetStateProperty.resolveWith(
+          (states) => TextStyle(
+            color: states.contains(WidgetState.selected)
+                ? AppColors.primary
+                : AppColors.textSecondary,
+            fontSize: 12,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w700
+                : FontWeight.w500,
+          ),
+        ),
+        iconTheme: WidgetStateProperty.resolveWith(
+          (states) => IconThemeData(
+            color: states.contains(WidgetState.selected)
+                ? AppColors.primary
+                : AppColors.textSecondary,
+          ),
+        ),
+      ),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: AppColors.surface,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AppColors.border),
+        ),
       ),
     );
   }

@@ -190,7 +190,7 @@ class _CompactDateCard extends StatelessWidget {
                       height: 1.1,
                       letterSpacing: 0.4,
                       color: isSelected
-                          ? Colors.black
+                          ? AppColors.onPrimary
                           : (isToday ? AppColors.primary : AppColors.textPrimary),
                     ),
                   ),
@@ -215,7 +215,7 @@ class _CompactDateCard extends StatelessWidget {
                 fontSize: 9.5,
                 fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                 height: 1.1,
-                color: isSelected ? Colors.black.withValues(alpha: 0.85) : AppColors.textMuted,
+                color: isSelected ? AppColors.onPrimary.withValues(alpha: 0.85) : AppColors.textMuted,
               ),
             ),
           ],

@@ -439,7 +439,6 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
 
         final sortedLeagues = leaguesMap.keys.toList()..sort();
         for (final league in sortedLeagues) {
-          final leagueTeams = leaguesMap[league]!..sort((a, b) => a.name.compareTo(b.name));
           countryContent.add(
                 _buildLeagueHeader(league, country, false, SportType.soccer),
           );
@@ -472,7 +471,6 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
 
       final sortedLeagues = leaguesMap.keys.toList()..sort();
       for (final league in sortedLeagues) {
-        final leagueTeams = leaguesMap[league]!..sort((a, b) => a.name.compareTo(b.name));
         
         if (sport == SportType.ufc) {
           sportContent.add(

@@ -14,13 +14,8 @@ class MainShell extends StatelessWidget {
       bottomNavigationBar: NavigationBar(
         selectedIndex: navigationShell.currentIndex,
         onDestinationSelected: (index) {
-          navigationShell.goBranch(
-            index,
-            initialLocation: index == navigationShell.currentIndex,
-          );
+          navigationShell.goBranch(index, initialLocation: false);
         },
-        backgroundColor: AppColors.surfaceDark,
-        indicatorColor: AppColors.primary.withValues(alpha: 0.2),
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.sports_soccer_outlined),
@@ -28,13 +23,16 @@ class MainShell extends StatelessWidget {
             label: 'Partidos',
           ),
           NavigationDestination(
-            icon: Icon(Icons.explore_outlined),
-            selectedIcon: Icon(Icons.explore_rounded, color: AppColors.secondary),
+            icon: Icon(Icons.search_rounded),
+            selectedIcon: Icon(Icons.search_rounded, color: AppColors.primary),
             label: 'Buscar',
           ),
           NavigationDestination(
             icon: Icon(Icons.calendar_month_outlined),
-            selectedIcon: Icon(Icons.calendar_month_rounded, color: AppColors.secondary),
+            selectedIcon: Icon(
+              Icons.calendar_month_rounded,
+              color: AppColors.secondary,
+            ),
             label: 'Calendario',
           ),
         ],

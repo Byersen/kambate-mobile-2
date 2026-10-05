@@ -53,7 +53,7 @@ class ProfileScreen extends StatelessWidget {
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.black,
+                      foregroundColor: AppColors.onPrimary,
                     ),
                     child: const Text('Ingresar'),
                   ),
