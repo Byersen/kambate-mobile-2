@@ -3,12 +3,13 @@
 ## Ramas y publicación
 
 - Para cada tarea, crear una rama nueva a partir de `develop` y realizar allí los cambios y commits.
-- Ejecutar las verificaciones pertinentes antes de integrar la tarea. Si funcionan y no hay conflictos, hacer merge de la rama de trabajo a `develop`, sin pedir una nueva autorización.
+- Hacer push de la rama de trabajo para publicar los commits revisados. Si la tarea sigue incompleta, conservarla en su rama sin integrarla.
+- Cuando el issue o la tarea de la rama esté terminado, ejecutar las verificaciones pertinentes. Si funcionan y no hay conflictos, hacer merge a `develop` y después push de `develop`.
 - Si fallan las verificaciones o aparecen conflictos, corregirlos y volver a validar antes de integrar.
 - Preparar commits locales pequeños y relacionados con un issue.
 - Antes de cada commit, revisar el diff y seleccionar archivos explícitamente; conservar aparte los cambios previos que no pertenezcan a la tarea.
 - Comunicar los hashes, el alcance y las verificaciones de los commits preparados.
-- No hacer push ni publicar código por herramientas alternativas sin autorización expresa del propietario.
+- El push de las ramas de trabajo y de `develop` está autorizado como parte de este flujo; no requiere una nueva autorización por tarea. Publicar en `main` sigue requiriendo autorización expresa del propietario.
 - El propietario decide cuándo integrar `develop` en `main`. No hacer ese merge por iniciativa propia.
 
 ## Issues y commits
