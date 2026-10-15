@@ -37,7 +37,7 @@ final selectedFeedDateProvider = StateProvider<DateTime>((ref) {
 class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
   final FeedRepository _repository;
   final Ref _ref;
-  StreamSubscription<Map<String, dynamic>>? _realtimeSubscription;
+  StreamSubscription<RealtimeEventUpdate>? _realtimeSubscription;
 
   FeedNotifier(this._repository, this._ref)
     : super(const AsyncValue.loading()) {
@@ -47,60 +47,80 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
 
   /// Listen to Supabase Realtime PostgreSQL updates
   void _listenToRealtimeUpdates() {
-    _realtimeSubscription = RealtimeService().onEventUpdate.listen((record) {
-      final updatedId = record['id']?.toString();
-      if (updatedId == null) return;
+    _realtimeSubscription = RealtimeService().onEventUpdate.listen(
+      applyRealtimeUpdate,
+    );
+  }
 
-      state.whenData((events) {
-        final index = events.indexWhere(
-          (e) => e.id == updatedId || e.externalId == updatedId,
-        );
-        if (index != -1) {
-          final oldEvent = events[index];
+  @visibleForTesting
+  Future<void> applyRealtimeUpdate(RealtimeEventUpdate update) async {
+    if (update.requiresRefresh) {
+      final refreshed = await _repository.getEventById(update.eventId);
+      if (!mounted || refreshed == null) return;
+      final events = state.asData?.value;
+      if (events == null) return;
+      final index = events.indexWhere((event) => event.id == update.eventId);
+      if (index == -1) return;
 
-          int? newHomeScore;
-          int? newAwayScore;
-          final scoreMatch = RegExp(
-            r'^\s*(\d+)\s*[-–:]\s*(\d+)\s*$',
-          ).firstMatch(record['score']?.toString() ?? '');
-          if (scoreMatch != null) {
-            newHomeScore = int.parse(scoreMatch.group(1)!);
-            newAwayScore = int.parse(scoreMatch.group(2)!);
-          }
-          if (record['home_score'] != null) {
-            newHomeScore = int.tryParse(record['home_score'].toString());
-          }
-          if (record['away_score'] != null) {
-            newAwayScore = int.tryParse(record['away_score'].toString());
-          }
+      final updatedList = List<EventModel>.from(events);
+      updatedList[index] = refreshed.copyWith(
+        isFavorite: events[index].isFavorite,
+      );
+      state = AsyncValue.data(updatedList);
+      await CacheService.saveEvents(updatedList);
+      debugPrint('FeedNotifier: refreshed FootballStats for ${update.eventId}');
+      return;
+    }
 
-          EventStatus? newStatus;
-          if (record['status'] != null) {
-            newStatus = EventStatus.fromString(record['status'].toString());
-          }
+    final events = state.asData?.value;
+    if (events == null) return;
+    final record = update.record;
+    final index = events.indexWhere(
+      (event) =>
+          event.id == update.eventId || event.externalId == update.eventId,
+    );
+    if (index == -1) return;
+    final oldEvent = events[index];
 
-          final updatedEvent = oldEvent.copyWith(
-            homeScore: newHomeScore ?? oldEvent.homeScore,
-            awayScore: newAwayScore ?? oldEvent.awayScore,
-            score: record['score']?.toString() ?? oldEvent.score,
-            currentPeriod:
-                record['current_period']?.toString() ??
-                record['currentPeriod']?.toString() ??
-                oldEvent.currentPeriod,
-            status: newStatus ?? oldEvent.status,
-          );
+    int? newHomeScore;
+    int? newAwayScore;
+    final scoreMatch = RegExp(
+      r'^\s*(\d+)\s*[-–:]\s*(\d+)\s*$',
+    ).firstMatch(record['score']?.toString() ?? '');
+    if (scoreMatch != null) {
+      newHomeScore = int.parse(scoreMatch.group(1)!);
+      newAwayScore = int.parse(scoreMatch.group(2)!);
+    }
+    if (record['home_score'] != null) {
+      newHomeScore = int.tryParse(record['home_score'].toString());
+    }
+    if (record['away_score'] != null) {
+      newAwayScore = int.tryParse(record['away_score'].toString());
+    }
 
-          final updatedList = List<EventModel>.from(events);
-          updatedList[index] = updatedEvent;
-          state = AsyncValue.data(updatedList);
+    EventStatus? newStatus;
+    if (record['status'] != null) {
+      newStatus = EventStatus.fromString(record['status'].toString());
+    }
 
-          CacheService.saveEvents(updatedList);
-          debugPrint(
-            'FeedNotifier: Realtime updated event $updatedId in state',
-          );
-        }
-      });
-    });
+    final updatedEvent = oldEvent.copyWith(
+      homeScore: newHomeScore ?? oldEvent.homeScore,
+      awayScore: newAwayScore ?? oldEvent.awayScore,
+      score: record['score']?.toString() ?? oldEvent.score,
+      currentPeriod:
+          record['current_period']?.toString() ??
+          record['currentPeriod']?.toString() ??
+          oldEvent.currentPeriod,
+      status: newStatus ?? oldEvent.status,
+    );
+
+    final updatedList = List<EventModel>.from(events);
+    updatedList[index] = updatedEvent;
+    state = AsyncValue.data(updatedList);
+    await CacheService.saveEvents(updatedList);
+    debugPrint(
+      'FeedNotifier: Realtime updated event ${update.eventId} in state',
+    );
   }
 
   Future<void> loadEvents({bool forceRefresh = false}) async {

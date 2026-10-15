@@ -3,11 +3,39 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_service.dart';
 
-enum RealtimeConnectionState {
-  connecting,
-  connected,
-  disconnected,
-  offline,
+enum RealtimeConnectionState { connecting, connected, disconnected, offline }
+
+class RealtimeEventUpdate {
+  const RealtimeEventUpdate({
+    required this.eventId,
+    required this.record,
+    required this.requiresRefresh,
+  });
+
+  final String eventId;
+  final Map<String, dynamic> record;
+  final bool requiresRefresh;
+
+  static RealtimeEventUpdate? event(Map<String, dynamic> record) {
+    final eventId = record['id']?.toString();
+    if (eventId == null || eventId.isEmpty) return null;
+    return RealtimeEventUpdate(
+      eventId: eventId,
+      record: record,
+      requiresRefresh: false,
+    );
+  }
+
+  static RealtimeEventUpdate? footballStats(Map<String, dynamic> record) {
+    final eventId =
+        record['eventId']?.toString() ?? record['event_id']?.toString();
+    if (eventId == null || eventId.isEmpty) return null;
+    return RealtimeEventUpdate(
+      eventId: eventId,
+      record: record,
+      requiresRefresh: true,
+    );
+  }
 }
 
 class RealtimeService {
@@ -17,14 +45,18 @@ class RealtimeService {
 
   RealtimeChannel? _eventChannel;
   Timer? _reconnectTimer;
-  final _eventUpdateController = StreamController<Map<String, dynamic>>.broadcast();
-  final _connectionStateController = StreamController<RealtimeConnectionState>.broadcast();
+  final _eventUpdateController =
+      StreamController<RealtimeEventUpdate>.broadcast();
+  final _connectionStateController =
+      StreamController<RealtimeConnectionState>.broadcast();
 
   RealtimeConnectionState _currentState = RealtimeConnectionState.connecting;
   RealtimeConnectionState get currentState => _currentState;
 
-  Stream<Map<String, dynamic>> get onEventUpdate => _eventUpdateController.stream;
-  Stream<RealtimeConnectionState> get onConnectionStateChanged => _connectionStateController.stream;
+  Stream<RealtimeEventUpdate> get onEventUpdate =>
+      _eventUpdateController.stream;
+  Stream<RealtimeConnectionState> get onConnectionStateChanged =>
+      _connectionStateController.stream;
 
   /// Start subscribing to the 'Event' table realtime updates
   void subscribeToEvents() {
@@ -49,8 +81,11 @@ class RealtimeService {
           callback: (payload) {
             final record = payload.newRecord;
             if (record.isNotEmpty) {
-              debugPrint('RealtimeService received Event update: ${record['id']}');
-              _eventUpdateController.add(record);
+              debugPrint(
+                'RealtimeService received Event update: ${record['id']}',
+              );
+              final update = RealtimeEventUpdate.event(record);
+              if (update != null) _eventUpdateController.add(update);
             }
           },
         )
@@ -61,17 +96,57 @@ class RealtimeService {
           callback: (payload) {
             final record = payload.newRecord;
             if (record.isNotEmpty) {
-              debugPrint('RealtimeService received event update: ${record['id']}');
-              _eventUpdateController.add(record);
+              debugPrint(
+                'RealtimeService received event update: ${record['id']}',
+              );
+              final update = RealtimeEventUpdate.event(record);
+              if (update != null) _eventUpdateController.add(update);
+            }
+          },
+        )
+        ..onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'FootballStats',
+          callback: (payload) {
+            final record = payload.newRecord.isNotEmpty
+                ? payload.newRecord
+                : payload.oldRecord;
+            final update = RealtimeEventUpdate.footballStats(record);
+            if (update != null) {
+              debugPrint(
+                'RealtimeService received FootballStats update: ${update.eventId}',
+              );
+              _eventUpdateController.add(update);
+            }
+          },
+        )
+        ..onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'football_stats',
+          callback: (payload) {
+            final record = payload.newRecord.isNotEmpty
+                ? payload.newRecord
+                : payload.oldRecord;
+            final update = RealtimeEventUpdate.footballStats(record);
+            if (update != null) {
+              debugPrint(
+                'RealtimeService received football_stats update: ${update.eventId}',
+              );
+              _eventUpdateController.add(update);
             }
           },
         )
         ..subscribe((status, [error]) {
           if (status == RealtimeSubscribeStatus.subscribed) {
-            debugPrint('RealtimeService: Connected to Supabase Realtime channel');
+            debugPrint(
+              'RealtimeService: Connected to Supabase Realtime channel',
+            );
             _reconnectTimer?.cancel();
             _setConnectionState(RealtimeConnectionState.connected);
-          } else if (status == RealtimeSubscribeStatus.closed || status == RealtimeSubscribeStatus.channelError) {
+          } else if (status == RealtimeSubscribeStatus.closed ||
+              status == RealtimeSubscribeStatus.channelError) {
             debugPrint('RealtimeService channel notice: $error');
             if (SupabaseService.isInitialized) {
               _setConnectionState(RealtimeConnectionState.connected);
