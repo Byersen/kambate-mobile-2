@@ -215,7 +215,7 @@ void main() {
         await mount(tester, sample(status: status, withDetail: false));
         expect(
           find.text(
-            status == 'SCHEDULED' || status == 'CANCELED' ? 'VS' : '2 : 1',
+            status == 'SCHEDULED' || status == 'CANCELED' ? 'VS' : '2 - 1',
           ),
           findsOneWidget,
         );
@@ -236,6 +236,9 @@ void main() {
     'Presenta cronología, ceros reales, datos parciales y alineaciones',
     (tester) async {
       final app = await mount(tester, sample());
+      expect(find.text('Momentos del partido'), findsOneWidget);
+      expect(find.text('Estadísticas clave'), findsOneWidget);
+      expect(find.text('Ver todas las estadísticas'), findsOneWidget);
       expect(find.text('Jugador de prueba'), findsOneWidget);
       expect(find.text('Tarjeta amarilla'), findsOneWidget);
       expect(find.text('Entra: Entra de prueba'), findsOneWidget);
@@ -276,7 +279,7 @@ void main() {
         .read(feedNotifierProvider.notifier)
         .loadEvents(forceRefresh: true);
     await tester.pumpAndSettle();
-    expect(find.text('3 : 1'), findsOneWidget);
+    expect(find.text('3 - 1'), findsOneWidget);
     expect(find.text('FINALIZADO'), findsOneWidget);
     expect(find.text('Comparativa de equipos'), findsOneWidget);
     expect(find.text('67′'), findsNothing);
@@ -346,12 +349,42 @@ void main() {
     await tester.tap(find.byType(ScoreboardRow));
     await tester.pumpAndSettle();
     expect(find.byType(MatchDetailScreen), findsOneWidget);
-    expect(find.text('2 : 1'), findsOneWidget);
+    expect(find.text('2 - 1'), findsOneWidget);
     await tester.pageBack();
     await tester.pumpAndSettle();
     expect(find.byType(MatchDetailScreen), findsNothing);
     expect(container.read(selectedSportFilterProvider), SportType.soccer);
     expect(container.read(selectedFeedDateProvider), selectedDate);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'AppBar muestra liga, disciplina FÚTBOL y estrella de favoritos funcional',
+    (tester) async {
+      final app = await mount(tester, sample());
+      expect(find.text('Competición de prueba'), findsOneWidget);
+      expect(find.text('FÚTBOL'), findsOneWidget);
+      final favButton = find.byType(IconButton);
+      expect(favButton, findsOneWidget);
+      await tester.tap(favButton);
+      await tester.pumpAndSettle();
+      expect(
+        app.container.read(feedNotifierProvider).requireValue.first.isFavorite,
+        isTrue,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('Ver todas las estadísticas en Resumen cambia a pestaña Estadísticas',
+      (tester) async {
+    await mount(tester, sample());
+    final link = find.text('Ver todas las estadísticas');
+    expect(link, findsOneWidget);
+    await tester.tap(link);
+    await tester.pumpAndSettle();
+    expect(find.text('Comparativa de equipos'), findsOneWidget);
+    expect(find.text('— Dato no disponible'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
