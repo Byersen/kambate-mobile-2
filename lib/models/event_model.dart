@@ -382,7 +382,8 @@ class EventModel {
           json['currentPeriod']?.toString() ??
           footballStats?.extraStats?['clock']?.toString() ??
           nbaStats?.quarter,
-      venue: json['venue']?.toString(),
+      venue: json['venue']?.toString() ??
+          footballStats?.extraStats?['venue']?.toString(),
       score: json['score']?.toString(),
       participants: participants,
       homeTeam: homeTeam,

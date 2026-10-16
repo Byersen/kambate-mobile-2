@@ -71,39 +71,96 @@ class MatchDetailScreen extends ConsumerWidget {
           const SizedBox(width: 4),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        children: [
-          if (currentEvent.sport == SportType.soccer)
-            FootballMatchHeader(event: currentEvent)
-          else
-            MatchHeaderHero(event: currentEvent),
-
-          const SizedBox(height: 18),
-
-          _buildSpecializedContent(currentEvent),
-
-          const SizedBox(height: 18),
-
-          if (currentEvent.sport != SportType.soccer)
-            _buildMatchInfoCard(currentEvent),
-
-          if (currentEvent.id == 'football' ||
-              currentEvent.id.startsWith('mock_')) ...[
-            const SizedBox(height: 8),
-            const Center(
-              child: Text(
-                'Datos de ejemplo',
-                style: TextStyle(
-                  color: AppColors.textMuted,
-                  fontSize: 11,
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await ref
+              .read(feedNotifierProvider.notifier)
+              .loadEvents(forceRefresh: true);
+        },
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          children: [
+            if (feedAsync.hasError) ...[
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceMuted,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.border),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.cloud_off_outlined,
+                      size: 18,
+                      color: AppColors.textSecondary,
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Text(
+                        'Mostrando datos locales de caché',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      style: TextButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      onPressed: () {
+                        ref
+                            .read(feedNotifierProvider.notifier)
+                            .loadEvents(forceRefresh: true);
+                      },
+                      child: const Text(
+                        'Reintentar',
+                        style: TextStyle(fontSize: 12),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
+            ],
 
-          const SizedBox(height: 24),
-        ],
+            if (currentEvent.sport == SportType.soccer)
+              FootballMatchHeader(event: currentEvent)
+            else
+              MatchHeaderHero(event: currentEvent),
+
+            const SizedBox(height: 18),
+
+            _buildSpecializedContent(currentEvent),
+
+            const SizedBox(height: 18),
+
+            if (currentEvent.sport != SportType.soccer)
+              _buildMatchInfoCard(currentEvent),
+
+            if (currentEvent.id == 'football' ||
+                currentEvent.id.startsWith('mock_')) ...[
+              const SizedBox(height: 8),
+              const Center(
+                child: Text(
+                  'Datos de ejemplo',
+                  style: TextStyle(
+                    color: AppColors.textMuted,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+
+            const SizedBox(height: 24),
+          ],
+        ),
       ),
     );
   }
