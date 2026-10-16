@@ -27,11 +27,49 @@ class MatchDetailScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          currentEvent.sport == SportType.soccer
-              ? 'Detalle del partido'
-              : currentEvent.league,
+        centerTitle: true,
+        title: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              currentEvent.league,
+              style: const TextStyle(
+                fontSize: 16.5,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Text(
+              currentEvent.sport.displayName.toUpperCase(),
+              style: const TextStyle(
+                fontSize: 10.5,
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.8,
+              ),
+            ),
+          ],
         ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              currentEvent.isFavorite
+                  ? Icons.star_rounded
+                  : Icons.star_outline_rounded,
+              color: currentEvent.isFavorite
+                  ? AppColors.primary
+                  : AppColors.textSecondary,
+            ),
+            tooltip: currentEvent.isFavorite
+                ? 'Quitar de favoritos'
+                : 'Añadir a favoritos',
+            onPressed: () {
+              ref
+                  .read(feedNotifierProvider.notifier)
+                  .toggleFavorite(currentEvent.id);
+            },
+          ),
+          const SizedBox(width: 4),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -49,6 +87,20 @@ class MatchDetailScreen extends ConsumerWidget {
 
           if (currentEvent.sport != SportType.soccer)
             _buildMatchInfoCard(currentEvent),
+
+          if (currentEvent.id == 'football' ||
+              currentEvent.id.startsWith('mock_')) ...[
+            const SizedBox(height: 8),
+            const Center(
+              child: Text(
+                'Datos de ejemplo',
+                style: TextStyle(
+                  color: AppColors.textMuted,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ],
 
           const SizedBox(height: 24),
         ],
