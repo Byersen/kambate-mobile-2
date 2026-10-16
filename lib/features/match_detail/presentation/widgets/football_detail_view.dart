@@ -141,15 +141,11 @@ class _FootballDetailViewState extends State<FootballDetailView> {
     FootballIncident item, {
     required bool isLast,
   }) {
-    final (label, icon, color) = switch (item.kind) {
-      'goal' => ('Gol', Icons.sports_soccer, AppColors.textPrimary),
-      'yellowCard' => (
-        'Tarjeta amarilla',
-        Icons.crop_portrait_rounded,
-        AppColors.warning,
-      ),
-      'redCard' => ('Tarjeta roja', Icons.crop_portrait_rounded, AppColors.error),
-      _ => ('Cambio', Icons.swap_horiz_rounded, AppColors.textSecondary),
+    final label = switch (item.kind) {
+      'goal' => 'Gol',
+      'yellowCard' => 'Tarjeta amarilla',
+      'redCard' => 'Tarjeta roja',
+      _ => 'Cambio',
     };
 
     final teamName =
@@ -180,7 +176,7 @@ class _FootballDetailViewState extends State<FootballDetailView> {
                   color: AppColors.surfaceMuted,
                 ),
                 alignment: Alignment.center,
-                child: Icon(icon, size: 17, color: color),
+                child: _incidentIcon(item.kind),
               ),
               if (!isLast)
                 Expanded(
@@ -194,7 +190,7 @@ class _FootballDetailViewState extends State<FootballDetailView> {
           const SizedBox(width: 14),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : 18),
+              padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -230,6 +226,10 @@ class _FootballDetailViewState extends State<FootballDetailView> {
                       ),
                     ),
                   ],
+                  if (!isLast) ...[
+                    const SizedBox(height: 12),
+                    const Divider(height: 1, color: AppColors.surfaceMuted),
+                  ],
                 ],
               ),
             ),
@@ -237,6 +237,41 @@ class _FootballDetailViewState extends State<FootballDetailView> {
         ],
       ),
     );
+  }
+
+  Widget _incidentIcon(String kind) {
+    switch (kind) {
+      case 'goal':
+        return const Icon(
+          Icons.sports_soccer,
+          size: 18,
+          color: AppColors.textPrimary,
+        );
+      case 'yellowCard':
+        return Container(
+          width: 12,
+          height: 16,
+          decoration: BoxDecoration(
+            color: const Color(0xFFF59E0B),
+            borderRadius: BorderRadius.circular(2),
+          ),
+        );
+      case 'redCard':
+        return Container(
+          width: 12,
+          height: 16,
+          decoration: BoxDecoration(
+            color: AppColors.error,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        );
+      default:
+        return const Icon(
+          Icons.swap_horiz_rounded,
+          size: 18,
+          color: AppColors.textSecondary,
+        );
+    }
   }
 
   List<FootballStatistic> _extractKeyStats(List<FootballStatistic> all) {

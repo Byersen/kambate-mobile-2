@@ -49,14 +49,19 @@ con consultas de solo lectura a ESPN; falta validar el flujo completo en el
 proyecto Supabase autorizado. Las capturas de pruebas son ilustrativas y se
 guardan en build/previews, fuera de Git.
 
-## Verificación local (2026-10-15)
+## Verificación local (2026-10-16 - Cierre mobile #3)
 
-- flutter analyze --no-pub lib test: sin issues.
-- flutter test --no-pub: 26 pruebas aprobadas, incluidas la traducción de
-  eventId/event_id y la recarga de FootballStats conservando favoritos.
-- Capturas revisadas de Inicio, resumen, estadísticas y alineaciones, cargando
-  Inter y MaterialIcons con CAPTURE_PREVIEW=true.
-- Comprobados: navegación de ida y vuelta, marcador actualizado desde el feed,
-  pestaña conservada, cuatro estados del encuentro, datos parciales, equipos
-  invertidos/no coincidentes y 320 px con texto al doble.
-- No validado aún: cobertura ni actualizaciones de detalles contra Supabase real.
+- flutter analyze lib test: sin issues.
+- flutter test: 28 pruebas aprobadas, cubriendo el contrato de detalle,
+  actualizaciones en tiempo real, persistencia de favoritos y navegación.
+- Diseño visual alineado al prototipo de referencia (exec-5fba49bd-7367-414a-b735-a709013f4f64.png):
+  - AppBar centrado con liga y disciplina FÚTBOL, con botón de favoritos interactivo.
+  - Header simétrico de 3 columnas con escudo y nombre local a la izquierda, badge
+    EN VIVO / reloj / periodo y marcador al centro, y visitante a la derecha.
+  - Pestaña Resumen con Momentos del partido (cronología con iconos dedicados de gol,
+    tarjetas y cambios) y Estadísticas clave con enlace funcional a la pestaña Estadísticas.
+  - Pestañas de Estadísticas y Alineaciones con presentación de datos reales y estados
+    claros de datos no disponibles según contrato.
+  - Soporte de RefreshIndicator y aviso informativo en caso de pérdida de conexión.
+  - Verificado en 320 px con escala de texto x2 sin desbordamientos de layout.
+
