@@ -1,3 +1,4 @@
+import 'basketball_detail_model.dart';
 import 'event_status.dart';
 import 'fighter_model.dart';
 import 'football_detail_model.dart';
@@ -346,6 +347,32 @@ class EventModel {
       }
     }
 
+    final basketballDetail = BasketballDetailModel.parse(
+      nbaStats?.extraStats?['detail'],
+    );
+    if (sport == SportType.nba && basketballDetail != null) {
+      final home = participants
+          .where((p) => p.id == basketballDetail.homeParticipantId)
+          .firstOrNull;
+      final away = participants
+          .where((p) => p.id == basketballDetail.awayParticipantId)
+          .firstOrNull;
+      if (home != null && away != null) {
+        homeTeam = TeamModel(
+          id: home.id,
+          name: home.name,
+          shortName: home.shortName,
+          logoUrl: home.logoUrl,
+        );
+        awayTeam = TeamModel(
+          id: away.id,
+          name: away.name,
+          shortName: away.shortName,
+          logoUrl: away.logoUrl,
+        );
+      }
+    }
+
     int? homeScore = json['home_score'] is int
         ? json['home_score'] as int
         : int.tryParse(json['home_score']?.toString() ?? '');
@@ -381,9 +408,12 @@ class EventModel {
           json['current_period']?.toString() ??
           json['currentPeriod']?.toString() ??
           footballStats?.extraStats?['clock']?.toString() ??
+          nbaStats?.extraStats?['clock']?.toString() ??
+          nbaStats?.extraStats?['quarter']?.toString() ??
           nbaStats?.quarter,
       venue: json['venue']?.toString() ??
-          footballStats?.extraStats?['venue']?.toString(),
+          footballStats?.extraStats?['venue']?.toString() ??
+          nbaStats?.extraStats?['venue']?.toString(),
       score: json['score']?.toString(),
       participants: participants,
       homeTeam: homeTeam,

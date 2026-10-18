@@ -4,6 +4,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../models/event_model.dart';
 import '../../../../models/sport_type.dart';
 import '../../../feed/providers/feed_provider.dart';
+import '../widgets/basketball_match_header.dart';
 import '../widgets/esports_detail_view.dart';
 import '../widgets/football_detail_view.dart';
 import '../widgets/football_match_header.dart';
@@ -39,7 +40,9 @@ class MatchDetailScreen extends ConsumerWidget {
               ),
             ),
             Text(
-              currentEvent.sport.displayName.toUpperCase(),
+              currentEvent.sport == SportType.nba
+                  ? 'BÁSQUETBOL'
+                  : currentEvent.sport.displayName.toUpperCase(),
               style: const TextStyle(
                 fontSize: 10.5,
                 color: AppColors.textSecondary,
@@ -132,6 +135,8 @@ class MatchDetailScreen extends ConsumerWidget {
 
             if (currentEvent.sport == SportType.soccer)
               FootballMatchHeader(event: currentEvent)
+            else if (currentEvent.sport == SportType.nba)
+              BasketballMatchHeader(event: currentEvent)
             else
               MatchHeaderHero(event: currentEvent),
 
@@ -141,10 +146,12 @@ class MatchDetailScreen extends ConsumerWidget {
 
             const SizedBox(height: 18),
 
-            if (currentEvent.sport != SportType.soccer)
+            if (currentEvent.sport != SportType.soccer &&
+                currentEvent.sport != SportType.nba)
               _buildMatchInfoCard(currentEvent),
 
             if (currentEvent.id == 'football' ||
+                currentEvent.id == 'basketball' ||
                 currentEvent.id.startsWith('mock_')) ...[
               const SizedBox(height: 8),
               const Center(
