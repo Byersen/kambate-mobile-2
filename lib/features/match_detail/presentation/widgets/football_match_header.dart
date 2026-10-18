@@ -129,7 +129,7 @@ class FootballMatchHeader extends StatelessWidget {
 
   Widget _buildStatusBadge(String? clock) {
     if (event.isLive) {
-      final clockPart = clock != null && clock.isNotEmpty ? ' • $clock' : '';
+      final clockPart = clock != null && clock.isNotEmpty ? ' · $clock' : '';
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3.5),
         decoration: BoxDecoration(
@@ -212,22 +212,40 @@ class FootballMatchHeader extends StatelessWidget {
   String? _resolvePeriod() {
     if (event.isLive) {
       final raw = event.footballStats?.extraStats?['statusDescription']?.toString() ??
-          event.footballStats?.extraStats?['statusDetail']?.toString();
+          event.footballStats?.extraStats?['statusDetail']?.toString() ??
+          event.footballStats?.extraStats?['period']?.toString() ??
+          (event.currentPeriod != null &&
+                  !event.currentPeriod!.contains("'") &&
+                  !event.currentPeriod!.contains('′')
+              ? event.currentPeriod
+              : null);
       if (raw != null && raw.isNotEmpty) {
-        final lower = raw.toLowerCase();
-        if (lower.contains('1st half') || lower.contains('first half')) {
+        final lower = raw.toLowerCase().trim();
+        if (lower.contains('1st half') ||
+            lower.contains('first half') ||
+            lower == '1t' ||
+            lower == '1') {
           return 'Primer tiempo';
         }
-        if (lower.contains('2nd half') || lower.contains('second half')) {
+        if (lower.contains('2nd half') ||
+            lower.contains('second half') ||
+            lower == '2t' ||
+            lower == '2') {
           return 'Segundo tiempo';
         }
-        if (lower.contains('halftime') || lower.contains('ht') || lower == 'entretiempo') {
+        if (lower.contains('halftime') ||
+            lower.contains('ht') ||
+            lower == 'entretiempo') {
           return 'Entretiempo';
         }
-        if (lower.contains('extra time') || lower.contains('prórroga')) {
+        if (lower.contains('extra time') ||
+            lower.contains('prórroga') ||
+            lower == 'et') {
           return 'Prórroga';
         }
-        if (lower.contains('penalties') || lower.contains('penales')) {
+        if (lower.contains('penalties') ||
+            lower.contains('penales') ||
+            lower == 'pk') {
           return 'Penales';
         }
         if (!raw.endsWith("'") && !raw.endsWith('′')) {

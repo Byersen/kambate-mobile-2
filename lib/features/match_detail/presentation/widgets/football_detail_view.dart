@@ -384,7 +384,7 @@ class _FootballDetailViewState extends State<FootballDetailView> {
           minHeight: 6,
           value: stat.home! / (stat.home! + stat.away!),
           color: AppColors.primary,
-          backgroundColor: AppColors.surfaceMuted,
+          backgroundColor: const Color(0xFFD8E2ED),
         ),
       );
     }
