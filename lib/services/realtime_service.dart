@@ -47,6 +47,17 @@ class RealtimeEventUpdate {
       requiresRefresh: true,
     );
   }
+
+  static RealtimeEventUpdate? esportsStats(Map<String, dynamic> record) {
+    final eventId =
+        record['eventId']?.toString() ?? record['event_id']?.toString();
+    if (eventId == null || eventId.isEmpty) return null;
+    return RealtimeEventUpdate(
+      eventId: eventId,
+      record: record,
+      requiresRefresh: true,
+    );
+  }
 }
 
 class RealtimeService {
@@ -178,6 +189,40 @@ class RealtimeService {
             if (update != null) {
               debugPrint(
                 'RealtimeService received nba_stats update: ${update.eventId}',
+              );
+              _eventUpdateController.add(update);
+            }
+          },
+        )
+        ..onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'EsportsStats',
+          callback: (payload) {
+            final record = payload.newRecord.isNotEmpty
+                ? payload.newRecord
+                : payload.oldRecord;
+            final update = RealtimeEventUpdate.esportsStats(record);
+            if (update != null) {
+              debugPrint(
+                'RealtimeService received EsportsStats update: ${update.eventId}',
+              );
+              _eventUpdateController.add(update);
+            }
+          },
+        )
+        ..onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'esports_stats',
+          callback: (payload) {
+            final record = payload.newRecord.isNotEmpty
+                ? payload.newRecord
+                : payload.oldRecord;
+            final update = RealtimeEventUpdate.esportsStats(record);
+            if (update != null) {
+              debugPrint(
+                'RealtimeService received esports_stats update: ${update.eventId}',
               );
               _eventUpdateController.add(update);
             }
