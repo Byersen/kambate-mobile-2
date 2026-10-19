@@ -278,7 +278,8 @@ class MatchCard extends StatelessWidget {
   }
 
   Widget _buildEsportsBody(BuildContext context) {
-    final format = event.esportsStats?.format ?? 'Bo3';
+    final format = event.esportsStats?.format?.trim();
+    final formatLabel = format != null && format.isNotEmpty ? 'SERIE $format' : 'SERIE';
 
     return Column(
       children: [
@@ -293,7 +294,7 @@ class MatchCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'SERIE $format',
+                formatLabel,
                 style: TextStyle(
                   color: event.sport.color,
                   fontSize: 9.5,

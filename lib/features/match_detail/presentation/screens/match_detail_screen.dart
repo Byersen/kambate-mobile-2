@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../models/event_model.dart';
+import '../../../../models/lol_detail_model.dart';
 import '../../../../models/sport_type.dart';
 import '../../../feed/providers/feed_provider.dart';
 import '../widgets/basketball_match_header.dart';
 import '../widgets/esports_detail_view.dart';
 import '../widgets/football_detail_view.dart';
 import '../widgets/football_match_header.dart';
+import '../widgets/lol_detail_view.dart';
+import '../widgets/lol_match_header.dart';
 import '../widgets/match_header_hero.dart';
 import '../widgets/nba_detail_view.dart';
 import '../widgets/ufc_detail_view.dart';
@@ -33,7 +36,13 @@ class MatchDetailScreen extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              currentEvent.league,
+              currentEvent.sport == SportType.lol &&
+                      LolDetailModel.parse(
+                            currentEvent.esportsStats?.extraStats?['detail'],
+                          )?.formatDisplayName !=
+                          null
+                  ? '${currentEvent.league} · ${LolDetailModel.parse(currentEvent.esportsStats?.extraStats?['detail'])!.formatDisplayName}'
+                  : currentEvent.league,
               style: const TextStyle(
                 fontSize: 16.5,
                 fontWeight: FontWeight.w700,
@@ -137,6 +146,8 @@ class MatchDetailScreen extends ConsumerWidget {
               FootballMatchHeader(event: currentEvent)
             else if (currentEvent.sport == SportType.nba)
               BasketballMatchHeader(event: currentEvent)
+            else if (currentEvent.sport == SportType.lol)
+              LolMatchHeader(event: currentEvent)
             else
               MatchHeaderHero(event: currentEvent),
 
@@ -147,11 +158,14 @@ class MatchDetailScreen extends ConsumerWidget {
             const SizedBox(height: 18),
 
             if (currentEvent.sport != SportType.soccer &&
-                currentEvent.sport != SportType.nba)
+                currentEvent.sport != SportType.nba &&
+                currentEvent.sport != SportType.lol)
               _buildMatchInfoCard(currentEvent),
 
             if (currentEvent.id == 'football' ||
                 currentEvent.id == 'basketball' ||
+                currentEvent.id == 'lol' ||
+                currentEvent.id == 'lol-1' ||
                 currentEvent.id.startsWith('mock_')) ...[
               const SizedBox(height: 8),
               const Center(
@@ -181,6 +195,7 @@ class MatchDetailScreen extends ConsumerWidget {
       case SportType.ufc:
         return UfcDetailView(event: event);
       case SportType.lol:
+        return LolDetailView(event: event);
       case SportType.valorant:
         return EsportsDetailView(event: event);
       case SportType.all:

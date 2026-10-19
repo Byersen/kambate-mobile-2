@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../models/event_model.dart';
 import '../../../../models/sport_type.dart';
+import 'lol_detail_view.dart';
 import 'stat_comparison_bar.dart';
 
 class EsportsDetailView extends StatelessWidget {
@@ -11,14 +12,18 @@ class EsportsDetailView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isLol = event.sport == SportType.lol;
-    final format = event.esportsStats?.format ?? 'Bo5';
+    if (event.sport == SportType.lol) {
+      return LolDetailView(event: event);
+    }
+
+    final format = event.esportsStats?.format?.trim();
+    final formatSubtitle = format != null && format.isNotEmpty ? ' • SERIE $format' : '';
     final accentColor = event.sport.color;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('DESGLOSE DE MAPAS • SERIE $format'),
+        _buildSectionTitle('DESGLOSE DE MAPAS$formatSubtitle'),
         Card(
           margin: const EdgeInsets.symmetric(vertical: 6),
           child: Padding(
@@ -26,27 +31,27 @@ class EsportsDetailView extends StatelessWidget {
             child: Column(
               children: [
                 _buildMapItem(
-                  mapName: isLol ? 'Mapa 1 (Grieta del Invocador)' : 'Mapa 1 (Bind)',
-                  winner: event.homeTeam?.name ?? 'T1',
-                  score: isLol ? '18 - 8 (31:24 min)' : '13 - 9 (42:10 min)',
-                  mvp: isLol ? 'Faker (Orianna)' : 'zekken (Jett)',
+                  mapName: 'Mapa 1 (Bind)',
+                  winner: event.homeTeam?.name ?? 'Sentinels',
+                  score: '13 - 9 (42:10 min)',
+                  mvp: 'zekken (Jett)',
                   isFinished: true,
                   accentColor: accentColor,
                 ),
                 const Divider(color: AppColors.cardBorderDark, height: 20),
                 _buildMapItem(
-                  mapName: isLol ? 'Mapa 2 (Grieta del Invocador)' : 'Mapa 2 (Haven)',
-                  winner: event.awayTeam?.name ?? 'Gen.G',
-                  score: isLol ? '12 - 21 (36:50 min)' : '11 - 13 (48:30 min)',
-                  mvp: isLol ? 'Chovy (Yone)' : 'keznit (Raze)',
+                  mapName: 'Mapa 2 (Haven)',
+                  winner: event.awayTeam?.name ?? 'KRÜ',
+                  score: '11 - 13 (48:30 min)',
+                  mvp: 'keznit (Raze)',
                   isFinished: true,
                   accentColor: accentColor,
                 ),
                 const Divider(color: AppColors.cardBorderDark, height: 20),
                 _buildMapItem(
-                  mapName: isLol ? 'Mapa 3 (Grieta del Invocador)' : 'Mapa 3 (Ascent)',
+                  mapName: 'Mapa 3 (Ascent)',
                   winner: 'En Juego (1-1)',
-                  score: isLol ? '14 - 12 (24:15 min)' : '6 - 6 (Cambio de Lado)',
+                  score: '6 - 6 (Cambio de Lado)',
                   mvp: 'En curso...',
                   isFinished: false,
                   accentColor: accentColor,
@@ -58,79 +63,41 @@ class EsportsDetailView extends StatelessWidget {
 
         const SizedBox(height: 16),
 
-        _buildSectionTitle(isLol ? 'ESTADÍSTICAS GLOBALES DE PARTIDA' : 'ESTADÍSTICAS DE ENCUENTRO'),
+        _buildSectionTitle('ESTADÍSTICAS DE ENCUENTRO'),
         Card(
           margin: const EdgeInsets.symmetric(vertical: 6),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
               children: [
-                if (isLol) ...[
-                  StatComparisonBar(
-                    label: 'Oro Acumulado Total',
-                    homeValueText: '68.4k',
-                    awayValueText: '62.1k',
-                    homeRatio: 68.4 / (68.4 + 62.1),
-                    accentColor: accentColor,
-                  ),
-                  StatComparisonBar(
-                    label: 'Asesinatos (Kills)',
-                    homeValueText: '16',
-                    awayValueText: '11',
-                    homeRatio: 16 / 27,
-                    accentColor: accentColor,
-                  ),
-                  StatComparisonBar(
-                    label: 'Torres Destruidas',
-                    homeValueText: '7',
-                    awayValueText: '3',
-                    homeRatio: 7 / 10,
-                    accentColor: accentColor,
-                  ),
-                  StatComparisonBar(
-                    label: 'Dragones Elementales',
-                    homeValueText: '3',
-                    awayValueText: '1',
-                    homeRatio: 3 / 4,
-                    accentColor: accentColor,
-                  ),
-                  StatComparisonBar(
-                    label: 'Barones de Nashor',
-                    homeValueText: '1',
-                    awayValueText: '0',
-                    homeRatio: 1.0,
-                    accentColor: accentColor,
-                  ),
-                ] else ...[
-                  StatComparisonBar(
-                    label: 'Rondas Totales Ganadas',
-                    homeValueText: '13',
-                    awayValueText: '9',
-                    homeRatio: 13 / 22,
-                    accentColor: accentColor,
-                  ),
-                  StatComparisonBar(
-                    label: 'Primeras Sangres (First Blood)',
-                    homeValueText: '14',
-                    awayValueText: '8',
-                    homeRatio: 14 / 22,
-                    accentColor: accentColor,
-                  ),
-                  StatComparisonBar(
-                    label: 'Spikes Plantadas',
-                    homeValueText: '10',
-                    awayValueText: '7',
-                    homeRatio: 10 / 17,
-                    accentColor: accentColor,
-                  ),
-                  StatComparisonBar(
-                    label: 'Spikes Desactivadas',
-                    homeValueText: '3',
-                    awayValueText: '2',
-                    homeRatio: 3 / 5,
-                    accentColor: accentColor,
-                  ),
-                ],
+                StatComparisonBar(
+                  label: 'Rondas Totales Ganadas',
+                  homeValueText: '13',
+                  awayValueText: '9',
+                  homeRatio: 13 / 22,
+                  accentColor: accentColor,
+                ),
+                StatComparisonBar(
+                  label: 'Primeras Sangres (First Blood)',
+                  homeValueText: '14',
+                  awayValueText: '8',
+                  homeRatio: 14 / 22,
+                  accentColor: accentColor,
+                ),
+                StatComparisonBar(
+                  label: 'Spikes Plantadas',
+                  homeValueText: '10',
+                  awayValueText: '7',
+                  homeRatio: 10 / 17,
+                  accentColor: accentColor,
+                ),
+                StatComparisonBar(
+                  label: 'Spikes Desactivadas',
+                  homeValueText: '3',
+                  awayValueText: '2',
+                  homeRatio: 3 / 5,
+                  accentColor: accentColor,
+                ),
               ],
             ),
           ),
