@@ -210,7 +210,7 @@ class EsportsStatsModel {
     this.eventId,
     this.homeScore = 0,
     this.awayScore = 0,
-    this.format = 'Bo3',
+    this.format,
     this.map,
     this.extraStats,
   });
@@ -249,7 +249,7 @@ class EsportsStatsModel {
                                   '0',
                             ) ??
                             0)),
-      format: json['format']?.toString() ?? 'Bo3',
+      format: json['format']?.toString(),
       map:
           json['map']?.toString() ??
           json['current_map']?.toString() ??

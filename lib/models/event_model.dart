@@ -3,6 +3,7 @@ import 'event_status.dart';
 import 'fighter_model.dart';
 import 'football_detail_model.dart';
 import 'league_model.dart';
+import 'lol_detail_model.dart';
 import 'participant_model.dart';
 import 'season_model.dart';
 import 'sport_type.dart';
@@ -356,6 +357,32 @@ class EventModel {
           .firstOrNull;
       final away = participants
           .where((p) => p.id == basketballDetail.awayParticipantId)
+          .firstOrNull;
+      if (home != null && away != null) {
+        homeTeam = TeamModel(
+          id: home.id,
+          name: home.name,
+          shortName: home.shortName,
+          logoUrl: home.logoUrl,
+        );
+        awayTeam = TeamModel(
+          id: away.id,
+          name: away.name,
+          shortName: away.shortName,
+          logoUrl: away.logoUrl,
+        );
+      }
+    }
+
+    final lolDetail = LolDetailModel.parse(
+      esportsStats?.extraStats?['detail'],
+    );
+    if (sport == SportType.lol && lolDetail != null) {
+      final home = participants
+          .where((p) => p.id == lolDetail.homeParticipantId)
+          .firstOrNull;
+      final away = participants
+          .where((p) => p.id == lolDetail.awayParticipantId)
           .firstOrNull;
       if (home != null && away != null) {
         homeTeam = TeamModel(
