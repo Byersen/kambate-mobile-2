@@ -61,7 +61,9 @@ class MatchDetailScreen extends ConsumerWidget {
                     )!.formatDisplayName!
                   : currentEvent.sport == SportType.nba
                       ? 'BÁSQUETBOL'
-                      : currentEvent.sport.displayName.toUpperCase(),
+                      : currentEvent.sport == SportType.ufc
+                          ? 'MMA · UFC'
+                          : currentEvent.sport.displayName.toUpperCase(),
               style: const TextStyle(
                 fontSize: 10.5,
                 color: AppColors.textSecondary,
@@ -160,20 +162,24 @@ class MatchDetailScreen extends ConsumerWidget {
               LolMatchHeader(event: currentEvent)
             else if (currentEvent.sport == SportType.valorant)
               ValorantMatchHeader(event: currentEvent)
+            else if (currentEvent.sport == SportType.ufc)
+              const SizedBox.shrink()
             else
               MatchHeaderHero(event: currentEvent),
 
-            const SizedBox(height: 18),
+            if (currentEvent.sport != SportType.ufc)
+              const SizedBox(height: 18),
 
             _buildSpecializedContent(currentEvent),
-
-            const SizedBox(height: 18),
 
             if (currentEvent.sport != SportType.soccer &&
                 currentEvent.sport != SportType.nba &&
                 currentEvent.sport != SportType.lol &&
-                currentEvent.sport != SportType.valorant)
+                currentEvent.sport != SportType.valorant &&
+                currentEvent.sport != SportType.ufc) ...[
+              const SizedBox(height: 18),
               _buildMatchInfoCard(currentEvent),
+            ],
 
             if (currentEvent.id == 'football' ||
                 currentEvent.id == 'basketball' ||

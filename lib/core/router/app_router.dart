@@ -9,6 +9,8 @@ import '../../features/onboarding/presentation/screens/onboarding_screen.dart';
 import '../../models/event_model.dart';
 import '../../models/sport_type.dart';
 import '../../features/league_detail/presentation/screens/league_detail_screen.dart';
+import '../../features/match_detail/presentation/screens/ufc_fight_detail_screen.dart';
+import '../../models/ufc_card_model.dart';
 import 'main_shell.dart';
 
 final GlobalKey<NavigatorState> _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -85,6 +87,50 @@ GoRouter createRouter({String initialLocation = '/feed'}) {
                 );
               }
               return MatchDetailScreen(event: snapshot.data!);
+            },
+          );
+        },
+      ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/detail/:id/fight/:fightId',
+        builder: (context, state) {
+          final eventId = state.pathParameters['id'] ?? '';
+          final fightId = state.pathParameters['fightId'] ?? '';
+          final extraEvent = state.extra;
+
+          if (extraEvent is EventModel) {
+            final card = extraEvent.ufcCard ?? UfcCardModel.fromEvent(extraEvent);
+            final fight = card.fightById(fightId) ?? card.fights.firstOrNull;
+            if (fight != null) {
+              return UfcFightDetailScreen(card: card, fight: fight, event: extraEvent);
+            }
+          }
+
+          return FutureBuilder<EventModel?>(
+            future: FeedRepository().getEventById(eventId),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              }
+              final event = snapshot.data;
+              if (event == null) {
+                return Scaffold(
+                  appBar: AppBar(),
+                  body: const Center(child: Text('Evento no encontrado')),
+                );
+              }
+              final card = event.ufcCard ?? UfcCardModel.fromEvent(event);
+              final fight = card.fightById(fightId) ?? card.fights.firstOrNull;
+              if (fight == null) {
+                return Scaffold(
+                  appBar: AppBar(),
+                  body: const Center(child: Text('Combate no encontrado')),
+                );
+              }
+              return UfcFightDetailScreen(card: card, fight: fight, event: event);
             },
           );
         },
