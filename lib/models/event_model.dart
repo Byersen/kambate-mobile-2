@@ -9,6 +9,7 @@ import 'season_model.dart';
 import 'sport_type.dart';
 import 'stats_models.dart';
 import 'team_model.dart';
+import 'valorant_detail_model.dart';
 
 class EventModel {
   final String id;
@@ -78,6 +79,12 @@ class EventModel {
   String get participant2Name => isCombat
       ? (fighter2?.name ?? 'Peleador 2')
       : (awayTeam?.name ?? 'Visitante');
+
+  LolDetailModel? get lolDetail =>
+      LolDetailModel.parse(esportsStats?.extraStats?['detail']);
+
+  ValorantDetailModel? get valorantDetail =>
+      ValorantDetailModel.parse(esportsStats?.extraStats?['detail']);
 
   EventModel copyWith({
     String? id,
@@ -383,6 +390,32 @@ class EventModel {
           .firstOrNull;
       final away = participants
           .where((p) => p.id == lolDetail.awayParticipantId)
+          .firstOrNull;
+      if (home != null && away != null) {
+        homeTeam = TeamModel(
+          id: home.id,
+          name: home.name,
+          shortName: home.shortName,
+          logoUrl: home.logoUrl,
+        );
+        awayTeam = TeamModel(
+          id: away.id,
+          name: away.name,
+          shortName: away.shortName,
+          logoUrl: away.logoUrl,
+        );
+      }
+    }
+
+    final valorantDetail = ValorantDetailModel.parse(
+      esportsStats?.extraStats?['detail'],
+    );
+    if (sport == SportType.valorant && valorantDetail != null) {
+      final home = participants
+          .where((p) => p.id == valorantDetail.homeParticipantId)
+          .firstOrNull;
+      final away = participants
+          .where((p) => p.id == valorantDetail.awayParticipantId)
           .firstOrNull;
       if (home != null && away != null) {
         homeTeam = TeamModel(
