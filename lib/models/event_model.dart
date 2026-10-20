@@ -9,6 +9,7 @@ import 'season_model.dart';
 import 'sport_type.dart';
 import 'stats_models.dart';
 import 'team_model.dart';
+import 'ufc_card_model.dart';
 import 'valorant_detail_model.dart';
 
 class EventModel {
@@ -85,6 +86,12 @@ class EventModel {
 
   ValorantDetailModel? get valorantDetail =>
       ValorantDetailModel.parse(esportsStats?.extraStats?['detail']);
+
+  UfcCardModel? get ufcCard =>
+      UfcCardModel.parse(ufcStats?.extraStats?['card']) ??
+      UfcCardModel.parse(ufcStats?.extraStats?['detail']) ??
+      UfcCardModel.parse(metadata?['card']) ??
+      UfcCardModel.parse(metadata?['detail']);
 
   EventModel copyWith({
     String? id,
