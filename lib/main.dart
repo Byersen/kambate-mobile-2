@@ -7,9 +7,19 @@ import 'services/supabase_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await SupabaseService.initialize();
+  try {
+    await SupabaseService.initialize();
+  } catch (e) {
+    debugPrint('SupabaseService.initialize error: $e');
+  }
 
-  final bool onboardingCompleted = await CacheService.isOnboardingCompleted();
+  bool onboardingCompleted = false;
+  try {
+    onboardingCompleted = await CacheService.isOnboardingCompleted();
+  } catch (e) {
+    debugPrint('CacheService.isOnboardingCompleted error: $e');
+  }
+
   final String initialLocation = onboardingCompleted ? '/feed' : '/onboarding';
   final router = createRouter(initialLocation: initialLocation);
 
