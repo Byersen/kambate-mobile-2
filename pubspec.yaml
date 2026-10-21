@@ -51,3 +51,4 @@ flutter:
     - assets/fonts/OFL-Inter.txt
     - assets/images/
     - .env
+    - .env.example

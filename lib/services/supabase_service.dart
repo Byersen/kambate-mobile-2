@@ -14,7 +14,13 @@ class SupabaseService {
 
   static Future<void> initialize() async {
     try {
-      await dotenv.load(fileName: '.env');
+      try {
+        await dotenv.load(fileName: '.env');
+      } catch (_) {
+        try {
+          await dotenv.load(fileName: '.env.example');
+        } catch (_) {}
+      }
       final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
       final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
 
