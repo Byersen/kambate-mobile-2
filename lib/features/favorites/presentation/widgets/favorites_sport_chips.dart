@@ -11,10 +11,10 @@ class FavoritesSportChips extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedSport = ref.watch(favoritesSportFilterProvider);
 
-    final sports = SportType.values.where((s) => s != SportType.all).toList();
+    final sports = SportType.values;
 
     return SizedBox(
-      height: 42,
+      height: 40,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -29,7 +29,7 @@ class FavoritesSportChips extends ConsumerWidget {
             isSelected: isSelected,
             onTap: () {
               final notifier = ref.read(favoritesSportFilterProvider.notifier);
-              if (notifier.state == sport) {
+              if (notifier.state == sport && sport != SportType.all) {
                 notifier.state = SportType.all;
               } else {
                 notifier.state = sport;
@@ -53,6 +53,28 @@ class _SportTagChip extends StatelessWidget {
     required this.onTap,
   });
 
+  String _getLabel() {
+    switch (sport) {
+      case SportType.all:
+        return 'Todos';
+      case SportType.soccer:
+        return 'Fútbol';
+      case SportType.nba:
+        return 'NBA';
+      case SportType.ufc:
+        return 'UFC';
+      case SportType.lol:
+        return 'LoL';
+      case SportType.valorant:
+        return 'Valorant';
+    }
+  }
+
+  IconData _getIcon() {
+    if (sport == SportType.all) return Icons.public;
+    return sport.icon;
+  }
+
   @override
   Widget build(BuildContext context) {
     final chipColor = sport.color;
@@ -65,39 +87,30 @@ class _SportTagChip extends StatelessWidget {
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           curve: Curves.easeInOut,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
           decoration: BoxDecoration(
             color: isSelected
-                ? chipColor.withValues(alpha: 0.2)
+                ? chipColor.withValues(alpha: 0.12)
                 : AppColors.surfaceDark,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: isSelected ? chipColor : AppColors.cardBorderDark,
               width: isSelected ? 1.5 : 1.0,
             ),
-            boxShadow: isSelected
-                ? [
-                    BoxShadow(
-                      color: chipColor.withValues(alpha: 0.25),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ]
-                : null,
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                sport.icon,
+                _getIcon(),
                 size: 15,
                 color: isSelected ? chipColor : AppColors.textSecondary,
               ),
               const SizedBox(width: 6),
               Text(
-                sport.displayName,
+                _getLabel(),
                 style: TextStyle(
-                  color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
+                  color: isSelected ? chipColor : AppColors.textSecondary,
                   fontSize: 12,
                   fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
                 ),
