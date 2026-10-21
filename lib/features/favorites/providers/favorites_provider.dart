@@ -11,6 +11,9 @@ final favoritesSearchQueryProvider = StateProvider<String>((ref) => '');
 /// Tag / Sport filter for favorites screen
 final favoritesSportFilterProvider = StateProvider<SportType>((ref) => SportType.all);
 
+/// Region filter for explore / search screen (Todos, Europa, Sudamérica, Norteamérica, Internacional)
+final favoritesRegionFilterProvider = StateProvider<String>((ref) => 'Todos');
+
 /// State notifier for followed teams / fighters / clubs IDs
 class FavoriteTeamsNotifier extends StateNotifier<Set<String>> {
   FavoriteTeamsNotifier() : super({}) {
