@@ -97,10 +97,15 @@ class FeedRepository {
     try {
       final client = SupabaseService.client;
       if (client != null) {
-        final response = await client
+        var response = await client
             .from('Event')
             .select(_eventSelect)
             .eq('id', id)
+            .maybeSingle();
+        response ??= await client
+            .from('Event')
+            .select(_eventSelect)
+            .eq('externalId', id)
             .maybeSingle();
         if (response != null) return EventModel.fromJson(response);
       }
@@ -109,7 +114,7 @@ class FeedRepository {
     }
     final cached = await CacheService.getCachedEvents();
     for (final event in cached ?? <EventModel>[]) {
-      if (event.id == id) return event;
+      if (event.id == id || event.externalId == id) return event;
     }
     return null;
   }

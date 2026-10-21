@@ -39,6 +39,8 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
   final FeedRepository _repository;
   final Ref _ref;
   StreamSubscription<RealtimeEventUpdate>? _realtimeSubscription;
+  DateTime? _lastRefreshTime;
+  bool _isLoading = false;
 
   FeedNotifier(this._repository, this._ref)
     : super(const AsyncValue.loading()) {
@@ -46,11 +48,32 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
     _listenToRealtimeUpdates();
   }
 
+  DateTime? get lastRefreshTime => _lastRefreshTime;
+  bool get isLoading => _isLoading;
+
   /// Listen to Supabase Realtime PostgreSQL updates
   void _listenToRealtimeUpdates() {
     _realtimeSubscription = RealtimeService().onEventUpdate.listen(
       applyRealtimeUpdate,
     );
+  }
+
+  /// Maneja el regreso a la app desde segundo plano.
+  /// Evita solicitudes duplicadas o en ráfaga con un enfriamiento de 15 segundos.
+  Future<void> onAppResumed() async {
+    if (_isLoading) return;
+    if (_lastRefreshTime != null &&
+        DateTime.now().difference(_lastRefreshTime!) <
+            const Duration(seconds: 15)) {
+      return;
+    }
+    await RealtimeService().reconnectIfNeeded();
+    await loadEvents(forceRefresh: true);
+  }
+
+  /// Pausa temporizadores pendientes cuando la app pasa a segundo plano o inactiva.
+  void onAppPaused() {
+    RealtimeService().pause();
   }
 
   @visibleForTesting
@@ -60,8 +83,16 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
       if (!mounted || refreshed == null) return;
       final events = state.asData?.value;
       if (events == null) return;
-      final index = events.indexWhere((event) => event.id == update.eventId);
-      if (index == -1) return;
+      final index = events.indexWhere(
+        (event) =>
+            event.id == update.eventId || event.externalId == update.eventId,
+      );
+      if (index == -1) {
+        final updatedList = List<EventModel>.from(events)..add(refreshed);
+        state = AsyncValue.data(updatedList);
+        await CacheService.saveEvents(updatedList);
+        return;
+      }
 
       final updatedList = List<EventModel>.from(events);
       updatedList[index] = refreshed.copyWith(
@@ -69,7 +100,7 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
       );
       state = AsyncValue.data(updatedList);
       await CacheService.saveEvents(updatedList);
-      debugPrint('FeedNotifier: refreshed FootballStats for ${update.eventId}');
+      debugPrint('FeedNotifier: refreshed stats for ${update.eventId}');
       return;
     }
 
@@ -80,8 +111,22 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
       (event) =>
           event.id == update.eventId || event.externalId == update.eventId,
     );
-    if (index == -1) return;
+    if (index == -1) {
+      final newEvent = await _repository.getEventById(update.eventId);
+      if (newEvent != null && mounted) {
+        final currentEvents = state.asData?.value ?? [];
+        final updatedList = List<EventModel>.from(currentEvents)..add(newEvent);
+        state = AsyncValue.data(updatedList);
+        await CacheService.saveEvents(updatedList);
+      }
+      return;
+    }
     final oldEvent = events[index];
+
+    EventStatus? newStatus;
+    if (record['status'] != null) {
+      newStatus = EventStatus.fromString(record['status'].toString());
+    }
 
     int? newHomeScore;
     int? newAwayScore;
@@ -99,20 +144,38 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
       newAwayScore = int.tryParse(record['away_score'].toString());
     }
 
-    EventStatus? newStatus;
-    if (record['status'] != null) {
-      newStatus = EventStatus.fromString(record['status'].toString());
+    DateTime? newStartTime;
+    final rawDate =
+        record['startDate'] ?? record['start_time'] ?? record['startTime'];
+    if (rawDate != null) {
+      try {
+        String dateStr = rawDate.toString();
+        if (!RegExp(
+          r'(Z|[+-]\d{2}:?\d{2})$',
+          caseSensitive: false,
+        ).hasMatch(dateStr)) {
+          dateStr += 'Z';
+        }
+        newStartTime = DateTime.parse(dateStr).toLocal();
+      } catch (_) {}
     }
 
+    final effectiveStatus = newStatus ?? oldEvent.status;
+    final isScheduled = effectiveStatus == EventStatus.scheduled;
+
     final updatedEvent = oldEvent.copyWith(
-      homeScore: newHomeScore ?? oldEvent.homeScore,
-      awayScore: newAwayScore ?? oldEvent.awayScore,
-      score: record['score']?.toString() ?? oldEvent.score,
+      homeScore: isScheduled ? null : (newHomeScore ?? oldEvent.homeScore),
+      awayScore: isScheduled ? null : (newAwayScore ?? oldEvent.awayScore),
+      score:
+          isScheduled
+              ? null
+              : (record['score']?.toString() ?? oldEvent.score),
+      startTime: newStartTime ?? oldEvent.startTime,
       currentPeriod:
           record['current_period']?.toString() ??
           record['currentPeriod']?.toString() ??
           oldEvent.currentPeriod,
-      status: newStatus ?? oldEvent.status,
+      status: effectiveStatus,
     );
 
     final updatedList = List<EventModel>.from(events);
@@ -124,7 +187,18 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
     );
   }
 
-  Future<void> loadEvents({bool forceRefresh = false}) async {
+  Future<void>? _currentLoadFuture;
+
+  Future<void> loadEvents({bool forceRefresh = false}) {
+    if (_isLoading && _currentLoadFuture != null) {
+      return _currentLoadFuture!;
+    }
+    _isLoading = true;
+    _currentLoadFuture = _performLoad(forceRefresh: forceRefresh);
+    return _currentLoadFuture!;
+  }
+
+  Future<void> _performLoad({bool forceRefresh = false}) async {
     if (!state.hasValue) {
       state = const AsyncValue.loading();
     }
@@ -133,14 +207,16 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
 
       final rawEvents = await _repository.getEvents(forceRefresh: forceRefresh);
 
-      final events = rawEvents.map((e) {
-        if (favoriteIds.contains(e.id)) {
-          return e.copyWith(isFavorite: true);
-        }
-        return e;
-      }).toList();
+      final events =
+          rawEvents.map((e) {
+            if (favoriteIds.contains(e.id)) {
+              return e.copyWith(isFavorite: true);
+            }
+            return e;
+          }).toList();
 
       if (!mounted) return;
+      _lastRefreshTime = DateTime.now();
       _ref.read(feedDataSourceProvider.notifier).state = _repository.source;
       _ref.read(feedLastUpdatedProvider.notifier).state =
           _repository.lastUpdated;
@@ -155,6 +231,9 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
         _ref.read(connectionStatusProvider.notifier).setOffline();
         state = AsyncValue.error(e, st);
       }
+    } finally {
+      _isLoading = false;
+      _currentLoadFuture = null;
     }
   }
 

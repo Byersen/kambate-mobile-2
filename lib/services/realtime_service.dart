@@ -320,6 +320,22 @@ class RealtimeService {
     }
   }
 
+  /// Cancel pending timers when the app is paused or inactive
+  void pause() {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+  }
+
+  /// Reconnect to realtime channels if disconnected, avoiding duplicate timers
+  Future<void> reconnectIfNeeded() async {
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    if (_currentState != RealtimeConnectionState.connected) {
+      unsubscribe();
+      subscribeToEvents();
+    }
+  }
+
   void _setConnectionState(RealtimeConnectionState state) {
     _currentState = state;
     _connectionStateController.add(state);
