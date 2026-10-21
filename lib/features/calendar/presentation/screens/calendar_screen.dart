@@ -83,7 +83,14 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Calendario Deportivo'),
+        title: const Text(
+          'Calendario',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.5,
+          ),
+        ),
         elevation: 0,
         actions: [
           TextButton.icon(

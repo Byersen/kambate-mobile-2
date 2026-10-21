@@ -49,6 +49,14 @@ GoRouter createRouter({String initialLocation = '/feed'}) {
                 path: '/favorites',
                 redirect: (context, state) => '/following',
               ),
+              GoRoute(
+                path: '/buscar',
+                redirect: (context, state) => '/following',
+              ),
+              GoRoute(
+                path: '/search',
+                redirect: (context, state) => '/following',
+              ),
             ],
           ),
           StatefulShellBranch(

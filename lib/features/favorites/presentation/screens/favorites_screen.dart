@@ -59,6 +59,14 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
+        title: const Text(
+          'Buscar',
+          style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            letterSpacing: -0.5,
+          ),
+        ),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppColors.primary,
@@ -596,9 +604,13 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
                 ),
                 alignment: Alignment.center,
                 clipBehavior: Clip.antiAlias,
-                child: (team.logoUrl != null || team.photoUrl != null)
+                child: ((team.logoUrl != null && team.logoUrl!.trim().isNotEmpty) ||
+                        (team.photoUrl != null && team.photoUrl!.trim().isNotEmpty))
                     ? Image.network(
-                        (team.logoUrl ?? team.photoUrl)!,
+                        ((team.logoUrl != null && team.logoUrl!.trim().isNotEmpty)
+                                ? team.logoUrl!
+                                : team.photoUrl!)
+                            .trim(),
                         width: 18,
                         height: 18,
                         fit: BoxFit.contain,
