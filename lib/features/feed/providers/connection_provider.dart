@@ -36,19 +36,9 @@ class ConnectionStatusNotifier extends StateNotifier<ConnectionStatus> {
         state = ConnectionStatus.liveConnected;
         break;
       case RealtimeConnectionState.connecting:
-        if (SupabaseService.isInitialized) {
-          state = ConnectionStatus.liveConnected;
-        } else {
-          state = ConnectionStatus.syncing;
-        }
+        state = ConnectionStatus.syncing;
         break;
       case RealtimeConnectionState.disconnected:
-        if (SupabaseService.isInitialized) {
-          state = ConnectionStatus.liveConnected;
-        } else {
-          state = ConnectionStatus.offlineCached;
-        }
-        break;
       case RealtimeConnectionState.offline:
         state = ConnectionStatus.offlineCached;
         break;
@@ -57,6 +47,10 @@ class ConnectionStatusNotifier extends StateNotifier<ConnectionStatus> {
 
   void setOffline() {
     state = ConnectionStatus.offlineCached;
+  }
+
+  void setSyncing() {
+    state = ConnectionStatus.syncing;
   }
 
   void setConnected() {

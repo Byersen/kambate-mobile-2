@@ -7,6 +7,7 @@ import '../../../models/sport_type.dart';
 import '../../../services/cache_service.dart';
 import '../../../services/realtime_service.dart';
 import '../data/feed_repository.dart';
+import 'connection_provider.dart';
 
 final feedRepositoryProvider = Provider<FeedRepository>((ref) {
   return FeedRepository();
@@ -143,9 +144,17 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
       _ref.read(feedDataSourceProvider.notifier).state = _repository.source;
       _ref.read(feedLastUpdatedProvider.notifier).state =
           _repository.lastUpdated;
+      if (_repository.source == FeedDataSource.cache) {
+        _ref.read(connectionStatusProvider.notifier).setOffline();
+      } else {
+        _ref.read(connectionStatusProvider.notifier).setConnected();
+      }
       state = AsyncValue.data(events);
     } catch (e, st) {
-      if (mounted) state = AsyncValue.error(e, st);
+      if (mounted) {
+        _ref.read(connectionStatusProvider.notifier).setOffline();
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 

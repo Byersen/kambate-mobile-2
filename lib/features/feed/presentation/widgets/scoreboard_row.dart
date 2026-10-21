@@ -42,7 +42,11 @@ class ScoreboardRow extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      event.league,
+                      event.league.toLowerCase().contains(
+                                event.sport.displayName.toLowerCase(),
+                              )
+                          ? event.league
+                          : '${event.sport.displayName} • ${event.league}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -139,6 +143,8 @@ class ScoreboardRow extends StatelessWidget {
         Expanded(
           child: Text(
             name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
           ),
         ),

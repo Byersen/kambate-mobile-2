@@ -8,6 +8,7 @@ import '../../../../models/event_status.dart';
 import '../../../../models/sport_type.dart';
 import '../../../favorites/providers/favorites_provider.dart';
 import '../../data/feed_repository.dart';
+import '../../providers/connection_provider.dart';
 import '../../providers/feed_provider.dart';
 import '../widgets/scoreboard_row.dart';
 import '../widgets/sport_filter_bar.dart';
@@ -91,9 +92,9 @@ class FeedScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
-            tooltip: 'Preferencias deportivas',
+            tooltip: 'Ajustes y preferencias',
             onPressed: () => context.push('/onboarding'),
-            icon: const Icon(Icons.tune_rounded),
+            icon: const Icon(Icons.settings_outlined),
           ),
           const SizedBox(width: 4),
         ],
@@ -118,20 +119,27 @@ class FeedScreen extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(height: 4),
-                    const Text(
-                      'Tu jornada deportiva',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      AppDateFormatter.formatDate(date),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
+                    Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: [
+                        const Text(
+                          'Tu jornada deportiva',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                        Text(
+                          AppDateFormatter.formatDate(date),
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: AppColors.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -189,7 +197,10 @@ class FeedScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            if (source == FeedDataSource.cache && !feed.isLoading)
+            if ((source == FeedDataSource.cache ||
+                    ref.watch(connectionStatusProvider) ==
+                        ConnectionStatus.offlineCached) &&
+                !feed.isLoading)
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -265,6 +276,10 @@ class FeedScreen extends ConsumerWidget {
                           .where((event) => event.status == group.state)
                           .length,
                       live: group.state == EventStatus.live,
+                      onSeeAll: () {
+                        ref.read(selectedEventStatusProvider.notifier).state =
+                            group.state;
+                      },
                     ),
                   ),
                   _eventList(
@@ -377,11 +392,13 @@ class _SectionHeader extends StatelessWidget {
     required this.icon,
     required this.count,
     this.live = false,
+    this.onSeeAll,
   });
   final String label;
   final IconData icon;
   final int count;
   final bool live;
+  final VoidCallback? onSeeAll;
 
   @override
   Widget build(BuildContext context) {
@@ -402,6 +419,33 @@ class _SectionHeader extends StatelessWidget {
               style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
             ),
           ),
+          if (onSeeAll != null)
+            InkWell(
+              onTap: onSeeAll,
+              borderRadius: BorderRadius.circular(6),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Ver todos',
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                    SizedBox(width: 2),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 16,
+                      color: AppColors.primary,
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

@@ -283,21 +283,15 @@ class RealtimeService {
           } else if (status == RealtimeSubscribeStatus.closed ||
               status == RealtimeSubscribeStatus.channelError) {
             debugPrint('RealtimeService channel notice: $error');
+            _setConnectionState(RealtimeConnectionState.disconnected);
             if (SupabaseService.isInitialized) {
-              _setConnectionState(RealtimeConnectionState.connected);
               _scheduleReconnect();
-            } else {
-              _setConnectionState(RealtimeConnectionState.offline);
             }
           }
         });
     } catch (e) {
       debugPrint('RealtimeService subscription exception: $e');
-      if (SupabaseService.isInitialized) {
-        _setConnectionState(RealtimeConnectionState.connected);
-      } else {
-        _setConnectionState(RealtimeConnectionState.offline);
-      }
+      _setConnectionState(RealtimeConnectionState.offline);
     }
   }
 
