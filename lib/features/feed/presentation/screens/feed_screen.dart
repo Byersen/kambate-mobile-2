@@ -171,6 +171,8 @@ class FeedScreen extends ConsumerWidget {
                       ('En vivo', EventStatus.live),
                       ('Próximos', EventStatus.scheduled),
                       ('Resultados', EventStatus.finished),
+                      ('Aplazados', EventStatus.postponed),
+                      ('Cancelados', EventStatus.canceled),
                     ])
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
