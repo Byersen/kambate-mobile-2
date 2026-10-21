@@ -472,7 +472,7 @@ class MatchCard extends StatelessWidget {
         ? name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join()
         : '?';
 
-    return Container(
+    final fallback = Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
@@ -493,5 +493,21 @@ class MatchCard extends StatelessWidget {
         ),
       ),
     );
+
+    if (imageUrl != null && imageUrl.trim().isNotEmpty) {
+      return SizedBox(
+        width: size,
+        height: size,
+        child: ClipOval(
+          child: Image.network(
+            imageUrl.trim(),
+            fit: BoxFit.cover,
+            errorBuilder: (_, error, stack) => fallback,
+          ),
+        ),
+      );
+    }
+
+    return fallback;
   }
 }

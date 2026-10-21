@@ -344,13 +344,13 @@ class UfcFightCardTile extends StatelessWidget {
 
   Widget _buildAvatar(UfcFighterModel fighter) {
     final photo = fighter.photoUrl;
+    final hasPhoto = photo != null && photo.trim().isNotEmpty;
     return CircleAvatar(
       radius: 20,
       backgroundColor: AppColors.surfaceMuted,
-      backgroundImage: photo != null && photo.isNotEmpty
-          ? NetworkImage(photo)
-          : null,
-      child: photo == null || photo.isEmpty
+      backgroundImage: hasPhoto ? NetworkImage(photo.trim()) : null,
+      onBackgroundImageError: hasPhoto ? (exception, stackTrace) {} : null,
+      child: !hasPhoto
           ? Text(
               _initials(fighter.name),
               style: const TextStyle(

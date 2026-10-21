@@ -89,7 +89,7 @@ class ScoreboardRow extends StatelessWidget {
               _participant(
                 event.participant1Name,
                 event.isCombat
-                    ? event.fighter1?.photoUrl
+                    ? (event.fighter1?.photoUrl ?? event.homeTeam?.logoUrl)
                     : event.homeTeam?.logoUrl,
                 showScore ? event.homeScore?.toString() ?? '—' : '—',
               ),
@@ -97,7 +97,7 @@ class ScoreboardRow extends StatelessWidget {
               _participant(
                 event.participant2Name,
                 event.isCombat
-                    ? event.fighter2?.photoUrl
+                    ? (event.fighter2?.photoUrl ?? event.awayTeam?.logoUrl)
                     : event.awayTeam?.logoUrl,
                 showScore ? event.awayScore?.toString() ?? '—' : '—',
               ),
@@ -131,10 +131,10 @@ class ScoreboardRow extends StatelessWidget {
         SizedBox(
           width: 28,
           height: 28,
-          child: logo == null || logo.isEmpty
+          child: logo == null || logo.trim().isEmpty
               ? fallback
               : Image.network(
-                  logo,
+                  logo.trim(),
                   fit: BoxFit.contain,
                   errorBuilder: (_, error, stack) => fallback,
                 ),

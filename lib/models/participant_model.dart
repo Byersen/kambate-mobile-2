@@ -30,7 +30,10 @@ class ParticipantModel {
       slug: json['slug']?.toString(),
       shortName: json['short_name']?.toString() ?? json['shortName']?.toString(),
       logoUrl: json['logo_url']?.toString() ?? json['logoUrl']?.toString(),
-      photoUrl: json['photo_url']?.toString() ?? json['photoUrl']?.toString(),
+      photoUrl: json['photo_url']?.toString() ??
+          json['photoUrl']?.toString() ??
+          json['logo_url']?.toString() ??
+          json['logoUrl']?.toString(),
       country: json['country']?.toString(),
       record: json['record']?.toString(),
       sportId: json['sport_id']?.toString() ?? json['sportId']?.toString(),

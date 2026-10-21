@@ -383,16 +383,16 @@ class _UfcFightDetailScreenState extends State<UfcFightDetailScreen> {
 
   Widget _buildAvatar(UfcFighterModel fighter, {bool isWinner = false}) {
     final photo = fighter.photoUrl;
+    final hasPhoto = photo != null && photo.trim().isNotEmpty;
     return Stack(
       alignment: Alignment.bottomRight,
       children: [
         CircleAvatar(
           radius: 32,
           backgroundColor: AppColors.surfaceMuted,
-          backgroundImage: photo != null && photo.isNotEmpty
-              ? NetworkImage(photo)
-              : null,
-          child: photo == null || photo.isEmpty
+          backgroundImage: hasPhoto ? NetworkImage(photo.trim()) : null,
+          onBackgroundImageError: hasPhoto ? (exception, stackTrace) {} : null,
+          child: !hasPhoto
               ? Text(
                   _initials(fighter.name),
                   style: const TextStyle(

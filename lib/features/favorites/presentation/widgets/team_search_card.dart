@@ -57,9 +57,13 @@ class TeamSearchCard extends StatelessWidget {
                   ),
                   alignment: Alignment.center,
                   clipBehavior: Clip.antiAlias,
-                  child: (team.logoUrl != null || team.photoUrl != null)
+                  child: ((team.logoUrl != null && team.logoUrl!.trim().isNotEmpty) ||
+                          (team.photoUrl != null && team.photoUrl!.trim().isNotEmpty))
                       ? Image.network(
-                          (team.logoUrl ?? team.photoUrl)!,
+                          ((team.logoUrl != null && team.logoUrl!.trim().isNotEmpty)
+                                  ? team.logoUrl!
+                                  : team.photoUrl!)
+                              .trim(),
                           width: 32,
                           height: 32,
                           fit: BoxFit.contain,

@@ -22,7 +22,10 @@ class FighterModel {
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? 'Peleador Desconocido',
       nickname: json['nickname']?.toString(),
-      photoUrl: json['photo_url']?.toString() ?? json['photoUrl']?.toString(),
+      photoUrl: json['photo_url']?.toString() ??
+          json['photoUrl']?.toString() ??
+          json['logo_url']?.toString() ??
+          json['logoUrl']?.toString(),
       record: json['record']?.toString(),
       weightClass: json['weight_class']?.toString() ?? json['weightClass']?.toString(),
       country: json['country']?.toString(),

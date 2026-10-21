@@ -272,7 +272,7 @@ class EventModel {
       fighter1 = FighterModel(
         id: participants[0].id,
         name: participants[0].name,
-        photoUrl: participants[0].photoUrl,
+        photoUrl: participants[0].photoUrl ?? participants[0].logoUrl,
         record: participants[0].record,
         country: participants[0].country,
       );
@@ -286,7 +286,7 @@ class EventModel {
       fighter2 = FighterModel(
         id: participants[1].id,
         name: participants[1].name,
-        photoUrl: participants[1].photoUrl,
+        photoUrl: participants[1].photoUrl ?? participants[1].logoUrl,
         record: participants[1].record,
         country: participants[1].country,
       );
