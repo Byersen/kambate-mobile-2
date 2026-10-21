@@ -76,10 +76,10 @@ class EventModel {
   bool get isCombat => sport == SportType.ufc;
 
   String get participant1Name =>
-      isCombat ? (fighter1?.name ?? 'Peleador 1') : (homeTeam?.name ?? 'Local');
+      isCombat ? (fighter1?.name ?? 'Peleador 1') : (homeTeam?.name ?? 'Por definir');
   String get participant2Name => isCombat
       ? (fighter2?.name ?? 'Peleador 2')
-      : (awayTeam?.name ?? 'Visitante');
+      : (awayTeam?.name ?? 'Por definir');
 
   LolDetailModel? get lolDetail =>
       LolDetailModel.parse(esportsStats?.extraStats?['detail']);
@@ -461,6 +461,13 @@ class EventModel {
         nbaStats?.awayPoints ??
         esportsStats?.awayScore;
 
+    String? score = json['score']?.toString();
+    if (status == EventStatus.scheduled) {
+      homeScore = null;
+      awayScore = null;
+      score = null;
+    }
+
     return EventModel(
       id: json['id']?.toString() ?? '',
       externalId:
@@ -481,7 +488,7 @@ class EventModel {
       venue: json['venue']?.toString() ??
           footballStats?.extraStats?['venue']?.toString() ??
           nbaStats?.extraStats?['venue']?.toString(),
-      score: json['score']?.toString(),
+      score: score,
       participants: participants,
       homeTeam: homeTeam,
       awayTeam: awayTeam,
@@ -518,6 +525,7 @@ class EventModel {
       'current_period': currentPeriod,
       'venue': venue,
       'score': score,
+      'participants': participants.map((p) => p.toJson()).toList(),
       'home_team': homeTeam?.toJson(),
       'away_team': awayTeam?.toJson(),
       'home_score': homeScore,
