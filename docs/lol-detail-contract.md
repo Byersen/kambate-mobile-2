@@ -80,8 +80,30 @@ Solo se renderizan métricas que vengan presentes en el JSON (`hasGold`, `hasTow
    - La suscripción a tiempo real en `RealtimeService` abarca las tablas `EsportsStats` y `esports_stats`.
    - Los datos de ejemplo o mocks (`lol-1`, `mock_`) muestran un pie explícito de `Datos de ejemplo`.
 
-## Verificación local (Cierre mobile #5)
+## Auditoría de Proveedores, Límites y Cobertura (Tarea 19)
+
+### 1. Estado de Proveedores e Ingesta
+- **Servicio Backend**: \`EsportsScraperService\` consulta actualmente \`vlr.gg\` para obtener datos de Valorant.
+- **Fuentes de LoL investigadas**:
+  * *LoL Esports API* (\`esports-api.lolesports.com\`): responde HTTP 403 Forbidden sin token/llave rotativa interna de AWS API Gateway.
+  * *Cargo / Leaguepedia* (\`lol.fandom.com\`): responde con error de rate-limiting inmediato (\`ratelimited\`) en peticiones automatizadas sin credenciales registradas de bot.
+  * *Riot Games Developer API* (\`developer.riotgames.com\`): llaves efímeras de 24h limitadas a partidas de cliente individual (PUUID), sin soporte de torneos pro estructurados.
+  * *Proveedores B2B* (PandaScore, Strafe, Abios): exigen contrato comercial de pago.
+- **Conclusión de cobertura**: No existe un proveedor viable, gratuito y desatendido sin cuotas para League of Legends en este momento.
+
+### 2. Criterios de Integridad y Ausencia de Datos
+1. **Cero Datos Ficticios**:
+   - Nunca se inventan eventos, mapas ni estadísticas simuladas.
+   - En ausencia de proveedor o detalle, la interfaz móvil presenta un estado explícito y transparente sin invenciones.
+2. **Soporte de Información Parcial**:
+   - Si la serie cuenta con datos generales en \`EsportsStats\` (\`format\`, \`map\`, \`score\`), se renderiza una tarjeta con la información disponible.
+   - Si la serie no cuenta con desglose por partida, se muestra un estado informativo claro: *"Sin proveedor de estadísticas en tiempo real ni desglose de partidas activo para esta competición"*.
+   - Los marcadores ausentes o no disputados en partidos en vivo/finalizados nunca se fuerzan a \`0 — 0\`; se muestran como \`— — —\` o el valor textual recibido.
+3. **Resolución de Disciplina**:
+   - En eventos persistidos bajo la categoría global \`esports\` de Supabase, la app resuelve \`SportType.lol\` cuando la competición (\`League.slug\`, \`League.name\`, ej. \`lol\`, \`lck\`, \`lec\`, \`lpl\`, \`lcs\`, \`worlds\`) o el identificador externo corresponden a League of Legends.
+
+## Verificación local (Cierre mobile #5 y Tarea 19)
 
 - `flutter analyze lib test`: sin advertencias ni errores.
-- `flutter test`: suite completa con pruebas para el contrato de LoL, parseo de partidas, separación de marcador serie vs kills, navegación entre pestañas, persistencia de selección, formato ausente, adaptación responsiva (320px y accesibilidad x2) y eventos en tiempo real.
+- `flutter test`: suite completa con pruebas para el contrato de LoL, parseo de partidas, separación de marcador serie vs kills, navegación entre pestañas, persistencia de selección, formato ausente, adaptación responsiva (320px y accesibilidad x2), eventos en tiempo real, manejo de información parcial y ausencia de detalle.
 - Fidelidad visual verificada frente al prototipo de referencia `01a10501-9872-7090-87ed-5ca135e89f6e/exec-64d7bfa5-fc06-4d75-95e3-ec305fe769a3.png`.
