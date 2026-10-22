@@ -187,8 +187,8 @@ class UfcStatsModel {
 class EsportsStatsModel {
   final String id;
   final String? eventId;
-  final int homeScore;
-  final int awayScore;
+  final int? homeScore;
+  final int? awayScore;
   final String? format;
   final String? map;
   final Map<String, dynamic>? extraStats;
@@ -196,47 +196,40 @@ class EsportsStatsModel {
   const EsportsStatsModel({
     required this.id,
     this.eventId,
-    this.homeScore = 0,
-    this.awayScore = 0,
+    this.homeScore,
+    this.awayScore,
     this.format,
     this.map,
     this.extraStats,
   });
 
-  int get homeMapScore => homeScore;
-  int get awayMapScore => awayScore;
+  int? get homeMapScore => homeScore;
+  int? get awayMapScore => awayScore;
   String? get currentMap => map;
 
   factory EsportsStatsModel.fromJson(Map<String, dynamic> json) {
+    int? parseScore(Object? s1, Object? s2, Object? s3) {
+      if (s1 is int) return s1;
+      if (s2 is int) return s2;
+      if (s3 is int) return s3;
+      final raw = s1 ?? s2 ?? s3;
+      if (raw == null) return null;
+      return int.tryParse(raw.toString().trim());
+    }
+
     return EsportsStatsModel(
       id: json['id']?.toString() ?? '',
       eventId: json['event_id']?.toString() ?? json['eventId']?.toString(),
-      homeScore: json['home_score'] is int
-          ? json['home_score'] as int
-          : (json['homeScore'] is int
-                ? json['homeScore'] as int
-                : (json['home_map_score'] is int
-                      ? json['home_map_score'] as int
-                      : int.tryParse(
-                              json['home_score']?.toString() ??
-                                  json['homeScore']?.toString() ??
-                                  json['home_map_score']?.toString() ??
-                                  '0',
-                            ) ??
-                            0)),
-      awayScore: json['away_score'] is int
-          ? json['away_score'] as int
-          : (json['awayScore'] is int
-                ? json['awayScore'] as int
-                : (json['away_map_score'] is int
-                      ? json['away_map_score'] as int
-                      : int.tryParse(
-                              json['away_score']?.toString() ??
-                                  json['awayScore']?.toString() ??
-                                  json['away_map_score']?.toString() ??
-                                  '0',
-                            ) ??
-                            0)),
+      homeScore: parseScore(
+        json['home_score'],
+        json['homeScore'],
+        json['home_map_score'],
+      ),
+      awayScore: parseScore(
+        json['away_score'],
+        json['awayScore'],
+        json['away_map_score'],
+      ),
       format: json['format']?.toString(),
       map:
           json['map']?.toString() ??
