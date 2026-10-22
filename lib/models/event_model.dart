@@ -158,7 +158,43 @@ class EventModel {
     } else {
       rawSport = json['sport']?.toString() ?? json['discipline']?.toString();
     }
-    final sport = SportType.fromString(rawSport);
+    var sport = SportType.fromString(rawSport);
+
+    if (sport == SportType.all) {
+      final leagueSlug = (json['league'] is Map<String, dynamic>
+              ? json['league']['slug']?.toString()
+              : null) ??
+          (json['league_model'] is Map<String, dynamic>
+              ? json['league_model']['slug']?.toString()
+              : null) ??
+          json['leagueSlug']?.toString();
+      final leagueName = (json['league'] is Map<String, dynamic>
+              ? json['league']['name']?.toString()
+              : json['league']?.toString()) ??
+          '';
+      final externalId = json['externalId']?.toString() ??
+          json['external_id']?.toString() ??
+          '';
+
+      final combined =
+          '${leagueSlug ?? ''} $leagueName $externalId'.toLowerCase();
+      if (combined.contains('valorant') ||
+          combined.contains('vct') ||
+          combined.contains('vlr')) {
+        sport = SportType.valorant;
+      } else if (combined.contains('lol') ||
+          combined.contains('league of legends') ||
+          combined.contains('lck') ||
+          combined.contains('lec') ||
+          combined.contains('lpl') ||
+          combined.contains('lcs') ||
+          combined.contains('cblol') ||
+          combined.contains('lla') ||
+          combined.contains('worlds') ||
+          combined.contains('msi')) {
+        sport = SportType.lol;
+      }
+    }
 
     final status = EventStatus.fromString(json['status']?.toString());
 
