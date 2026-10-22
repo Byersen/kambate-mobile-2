@@ -619,10 +619,15 @@ class _SimpleMatchRow extends StatelessWidget {
 
     String matchText = '$team1Name vs $team2Name';
     if ((event.isLive || event.status == EventStatus.finished) &&
-        !event.isCombat &&
-        event.homeScore != null &&
-        event.awayScore != null) {
-      matchText = '$team1Name ${event.homeScore} - ${event.awayScore} $team2Name';
+        !event.isCombat) {
+      if (event.homeScore != null && event.awayScore != null) {
+        matchText = '$team1Name ${event.homeScore} - ${event.awayScore} $team2Name';
+      } else if (event.status == EventStatus.finished &&
+          event.score != null &&
+          event.score != 'vs' &&
+          event.score!.trim().isNotEmpty) {
+        matchText = '$team1Name vs $team2Name • ${event.score}';
+      }
     } else if (event.isCombat &&
         event.status == EventStatus.finished &&
         (event.fightResult != null || event.score != null)) {

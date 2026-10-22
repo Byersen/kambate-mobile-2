@@ -101,14 +101,20 @@ class ScoreboardRow extends StatelessWidget {
                     : event.awayTeam?.logoUrl,
                 showScore ? event.awayScore?.toString() ?? '—' : '—',
               ),
-              if (event.isCombat &&
-                  event.status == EventStatus.finished &&
-                  event.score != null) ...[
+              if (event.status == EventStatus.finished &&
+                  event.score != null &&
+                  event.score != 'vs' &&
+                  event.score!.trim().isNotEmpty &&
+                  (event.isCombat ||
+                      (event.homeScore == null && event.awayScore == null))) ...[
                 const SizedBox(height: 10),
                 Text(
-                  event.score!,
+                  event.isCombat
+                      ? event.score!
+                      : 'Resultado: ${event.score!}',
                   style: const TextStyle(
                     fontSize: 12,
+                    fontWeight: FontWeight.w600,
                     color: AppColors.textSecondary,
                   ),
                 ),
