@@ -567,6 +567,7 @@ void main() {
         ProviderScope(
           overrides: [
             feedRepositoryProvider.overrideWithValue(repository),
+            selectedSportFilterProvider.overrideWith((ref) => SportType.lol),
           ],
           child: const MaterialApp(
             home: FeedScreen(),

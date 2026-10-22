@@ -216,7 +216,8 @@ void main() {
     (tester) async {
       final app = await mount(tester);
       expect(find.text('KAMBATE'), findsOneWidget);
-      expect(find.text('Tu jornada deportiva'), findsOneWidget);
+      expect(find.text('Tu jornada deportiva'), findsNothing);
+      expect(app.container.read(selectedSportFilterProvider), SportType.soccer);
       expect(
         Theme.of(tester.element(find.text('KAMBATE'))).brightness,
         Brightness.light,
@@ -301,7 +302,7 @@ void main() {
       );
       final offsetAfter = scrollableStateAfter.position.pixels;
       expect(offsetAfter, equals(offsetBefore));
-      expect(app.container.read(selectedSportFilterProvider), SportType.all);
+      expect(app.container.read(selectedSportFilterProvider), SportType.soccer);
     },
   );
 
