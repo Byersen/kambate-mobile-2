@@ -1023,52 +1023,128 @@ class _LolDetailViewState extends State<LolDetailView> {
   // --- ESTADO VACÍO O PARCIAL ---
   Widget _buildEmptyOrPartialState(EventModel event) {
     final status = event.status;
+    final stats = event.esportsStats;
+    final mapName = stats?.map;
+    final format = stats?.format;
+
     String title;
     String subtitle;
 
     if (status == EventStatus.scheduled) {
       title = 'Encuentro programado';
-      subtitle = 'El detalle de partidas, objetivos y jugadores estará disponible al comenzar la serie.';
+      subtitle =
+          'El detalle de partidas, objetivos y jugadores estará disponible al comenzar la serie.';
     } else if (status == EventStatus.live) {
       title = 'Serie en vivo';
-      subtitle = 'Sincronizando partidas en juego y objetivos elementales de la serie.';
+      subtitle =
+          'Sincronizando partidas en juego y objetivos elementales de la serie.';
     } else {
       title = 'Encuentro finalizado';
-      subtitle = 'La información desglosada por partida no se encuentra disponible para esta serie.';
+      subtitle =
+          'La información desglosada por partida no se encuentra disponible para esta serie.';
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: Column(
-          children: [
-            const Icon(
-              Icons.sports_esports_outlined,
-              size: 40,
-              color: AppColors.textMuted,
-            ),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
+    final hasPartialInfo =
+        (mapName != null && mapName.isNotEmpty) ||
+        (format != null && format.isNotEmpty);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (hasPartialInfo) ...[
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'INFORMACIÓN DE LA SERIE',
+                    style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  if (format != null && format.isNotEmpty) ...[
+                    Text(
+                      'Formato: $format',
+                      style: const TextStyle(
+                        fontSize: 13.5,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                  if (mapName != null && mapName.isNotEmpty) ...[
+                    Text(
+                      'Mapa / Fase: $mapName',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: AppColors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                  ],
+                  Text(
+                    'Competición: ${event.league}',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 6),
-            Text(
-              subtitle,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 12.5,
-                color: AppColors.textSecondary,
-              ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            child: Column(
+              children: [
+                const Icon(
+                  Icons.sports_esports_outlined,
+                  size: 40,
+                  color: AppColors.textMuted,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Sin proveedor de estadísticas en tiempo real ni desglose de partidas activo para esta competición.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textMuted,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
