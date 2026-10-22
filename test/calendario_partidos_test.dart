@@ -113,6 +113,48 @@ void main() {
       expect(event.awayScore, 1);
     });
 
+    test('Marcadores con sufijos de estado (e.g. 2 - 1 (Final)) extraen goles numéricos', () {
+      final finishedJson = {
+        'id': 'match-finished-annotated',
+        'sport': 'football',
+        'league': 'Primera División',
+        'status': 'FINISHED',
+        'startDate': '2026-10-20T18:00:00Z',
+        'score': '2 - 1 (Final)',
+        'participants': [
+          {'id': 'team-1', 'name': 'Colo-Colo'},
+          {'id': 'team-2', 'name': 'U. de Chile'},
+        ],
+      };
+
+      final event = EventModel.fromJson(finishedJson);
+      expect(event.status, EventStatus.finished);
+      expect(event.score, '2 - 1 (Final)');
+      expect(event.homeScore, 2);
+      expect(event.awayScore, 1);
+    });
+
+    test('Marcadores no numéricos de origen (L - W (Final)) no fabrican 0 - 0', () {
+      final esportsJson = {
+        'id': 'match-esports-lw',
+        'sport': 'lol',
+        'league': 'LCK',
+        'status': 'FINISHED',
+        'startDate': '2026-10-20T12:00:00Z',
+        'score': 'L - W (Final)',
+        'participants': [
+          {'id': 'team-t1', 'name': 'T1'},
+          {'id': 'team-geng', 'name': 'Gen.G'},
+        ],
+      };
+
+      final event = EventModel.fromJson(esportsJson);
+      expect(event.status, EventStatus.finished);
+      expect(event.score, 'L - W (Final)');
+      expect(event.homeScore, isNull);
+      expect(event.awayScore, isNull);
+    });
+
     test('Mapeo de estados de proveedor: STATUS_ABANDONED y STATUS_SUSPENDED', () {
       expect(EventStatus.fromString('STATUS_ABANDONED'), EventStatus.canceled);
       expect(EventStatus.fromString('STATUS_CANCELED'), EventStatus.canceled);
@@ -435,6 +477,159 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Cobreloa'), findsOneWidget);
       expect(find.text('Everton'), findsNothing);
+    });
+
+    testWidgets('Navegación a día anterior muestra partidos pasados y botón Ir a hoy regresa a hoy', (tester) async {
+      configureViewport(tester);
+
+      final now = DateTime.now();
+      final todayEvent = EventModel(
+        id: 'today-ev',
+        sport: SportType.soccer,
+        league: 'Primera División',
+        status: EventStatus.scheduled,
+        startTime: DateTime(now.year, now.month, now.day, 19, 0),
+        homeTeam: const TeamModel(id: 't-1', name: 'Colo-Colo'),
+        awayTeam: const TeamModel(id: 't-2', name: 'U. Católica'),
+      );
+
+      final yesterday = DateTime(now.year, now.month, now.day - 1);
+      final yesterdayEvent = EventModel(
+        id: 'yesterday-ev',
+        sport: SportType.soccer,
+        league: 'Primera División',
+        status: EventStatus.finished,
+        startTime: DateTime(yesterday.year, yesterday.month, yesterday.day, 18, 0),
+        homeTeam: const TeamModel(id: 't-3', name: 'Cobresal'),
+        awayTeam: const TeamModel(id: 't-4', name: 'Cobreloa'),
+        homeScore: 3,
+        awayScore: 1,
+      );
+
+      final repository = MockCalendarRepository(events: [todayEvent, yesterdayEvent]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            feedRepositoryProvider.overrideWithValue(repository),
+          ],
+          child: const MaterialApp(
+            home: FeedScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Hoy está activo inicialmente
+      expect(find.text('Colo-Colo'), findsOneWidget);
+      expect(find.text('Cobresal'), findsNothing);
+
+      // Navegar al día anterior con el botón chevron izquierdo
+      await tester.tap(find.byTooltip('Día anterior'));
+      await tester.pumpAndSettle();
+
+      // Debe mostrar el partido de ayer con su marcador real
+      expect(find.text('Cobresal'), findsOneWidget);
+      expect(find.text('3'), findsOneWidget);
+      expect(find.text('1'), findsOneWidget);
+      expect(find.text('Colo-Colo'), findsNothing);
+
+      // Debe aparecer el botón Ir a hoy
+      expect(find.text('Ir a hoy'), findsOneWidget);
+
+      // Tocar Ir a hoy para regresar
+      await tester.tap(find.text('Ir a hoy'));
+      await tester.pumpAndSettle();
+
+      // Vuelve a hoy
+      expect(find.text('Colo-Colo'), findsOneWidget);
+      expect(find.text('Cobresal'), findsNothing);
+    });
+
+    testWidgets('Partido finalizado con resultado textual muestra etiqueta de resultado y no guión vacío', (tester) async {
+      configureViewport(tester);
+
+      final now = DateTime.now();
+      final finishedTextScoreEvent = EventModel(
+        id: 'finished-text-score',
+        sport: SportType.lol,
+        league: 'LCK',
+        status: EventStatus.finished,
+        startTime: DateTime(now.year, now.month, now.day, 10, 0),
+        homeTeam: const TeamModel(id: 't-1', name: 'T1'),
+        awayTeam: const TeamModel(id: 't-2', name: 'Gen.G'),
+        score: 'L - W (Final)',
+      );
+
+      final repository = MockCalendarRepository(events: [finishedTextScoreEvent]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            feedRepositoryProvider.overrideWithValue(repository),
+          ],
+          child: const MaterialApp(
+            home: FeedScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('T1'), findsOneWidget);
+      expect(find.text('Resultado: L - W (Final)'), findsOneWidget);
+    });
+
+    testWidgets('Empty state en fechas pasadas con filtro Próximos ofrece Ver todos los estados', (tester) async {
+      configureViewport(tester);
+
+      final now = DateTime.now();
+      final yesterday = DateTime(now.year, now.month, now.day - 1);
+      final yesterdayFinished = EventModel(
+        id: 'y-fin',
+        sport: SportType.soccer,
+        league: 'LaLiga',
+        status: EventStatus.finished,
+        startTime: DateTime(yesterday.year, yesterday.month, yesterday.day, 16, 0),
+        homeTeam: const TeamModel(id: 't-1', name: 'Barcelona'),
+        awayTeam: const TeamModel(id: 't-2', name: 'Sevilla'),
+        homeScore: 2,
+        awayScore: 0,
+      );
+
+      final repository = MockCalendarRepository(events: [yesterdayFinished]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            feedRepositoryProvider.overrideWithValue(repository),
+          ],
+          child: const MaterialApp(
+            home: FeedScreen(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Ir a ayer
+      await tester.tap(find.byTooltip('Día anterior'));
+      await tester.pumpAndSettle();
+      expect(find.text('Barcelona'), findsOneWidget);
+
+      // Activar filtro Próximos
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Próximos'));
+      await tester.pumpAndSettle();
+
+      // Barcelona no debe aparecer porque está finalizado
+      expect(find.text('Barcelona'), findsNothing);
+      expect(find.text('No hay encuentros para estos filtros'), findsOneWidget);
+      expect(find.text('Ver todos los estados'), findsOneWidget);
+
+      // Tocar Ver todos los estados
+      await tester.tap(find.text('Ver todos los estados'));
+      await tester.pumpAndSettle();
+
+      // Vuelve a aparecer Barcelona
+      expect(find.text('Barcelona'), findsOneWidget);
     });
   });
 
