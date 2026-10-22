@@ -12,8 +12,16 @@ class SupabaseService {
     return Supabase.instance.client;
   }
 
-  static String get apiUrl =>
-      dotenv.env['API_URL'] ?? 'http://localhost:4000';
+  static String get apiUrl {
+    final configured = dotenv.env['API_URL'] ?? 'http://localhost:4000';
+    if (kIsWeb && configured.contains('localhost')) {
+      final host = Uri.base.host;
+      if (host.isNotEmpty && host != 'localhost' && host != '127.0.0.1') {
+        return configured.replaceAll('localhost', host);
+      }
+    }
+    return configured;
+  }
 
   static Future<void> initialize() async {
     try {
