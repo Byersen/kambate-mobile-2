@@ -139,6 +139,58 @@ class FeedScreen extends ConsumerWidget {
                             color: AppColors.textSecondary,
                           ),
                         ),
+                        if (!AppDateFormatter.isSameDay(
+                          date,
+                          DateTime.now(),
+                        ))
+                          GestureDetector(
+                            onTap: () {
+                              final now = DateTime.now();
+                              ref
+                                  .read(selectedFeedDateProvider.notifier)
+                                  .state = DateTime(
+                                now.year,
+                                now.month,
+                                now.day,
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.primary.withValues(
+                                  alpha: 0.15,
+                                ),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: AppColors.primary.withValues(
+                                    alpha: 0.4,
+                                  ),
+                                ),
+                              ),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.today_rounded,
+                                    size: 13,
+                                    color: AppColors.primary,
+                                  ),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Ir a hoy',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ],
@@ -258,12 +310,38 @@ class FeedScreen extends ConsumerWidget {
                 child: _FeedMessage(
                   icon: Icons.event_available_outlined,
                   title: 'No hay encuentros para estos filtros',
-                  message: 'Prueba otro día o consulta todos los deportes.',
-                  action: 'Restablecer filtros',
+                  message: status == EventStatus.scheduled &&
+                          date.isBefore(
+                            DateTime(
+                              DateTime.now().year,
+                              DateTime.now().month,
+                              DateTime.now().day,
+                            ),
+                          )
+                      ? 'No hay partidos programados en fechas pasadas. Consulta los resultados o restablece los filtros.'
+                      : 'Prueba otro día o consulta todos los deportes.',
+                  action: status != null
+                      ? 'Ver todos los estados'
+                      : (!AppDateFormatter.isSameDay(date, DateTime.now())
+                          ? 'Ir a hoy'
+                          : 'Restablecer filtros'),
                   onPressed: () {
-                    ref.read(selectedSportFilterProvider.notifier).state =
-                        SportType.all;
-                    ref.read(selectedEventStatusProvider.notifier).state = null;
+                    if (status != null) {
+                      ref.read(selectedEventStatusProvider.notifier).state =
+                          null;
+                    } else if (!AppDateFormatter.isSameDay(
+                      date,
+                      DateTime.now(),
+                    )) {
+                      final now = DateTime.now();
+                      ref.read(selectedFeedDateProvider.notifier).state =
+                          DateTime(now.year, now.month, now.day);
+                    } else {
+                      ref.read(selectedSportFilterProvider.notifier).state =
+                          SportType.all;
+                      ref.read(selectedEventStatusProvider.notifier).state =
+                          null;
+                    }
                   },
                 ),
               )
@@ -331,29 +409,55 @@ class _DateSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: Row(
         children: [
           IconButton(
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 36),
             tooltip: 'Día anterior',
-            icon: const Icon(Icons.chevron_left),
+            icon: const Icon(Icons.chevron_left, size: 20),
             onPressed: () =>
                 onChanged(DateTime(date.year, date.month, date.day - 1)),
           ),
           for (final offset in [-1, 0, 1])
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 3),
-                child: _day(DateTime(now.year, now.month, now.day + offset)),
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: _day(DateTime(date.year, date.month, date.day + offset)),
               ),
             ),
           IconButton(
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 36),
             tooltip: 'Día siguiente',
-            icon: const Icon(Icons.chevron_right),
+            icon: const Icon(Icons.chevron_right, size: 20),
             onPressed: () =>
                 onChanged(DateTime(date.year, date.month, date.day + 1)),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(minWidth: 28, minHeight: 36),
+            tooltip: 'Elegir fecha',
+            icon: const Icon(Icons.calendar_month_outlined, size: 18),
+            onPressed: () async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: date,
+                firstDate: DateTime(2024, 1, 1),
+                lastDate: DateTime(2030, 12, 31),
+                helpText: 'SELECCIONAR FECHA',
+                cancelText: 'CANCELAR',
+                confirmText: 'SELECCIONAR',
+              );
+              if (picked != null) {
+                onChanged(DateTime(picked.year, picked.month, picked.day));
+              }
+            },
           ),
         ],
       ),
@@ -364,7 +468,8 @@ class _DateSelector extends StatelessWidget {
     final selected = AppDateFormatter.isSameDay(date, value);
     return TextButton(
       style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+        visualDensity: VisualDensity.compact,
         foregroundColor: selected ? AppColors.onPrimary : AppColors.textPrimary,
         backgroundColor: selected ? AppColors.primary : AppColors.surfaceMuted,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -373,14 +478,20 @@ class _DateSelector extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            AppDateFormatter.getRelativeDayName(value),
-            style: const TextStyle(fontSize: 12),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              AppDateFormatter.getRelativeDayName(value),
+              style: const TextStyle(fontSize: 12),
+            ),
           ),
-          const SizedBox(height: 3),
-          Text(
-            AppDateFormatter.formatShortDayMonth(value),
-            style: const TextStyle(fontSize: 10),
+          const SizedBox(height: 2),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              AppDateFormatter.formatShortDayMonth(value),
+              style: const TextStyle(fontSize: 10),
+            ),
           ),
         ],
       ),
