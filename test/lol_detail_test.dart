@@ -10,6 +10,7 @@ import 'package:kambate_mobile/features/match_detail/presentation/widgets/lol_ma
 import 'package:kambate_mobile/features/match_detail/presentation/widgets/lol_detail_view.dart';
 import 'package:kambate_mobile/models/lol_detail_model.dart';
 import 'package:kambate_mobile/models/event_model.dart';
+import 'package:kambate_mobile/models/sport_type.dart';
 import 'package:kambate_mobile/models/stats_models.dart';
 import 'support/preview.dart';
 
@@ -657,6 +658,179 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byTooltip('Quitar de favoritos'), findsOneWidget);
+    });
+
+    testWidgets('LolMatchHeader muestra categoría LEAGUE OF LEGENDS e ícono de esports', (tester) async {
+      final event = buildLolSample();
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(body: LolMatchHeader(event: event)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('LEAGUE OF LEGENDS'), findsOneWidget);
+      expect(find.byIcon(Icons.sports_esports), findsOneWidget);
+    });
+
+    testWidgets('Partido en vivo sin marcador no fabrica 0 — 0 y muestra — — —', (tester) async {
+      final liveNoScoreEvent = EventModel.fromJson({
+        'id': 'lol-live-noscore',
+        'sport': 'lol',
+        'status': 'LIVE',
+        'league': 'LCK Korea',
+        'startDate': '2026-10-20T12:00:00Z',
+        'participants': [
+          {'id': 'team-t1', 'name': 'T1'},
+          {'id': 'team-geng', 'name': 'Gen.G'},
+        ],
+        'esportsStats': {
+          'id': 'es-noscore',
+        },
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(body: LolMatchHeader(event: liveNoScoreEvent)),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('— — —'), findsOneWidget);
+      expect(find.text('0 — 0'), findsNothing);
+    });
+
+    testWidgets('Ausencia de detalle con formato y mapa parciales muestra tarjeta de serie y advertencia explícita', (tester) async {
+      final partialEvent = EventModel.fromJson({
+        'id': 'lol-partial-info',
+        'sport': 'lol',
+        'status': 'LIVE',
+        'league': 'LEC Season Finals',
+        'startDate': '2026-10-20T12:00:00Z',
+        'participants': [
+          {'id': 'team-fnc', 'name': 'Fnatic'},
+          {'id': 'team-g2', 'name': 'G2 Esports'},
+        ],
+        'score': '1 - 0',
+        'esportsStats': {
+          'id': 'es-partial',
+          'format': 'Bo5',
+          'map': 'Grieta del Invocador',
+          'homeScore': 1,
+          'awayScore': 0,
+        },
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: SingleChildScrollView(child: LolDetailView(event: partialEvent)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('INFORMACIÓN DE LA SERIE'), findsOneWidget);
+      expect(find.text('Formato: Bo5'), findsOneWidget);
+      expect(find.text('Mapa / Fase: Grieta del Invocador'), findsOneWidget);
+      expect(find.text('Competición: LEC Season Finals'), findsOneWidget);
+      expect(find.text('Serie en vivo'), findsOneWidget);
+      expect(
+        find.text('Sin proveedor de estadísticas en tiempo real ni desglose de partidas activo para esta competición.'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('asesinatos'), findsNothing);
+    });
+
+    testWidgets('Ausencia total de detalle en finalizado muestra estado explícito sin datos simulados', (tester) async {
+      final finishedEmptyEvent = EventModel.fromJson({
+        'id': 'lol-fin-empty',
+        'sport': 'lol',
+        'status': 'FINISHED',
+        'league': 'Worlds 2026',
+        'startDate': '2026-10-19T10:00:00Z',
+        'participants': [
+          {'id': 'team-t1', 'name': 'T1'},
+          {'id': 'team-wbg', 'name': 'Weibo Gaming'},
+        ],
+        'score': '3 - 0',
+        'home_score': 3,
+        'away_score': 0,
+      });
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: Scaffold(
+            body: SingleChildScrollView(child: LolDetailView(event: finishedEmptyEvent)),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Encuentro finalizado'), findsOneWidget);
+      expect(find.text('La información desglosada por partida no se encuentra disponible para esta serie.'), findsOneWidget);
+      expect(
+        find.text('Sin proveedor de estadísticas en tiempo real ni desglose de partidas activo para esta competición.'),
+        findsOneWidget,
+      );
+      expect(find.byType(Card), findsOneWidget);
+    });
+  });
+
+  group('Resolución de Persistencia Supabase para Esports (Tarea 19)', () {
+    test('Evento persistido con sport "esports" y league "lol" se clasifica como SportType.lol', () {
+      final json = {
+        'id': 'ev-esports-lol',
+        'sport': {'id': 'sp-1', 'name': 'Esports (LoL/Valorant)', 'slug': 'esports'},
+        'league': {'id': 'lg-1', 'name': 'League of Legends Champions Korea', 'slug': 'lol'},
+        'status': 'SCHEDULED',
+        'startDate': '2026-10-25T10:00:00Z',
+        'participants': [
+          {'id': 'team-1', 'name': 'Dplus KIA'},
+          {'id': 'team-2', 'name': 'KT Rolster'},
+        ],
+      };
+
+      final event = EventModel.fromJson(json);
+      expect(event.sport, SportType.lol);
+    });
+
+    test('Evento persistido con sport "esports" y liga regional "lck" se clasifica como SportType.lol', () {
+      final json = {
+        'id': 'ev-esports-lck',
+        'sport': {'id': 'sp-1', 'name': 'Esports (LoL/Valorant)', 'slug': 'esports'},
+        'league': {'id': 'lg-2', 'name': 'LCK', 'slug': 'lck'},
+        'status': 'FINISHED',
+        'startDate': '2026-10-20T10:00:00Z',
+        'participants': [
+          {'id': 'team-1', 'name': 'T1'},
+          {'id': 'team-2', 'name': 'Gen.G'},
+        ],
+      };
+
+      final event = EventModel.fromJson(json);
+      expect(event.sport, SportType.lol);
+    });
+
+    test('Evento persistido con sport "esports" y league "valorant" se clasifica como SportType.valorant', () {
+      final json = {
+        'id': 'ev-esports-val',
+        'sport': {'id': 'sp-1', 'name': 'Esports (LoL/Valorant)', 'slug': 'esports'},
+        'league': {'id': 'lg-3', 'name': 'Valorant Champions Tour', 'slug': 'valorant'},
+        'status': 'LIVE',
+        'startDate': '2026-10-20T10:00:00Z',
+        'participants': [
+          {'id': 'team-v1', 'name': 'Sentinels'},
+          {'id': 'team-v2', 'name': 'Fnatic'},
+        ],
+      };
+
+      final event = EventModel.fromJson(json);
+      expect(event.sport, SportType.valorant);
     });
   });
 }
