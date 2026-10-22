@@ -345,6 +345,99 @@ void main() {
       expect(synthesized.fights.first.fighter1.name, equals('Peleador A'));
       expect(synthesized.fights.first.timeOrOrderLabel, equals('A continuación'));
     });
+
+    test('UfcCardModel.fromEvents agrupa múltiples combates individuales de una velada', () {
+      final startTime = DateTime(2024, 10, 26, 14, 0);
+      final events = List.generate(6, (index) {
+        final order = index + 1;
+        final isMain = order == 1;
+        final isCoMain = order == 2;
+        return EventModel(
+          id: 'event-$order',
+          externalId: 'ufc-308-comp-$order',
+          sport: SportType.ufc,
+          league: 'UFC 308: Topuria vs. Holloway',
+          venue: 'Etihad Arena, Abu Dhabi',
+          status: EventStatus.finished,
+          startTime: startTime,
+          fighter1: FighterModel(
+            id: 'f1-$order',
+            name: isMain ? 'Ilia Topuria' : (isCoMain ? 'Robert Whittaker' : 'Peleador 1-$order'),
+            weightClass: isMain ? 'Peso pluma' : 'Peso medio',
+          ),
+          fighter2: FighterModel(
+            id: 'f2-$order',
+            name: isMain ? 'Max Holloway' : (isCoMain ? 'Khamzat Chimaev' : 'Peleador 2-$order'),
+            weightClass: isMain ? 'Peso pluma' : 'Peso medio',
+          ),
+          ufcStats: UfcStatsModel(
+            id: 'stats-$order',
+            round: isMain || isCoMain ? 5 : 3,
+            time: '01:34',
+            method: 'KO / TKO',
+            winnerName: isMain ? 'Ilia Topuria' : 'Khamzat Chimaev',
+          ),
+        );
+      });
+
+      final card = UfcCardModel.fromEvents(events, currentEvent: events.first);
+
+      expect(card.cardId, equals('ufc-card-308'));
+      expect(card.name, equals('UFC 308: Topuria vs. Holloway'));
+      expect(card.venue, equals('Etihad Arena, Abu Dhabi'));
+      expect(card.date, equals(startTime));
+      expect(card.formattedDate, isNotNull);
+      expect(card.fights.length, equals(6));
+      expect(card.mainFights.length, equals(5));
+      expect(card.prelimFights.length, equals(1));
+      expect(card.mainEvent?.fighter1.name, equals('Ilia Topuria'));
+      expect(card.mainEvent?.isMainEvent, isTrue);
+      expect(card.coMainEvent?.fighter1.name, equals('Robert Whittaker'));
+      expect(card.coMainEvent?.isCoMainEvent, isTrue);
+      expect(card.mainEvent?.result?.winnerName, equals('Ilia Topuria'));
+    });
+
+    test('UfcCardModel.fromEvent con allEvents agrupa combates hermanos automáticamente', () {
+      final startTime = DateTime(2024, 10, 26, 14, 0);
+      final events = List.generate(4, (index) {
+        final order = index + 1;
+        return EventModel(
+          id: 'ev-$order',
+          externalId: 'ufc-308-c-$order',
+          sport: SportType.ufc,
+          league: 'UFC 308',
+          venue: 'Etihad Arena',
+          status: EventStatus.scheduled,
+          startTime: startTime,
+          fighter1: FighterModel(id: 'a-$order', name: 'Luchador A-$order'),
+          fighter2: FighterModel(id: 'b-$order', name: 'Luchador B-$order'),
+        );
+      });
+
+      final card = UfcCardModel.fromEvent(events.first, allEvents: events);
+      expect(card.fights.length, equals(4));
+      expect(card.venue, equals('Etihad Arena'));
+    });
+
+    test('Conserva estados parciales sin rellenar registros ni ranking ficticios', () {
+      final sparseEvent = EventModel(
+        id: 'ufc-sparse',
+        sport: SportType.ufc,
+        league: 'UFC Fight Night',
+        status: EventStatus.scheduled,
+        startTime: DateTime(2025, 1, 1),
+        fighter1: const FighterModel(id: 'f1', name: 'Peleador Sin Récord'),
+        fighter2: const FighterModel(id: 'f2', name: 'Peleador Sin Récord 2'),
+      );
+
+      final card = UfcCardModel.fromEvent(sparseEvent);
+      final fight = card.fights.first;
+      expect(fight.fighter1.record, isNull);
+      expect(fight.fighter1.ranking, isNull);
+      expect(fight.fighter1.nickname, isNull);
+      expect(fight.result, isNull);
+      expect(fight.taleOfTheTape?.record1, isNull);
+    });
   });
 
   group('Interfaz y widgets de Cartelera UFC', () {
@@ -507,6 +600,10 @@ void main() {
       expect(find.text('Movistar Arena, Santiago'), findsOneWidget);
       expect(find.text('Santiago, Chile'), findsOneWidget);
       expect(find.text('Total de combates'), findsOneWidget);
+      expect(find.text('Promoción'), findsOneWidget);
+      expect(find.text('Ultimate Fighting Championship (UFC)'), findsOneWidget);
+      expect(find.text('Estado'), findsOneWidget);
+      expect(find.text('Combate estelar'), findsOneWidget);
     });
 
     testWidgets('Pulsar una pelea abre el detalle de combate y volver regresa a la cartelera', (tester) async {
