@@ -81,44 +81,32 @@ class FootballStatsModel {
 class NbaStatsModel {
   final String id;
   final String? eventId;
-  final int homePoints;
-  final int awayPoints;
+  final int? homePoints;
+  final int? awayPoints;
   final String? quarter;
   final Map<String, dynamic>? extraStats;
 
   const NbaStatsModel({
     required this.id,
     this.eventId,
-    this.homePoints = 0,
-    this.awayPoints = 0,
+    this.homePoints,
+    this.awayPoints,
     this.quarter,
     this.extraStats,
   });
 
   factory NbaStatsModel.fromJson(Map<String, dynamic> json) {
+    int? parsePoints(Object? val) {
+      if (val == null) return null;
+      if (val is int) return val;
+      return int.tryParse(val.toString().trim());
+    }
+
     return NbaStatsModel(
       id: json['id']?.toString() ?? '',
       eventId: json['event_id']?.toString() ?? json['eventId']?.toString(),
-      homePoints: json['home_points'] is int
-          ? json['home_points'] as int
-          : (json['homePoints'] is int
-                ? json['homePoints'] as int
-                : int.tryParse(
-                        json['home_points']?.toString() ??
-                            json['homePoints']?.toString() ??
-                            '0',
-                      ) ??
-                      0),
-      awayPoints: json['away_points'] is int
-          ? json['away_points'] as int
-          : (json['awayPoints'] is int
-                ? json['awayPoints'] as int
-                : int.tryParse(
-                        json['away_points']?.toString() ??
-                            json['awayPoints']?.toString() ??
-                            '0',
-                      ) ??
-                      0),
+      homePoints: parsePoints(json['home_points'] ?? json['homePoints']),
+      awayPoints: parsePoints(json['away_points'] ?? json['awayPoints']),
       quarter: json['quarter']?.toString(),
       extraStats: json['extra_stats'] is Map<String, dynamic>
           ? json['extra_stats'] as Map<String, dynamic>

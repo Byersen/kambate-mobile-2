@@ -464,5 +464,144 @@ void main() {
 
       expect(tester.takeException(), isNull);
     });
+
+    testWidgets(
+      'Payload parcial (solo cuartos y estadísticas, sin jugadores ni jugadas) muestra estados vacíos informativos',
+      (tester) async {
+        final partialDetail = {
+          'version': 1,
+          'homeParticipantId': 'lal',
+          'awayParticipantId': 'bos',
+          'periods': [
+            {'period': '1', 'home': 28, 'away': 24},
+            {'period': '2', 'home': 26, 'away': 26},
+          ],
+          'statistics': [
+            {'key': 'rebounds', 'home': 22, 'away': 20},
+          ],
+          'leaders': null,
+          'homePlayers': null,
+          'awayPlayers': null,
+          'plays': null,
+        };
+
+        final event = EventModel.fromJson({
+          'id': 'bball-partial',
+          'sport': 'nba',
+          'status': 'LIVE',
+          'score': '54 - 50',
+          'startDate': '2026-10-21T20:00:00Z',
+          'participants': [
+            {'id': 'lal', 'name': 'Lakers', 'shortName': 'LAL'},
+            {'id': 'bos', 'name': 'Celtics', 'shortName': 'BOS'},
+          ],
+          'nbaStats': {
+            'homePoints': 54,
+            'awayPoints': 50,
+            'quarter': '2',
+            'extraStats': {'detail': partialDetail},
+          },
+        });
+
+        final repository = MutableBasketballRepository(event);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [feedRepositoryProvider.overrideWithValue(repository)],
+            child: MaterialApp(
+              theme: AppTheme.lightTheme,
+              home: MatchDetailScreen(event: event),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // Resumen muestra cuartos reales disponibles
+        expect(find.text('Puntos por cuarto'), findsOneWidget);
+        expect(find.text('1'), findsWidgets);
+        expect(find.text('2'), findsWidgets);
+        expect(find.text('Líderes en puntos'), findsNothing);
+
+        // Pestaña Jugadores muestra estado no disponible sin crashear
+        final playersTab = find.byKey(const ValueKey('basketball-tab-1'));
+        await tester.tap(playersTab);
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Estadísticas de jugadores no disponibles'),
+          findsOneWidget,
+        );
+
+        // Pestaña Jugadas muestra estado no disponible sin crashear
+        final playsTab = find.byKey(const ValueKey('basketball-tab-2'));
+        await tester.tap(playsTab);
+        await tester.pumpAndSettle();
+        expect(
+          find.text('No hay jugadas registradas para este encuentro.'),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'Fixture programado real con score null no fabrica 0 - 0 y mantiene estado limpio',
+      (tester) async {
+        final scheduledEvent = EventModel.fromJson({
+          'id': 'bball-scheduled-null',
+          'sport': 'nba',
+          'status': 'SCHEDULED',
+          'score': null,
+          'startDate': '2026-10-25T19:00:00Z',
+          'participants': [
+            {'id': 'lal', 'name': 'Lakers', 'shortName': 'LAL'},
+            {'id': 'uta', 'name': 'Jazz', 'shortName': 'UTA'},
+          ],
+          'nbaStats': {
+            'homePoints': null,
+            'awayPoints': null,
+            'quarter': null,
+            'extraStats': {
+              'detail': {
+                'version': 1,
+                'homeParticipantId': 'lal',
+                'awayParticipantId': 'uta',
+                'periods': [],
+                'statistics': [],
+                'leaders': null,
+                'homePlayers': null,
+                'awayPlayers': null,
+                'plays': null,
+              },
+            },
+          },
+        });
+
+        expect(scheduledEvent.homeScore, isNull);
+        expect(scheduledEvent.awayScore, isNull);
+        expect(scheduledEvent.score, isNull);
+
+        final repository = MutableBasketballRepository(scheduledEvent);
+
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [feedRepositoryProvider.overrideWithValue(repository)],
+            child: MaterialApp(
+              theme: AppTheme.lightTheme,
+              home: MatchDetailScreen(event: scheduledEvent),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('PROGRAMADO'), findsOneWidget);
+        expect(find.text('VS'), findsOneWidget);
+        expect(find.text('0 - 0'), findsNothing);
+        expect(
+          find.text(
+            'El partido aún no comienza. Los parciales por cuarto aparecerán cuando esté en juego.',
+          ),
+          findsOneWidget,
+        );
+      },
+    );
   });
 }
