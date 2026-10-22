@@ -12,6 +12,9 @@ class SupabaseService {
     return Supabase.instance.client;
   }
 
+  static String get apiUrl =>
+      dotenv.env['API_URL'] ?? 'http://localhost:4000';
+
   static Future<void> initialize() async {
     try {
       try {
