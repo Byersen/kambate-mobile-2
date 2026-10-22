@@ -149,9 +149,15 @@ GoRouter createRouter({String initialLocation = '/feed'}) {
         builder: (context, state) {
           final leagueName = state.pathParameters['name'] ?? '';
           final extraSport = state.extra as SportType?;
+          final leagueId = state.uri.queryParameters['leagueId'];
+          final seasonId = state.uri.queryParameters['seasonId'];
+          final slug = state.uri.queryParameters['slug'];
           return LeagueDetailScreen(
             leagueName: Uri.decodeComponent(leagueName),
             sport: extraSport ?? SportType.soccer,
+            leagueId: leagueId,
+            seasonId: seasonId,
+            leagueSlug: slug,
           );
         },
       ),
