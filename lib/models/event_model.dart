@@ -502,6 +502,14 @@ class EventModel {
       homeScore = null;
       awayScore = null;
       score = null;
+    } else if (status == EventStatus.finished || status == EventStatus.live) {
+      if (homeScore != null &&
+          awayScore != null &&
+          (score == null || score == 'vs' || score.trim().isEmpty)) {
+        score = '$homeScore - $awayScore';
+      } else if (score == 'vs') {
+        score = null;
+      }
     }
 
     return EventModel(

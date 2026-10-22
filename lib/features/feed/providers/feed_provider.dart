@@ -163,13 +163,27 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
     final effectiveStatus = newStatus ?? oldEvent.status;
     final isScheduled = effectiveStatus == EventStatus.scheduled;
 
+    final effectiveHomeScore =
+        isScheduled ? null : (newHomeScore ?? oldEvent.homeScore);
+    final effectiveAwayScore =
+        isScheduled ? null : (newAwayScore ?? oldEvent.awayScore);
+
+    String? effectiveScore =
+        isScheduled ? null : (record['score']?.toString() ?? oldEvent.score);
+    if (!isScheduled) {
+      if (effectiveScore == 'vs') {
+        effectiveScore = null;
+      } else if ((effectiveScore == null || effectiveScore.isEmpty) &&
+          effectiveHomeScore != null &&
+          effectiveAwayScore != null) {
+        effectiveScore = '$effectiveHomeScore - $effectiveAwayScore';
+      }
+    }
+
     final updatedEvent = oldEvent.copyWith(
-      homeScore: isScheduled ? null : (newHomeScore ?? oldEvent.homeScore),
-      awayScore: isScheduled ? null : (newAwayScore ?? oldEvent.awayScore),
-      score:
-          isScheduled
-              ? null
-              : (record['score']?.toString() ?? oldEvent.score),
+      homeScore: effectiveHomeScore,
+      awayScore: effectiveAwayScore,
+      score: effectiveScore,
       startTime: newStartTime ?? oldEvent.startTime,
       currentPeriod:
           record['current_period']?.toString() ??
