@@ -5,6 +5,7 @@ import '../../../../core/widgets/event_status_chip.dart';
 import '../../../../models/event_model.dart';
 import '../../../../models/event_status.dart';
 import '../../../../models/lol_detail_model.dart';
+import '../../../../models/sport_type.dart';
 import '../../../../models/team_model.dart';
 
 class LolMatchHeader extends StatelessWidget {
@@ -25,32 +26,66 @@ class LolMatchHeader extends StatelessWidget {
     final awayScore = event.awayScore ?? event.esportsStats?.awayScore;
 
     final score = showScore
-        ? '${homeScore ?? 0} — ${awayScore ?? 0}'
+        ? (homeScore != null && awayScore != null
+            ? '$homeScore — $awayScore'
+            : (homeScore != null || awayScore != null
+                ? '${homeScore ?? 0} — ${awayScore ?? 0}'
+                : (event.score != null && event.score!.isNotEmpty
+                    ? event.score!
+                    : '— — —')))
         : 'VS';
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              flex: 3,
-              child: _teamColumn(event.homeTeam, 'Equipo 1'),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 4,
-              child: _centerStatusAndScore(score, detail),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              flex: 3,
-              child: _teamColumn(event.awayTeam, 'Equipo 2'),
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                SportType.lol.icon,
+                size: 16,
+                color: AppColors.lol,
+              ),
+              const SizedBox(width: 6),
+              const Text(
+                'LEAGUE OF LEGENDS',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.8,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: _teamColumn(event.homeTeam, 'Equipo 1'),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 4,
+                  child: _centerStatusAndScore(score, detail),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  flex: 3,
+                  child: _teamColumn(event.awayTeam, 'Equipo 2'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
