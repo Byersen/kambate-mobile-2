@@ -164,7 +164,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             ],
           ),
           data: (allEvents) {
-            var availableEvents = allEvents;
+            var availableEvents = allEvents
+                .where((e) =>
+                    e.status != EventStatus.finished &&
+                    e.status != EventStatus.archived)
+                .toList();
+
             if (_onlyFollowed && favoriteTeamIds.isNotEmpty) {
               availableEvents = availableEvents.where((e) {
                 final hasFollowed =
@@ -188,7 +193,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
             final selectedDayKey =
                 '${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}';
-            final selectedDayEvents = eventsByDay[selectedDayKey] ?? [];
+            final selectedDayEvents =
+                List<EventModel>.from(eventsByDay[selectedDayKey] ?? []);
+
+            // Ordenar por hora local ascendente mezclando deportes, con desempate determinista
+            selectedDayEvents.sort((a, b) {
+              final cmp = a.startTime.toLocal().compareTo(b.startTime.toLocal());
+              if (cmp != 0) return cmp;
+              return a.id.compareTo(b.id);
+            });
 
             return ListView(
               physics: const AlwaysScrollableScrollPhysics(),
@@ -302,63 +315,89 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 const SizedBox(height: 4),
 
                 if (selectedDayEvents.isEmpty)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: AppColors.surfaceDark,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: AppColors.cardBorderDark),
-                            ),
-                            child: const Icon(
-                              Icons.event_busy_rounded,
-                              size: 40,
-                              color: AppColors.textMuted,
-                            ),
+                  Builder(
+                    builder: (context) {
+                      final now = DateTime.now();
+                      final todayMidnight = DateTime(now.year, now.month, now.day);
+                      final selectedMidnight =
+                          DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+                      final isPastDate = selectedMidnight.isBefore(todayMidnight);
+
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceDark,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: AppColors.cardBorderDark),
+                                ),
+                                child: const Icon(
+                                  Icons.event_busy_rounded,
+                                  size: 40,
+                                  color: AppColors.textMuted,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                _onlyFollowed
+                                    ? 'No hay partidos de tus equipos seguidos este día'
+                                    : (_selectedSport != SportType.all
+                                        ? 'No hay partidos de ${_selectedSport.displayName} para esta fecha'
+                                        : (isPastDate
+                                            ? 'No hay partidos programados ni en vivo para esta fecha'
+                                            : 'No hay partidos programados para esta fecha')),
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: AppColors.textPrimary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                isPastDate
+                                    ? 'Los resultados históricos y partidos finalizados se encuentran en la sección Partidos.'
+                                    : 'Toca los días con puntos de colores para ver otros encuentros.',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              if (isPastDate) ...[
+                                const SizedBox(height: 14),
+                                OutlinedButton.icon(
+                                  onPressed: () {
+                                    ref.read(selectedFeedDateProvider.notifier).state =
+                                        DateTime(_selectedDate.year, _selectedDate.month, _selectedDate.day);
+                                    context.go('/feed');
+                                  },
+                                  icon: const Icon(Icons.arrow_back_rounded, size: 16),
+                                  label: const Text('Ver resultados en Partidos'),
+                                ),
+                              ],
+                              if (_onlyFollowed || _selectedSport != SportType.all) ...[
+                                const SizedBox(height: 12),
+                                OutlinedButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _onlyFollowed = false;
+                                      _selectedSport = SportType.all;
+                                    });
+                                  },
+                                  child: const Text('Restablecer filtros'),
+                                ),
+                              ],
+                            ],
                           ),
-                          const SizedBox(height: 12),
-                          Text(
-                            _onlyFollowed
-                                ? 'No hay partidos de tus equipos seguidos este día'
-                                : (_selectedSport != SportType.all
-                                    ? 'No hay partidos de ${_selectedSport.displayName} para esta fecha'
-                                    : 'No hay partidos programados para esta fecha'),
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Toca los días con puntos verdes o naranjas para ver otros encuentros.',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                          if (_onlyFollowed || _selectedSport != SportType.all) ...[
-                            const SizedBox(height: 12),
-                            OutlinedButton(
-                              onPressed: () {
-                                setState(() {
-                                  _onlyFollowed = false;
-                                  _selectedSport = SportType.all;
-                                });
-                              },
-                              child: const Text('Restablecer filtros'),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
+                        ),
+                      );
+                    },
                   )
                 else
                   ...selectedDayEvents.map((event) => _SimpleMatchRow(
@@ -617,6 +656,47 @@ class _SimpleMatchRow extends StatelessWidget {
       timeColor = AppColors.textSecondary;
     }
 
+    Widget timeWidget;
+    if (event.isLive) {
+      timeWidget = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Semantics(
+            container: true,
+            label: 'En vivo',
+            child: Container(
+              key: const ValueKey('live_indicator_dot'),
+              width: 7,
+              height: 7,
+              decoration: const BoxDecoration(
+                color: AppColors.liveRed,
+                shape: BoxShape.circle,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Text(
+            'EN VIVO',
+            style: TextStyle(
+              color: AppColors.liveRed,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      );
+    } else {
+      timeWidget = Text(
+        timeStr,
+        style: TextStyle(
+          color: timeColor,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    }
+
     String matchText = '$team1Name vs $team2Name';
     if ((event.isLive || event.status == EventStatus.finished) &&
         !event.isCombat) {
@@ -629,7 +709,7 @@ class _SimpleMatchRow extends StatelessWidget {
         matchText = '$team1Name vs $team2Name • ${event.score}';
       }
     } else if (event.isCombat &&
-        event.status == EventStatus.finished &&
+        (event.status == EventStatus.finished || event.isLive) &&
         (event.fightResult != null || event.score != null)) {
       final res = event.fightResult ?? event.score;
       matchText = '$team1Name vs $team2Name • $res';
@@ -650,16 +730,9 @@ class _SimpleMatchRow extends StatelessWidget {
         ),
         child: Row(
           children: [
-            SizedBox(
-              width: 52,
-              child: Text(
-                timeStr,
-                style: TextStyle(
-                  color: timeColor,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 54),
+              child: timeWidget,
             ),
             const SizedBox(width: 6),
             Container(width: 1, height: 16, color: AppColors.cardBorderDark),
