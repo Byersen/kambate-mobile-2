@@ -8,11 +8,13 @@ import 'ufc_fight_card_tile.dart';
 class UfcCarteleraView extends StatefulWidget {
   final EventModel event;
   final UfcCardModel? card;
+  final List<EventModel>? allEvents;
 
   const UfcCarteleraView({
     super.key,
     required this.event,
     this.card,
+    this.allEvents,
   });
 
   @override
@@ -23,7 +25,9 @@ class _UfcCarteleraViewState extends State<UfcCarteleraView> {
   int _selectedTabIndex = 0; // 0: Cartelera, 1: Información
   int _selectedFilterIndex = 0; // 0: Todas, 1: Principal, 2: Preliminares
 
-  UfcCardModel get _card => widget.card ?? UfcCardModel.fromEvent(widget.event);
+  UfcCardModel get _card =>
+      widget.card ??
+      UfcCardModel.fromEvent(widget.event, allEvents: widget.allEvents);
 
   void _navigateToFightDetail(UfcFightModel fight) {
     Navigator.of(context).push(
@@ -426,6 +430,11 @@ class _UfcCarteleraViewState extends State<UfcCarteleraView> {
   }
 
   Widget _buildInfoTab(UfcCardModel card) {
+    final dateStr = card.formattedDate ??
+        (widget.event.startTime != null
+            ? _formatFallbackDate(widget.event.startTime!)
+            : null);
+
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
@@ -449,6 +458,10 @@ class _UfcCarteleraViewState extends State<UfcCarteleraView> {
           _buildInfoRow('Promoción', 'Ultimate Fighting Championship (UFC)'),
           const Divider(color: AppColors.cardBorderDark),
           _buildInfoRow('Evento', card.name),
+          if (dateStr != null) ...[
+            const Divider(color: AppColors.cardBorderDark),
+            _buildInfoRow('Fecha y horario', dateStr),
+          ],
           if (card.venue != null && card.venue!.isNotEmpty) ...[
             const Divider(color: AppColors.cardBorderDark),
             _buildInfoRow('Recinto / Sede', card.venue!),
@@ -461,7 +474,23 @@ class _UfcCarteleraViewState extends State<UfcCarteleraView> {
             ),
           ],
           const Divider(color: AppColors.cardBorderDark),
+          _buildInfoRow('Estado', card.status.displayName),
+          const Divider(color: AppColors.cardBorderDark),
           _buildInfoRow('Total de combates', '${card.fights.length}'),
+          if (card.mainFights.isNotEmpty) ...[
+            const Divider(color: AppColors.cardBorderDark),
+            _buildInfoRow(
+              'Cartelera principal',
+              '${card.mainFights.length} combates',
+            ),
+          ],
+          if (card.prelimFights.isNotEmpty) ...[
+            const Divider(color: AppColors.cardBorderDark),
+            _buildInfoRow(
+              'Preliminares',
+              '${card.prelimFights.length} combates',
+            ),
+          ],
           if (card.mainEvent != null) ...[
             const Divider(color: AppColors.cardBorderDark),
             _buildInfoRow(
@@ -469,9 +498,38 @@ class _UfcCarteleraViewState extends State<UfcCarteleraView> {
               '${card.mainEvent!.fighter1.name} vs ${card.mainEvent!.fighter2.name}',
             ),
           ],
+          if (card.coMainEvent != null && card.coMainEvent != card.mainEvent) ...[
+            const Divider(color: AppColors.cardBorderDark),
+            _buildInfoRow(
+              'Combate co-estelar',
+              '${card.coMainEvent!.fighter1.name} vs ${card.coMainEvent!.fighter2.name}',
+            ),
+          ],
         ],
       ),
     );
+  }
+
+  String _formatFallbackDate(DateTime dt) {
+    final local = dt.toLocal();
+    final months = [
+      'enero',
+      'febrero',
+      'marzo',
+      'abril',
+      'mayo',
+      'junio',
+      'julio',
+      'agosto',
+      'septiembre',
+      'octubre',
+      'noviembre',
+      'diciembre'
+    ];
+    final m = months[local.month - 1];
+    final h = local.hour.toString().padLeft(2, '0');
+    final min = local.minute.toString().padLeft(2, '0');
+    return '${local.day} de $m, ${local.year} • $h:$min';
   }
 
   Widget _buildInfoRow(String label, String value) {
