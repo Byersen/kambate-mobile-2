@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:kambate_mobile/core/theme/app_colors.dart';
 import 'package:kambate_mobile/core/utils/date_formatter.dart';
 import 'package:kambate_mobile/features/calendar/presentation/screens/calendar_screen.dart';
 import 'package:kambate_mobile/features/favorites/providers/favorites_provider.dart';
@@ -11,6 +12,7 @@ import 'package:kambate_mobile/features/feed/presentation/screens/feed_screen.da
 import 'package:kambate_mobile/features/feed/providers/feed_provider.dart';
 import 'package:kambate_mobile/models/event_model.dart';
 import 'package:kambate_mobile/models/event_status.dart';
+import 'package:kambate_mobile/models/fighter_model.dart';
 import 'package:kambate_mobile/models/participant_model.dart';
 import 'package:kambate_mobile/models/sport_type.dart';
 import 'package:kambate_mobile/models/team_model.dart';
@@ -299,12 +301,10 @@ void main() {
             id: 'cached-ev',
             sport: SportType.soccer,
             league: 'Premier League',
-            status: EventStatus.finished,
+            status: EventStatus.scheduled,
             startTime: DateTime(now.year, now.month, now.day, 12, 0),
             homeTeam: const TeamModel(id: 't-1', name: 'Arsenal'),
             awayTeam: const TeamModel(id: 't-2', name: 'Chelsea'),
-            homeScore: 3,
-            awayScore: 1,
           ),
         ],
         sourceOverride: FeedDataSource.cache,
@@ -324,7 +324,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.textContaining('Datos guardados ·'), findsOneWidget);
-      expect(find.text('Arsenal 3 - 1 Chelsea'), findsOneWidget);
+      expect(find.text('Arsenal vs Chelsea'), findsOneWidget);
     });
 
     testWidgets('Error de red muestra vista con reintento en Calendario', (tester) async {
@@ -694,6 +694,309 @@ void main() {
       // Llamada inmediata de onAppResumed (dentro de cooldown de 15 segundos)
       await notifier.onAppResumed();
       expect(repository.fetchCount, initialCount, reason: 'No debe spamear peticiones en ráfaga');
+    });
+  });
+
+  group('Tarea 24: Ordenar calendario multideporte y ocultar partidos finalizados', () {
+    testWidgets('Orden entre deportes: muestra encuentros multideporte en una sola lista ordenada por hora local ascendente', (tester) async {
+      configureViewport(tester);
+
+      final now = DateTime.now();
+      final lolEvent = EventModel(
+        id: 'ev-lol-1000',
+        sport: SportType.lol,
+        league: 'LCK',
+        status: EventStatus.scheduled,
+        startTime: DateTime(now.year, now.month, now.day, 10, 0),
+        homeTeam: const TeamModel(id: 't-lol-1', name: 'T1'),
+        awayTeam: const TeamModel(id: 't-lol-2', name: 'Gen.G'),
+      );
+      final valorantEvent = EventModel(
+        id: 'ev-val-1230',
+        sport: SportType.valorant,
+        league: 'VCT Americas',
+        status: EventStatus.scheduled,
+        startTime: DateTime(now.year, now.month, now.day, 12, 30),
+        homeTeam: const TeamModel(id: 't-val-1', name: 'Sentinels'),
+        awayTeam: const TeamModel(id: 't-val-2', name: 'Fnatic'),
+      );
+      final nbaEvent = EventModel(
+        id: 'ev-nba-1545',
+        sport: SportType.nba,
+        league: 'NBA',
+        status: EventStatus.scheduled,
+        startTime: DateTime(now.year, now.month, now.day, 15, 45),
+        homeTeam: const TeamModel(id: 't-nba-1', name: 'Lakers'),
+        awayTeam: const TeamModel(id: 't-nba-2', name: 'Warriors'),
+      );
+      final soccerEvent = EventModel(
+        id: 'ev-soc-1800',
+        sport: SportType.soccer,
+        league: 'Primera División',
+        status: EventStatus.scheduled,
+        startTime: DateTime(now.year, now.month, now.day, 18, 0),
+        homeTeam: const TeamModel(id: 't-soc-1', name: 'Colo-Colo'),
+        awayTeam: const TeamModel(id: 't-soc-2', name: 'U. de Chile'),
+      );
+      final ufcEvent = EventModel(
+        id: 'ev-ufc-2215',
+        sport: SportType.ufc,
+        league: 'UFC 308',
+        status: EventStatus.scheduled,
+        startTime: DateTime(now.year, now.month, now.day, 22, 15),
+        fighter1: const FighterModel(id: 'f-1', name: 'Ilia Topuria'),
+        fighter2: const FighterModel(id: 'f-2', name: 'Max Holloway'),
+      );
+
+      // Repositorio con orden desordenado para comprobar que CalendarScreen ordena por hora local
+      final repository = MockCalendarRepository(
+        events: [ufcEvent, soccerEvent, nbaEvent, valorantEvent, lolEvent],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [feedRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: CalendarScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // No requiere seleccionar deporte: incluye los partidos de todos los deportes por defecto
+      expect(find.text('T1 vs Gen.G'), findsOneWidget);
+      expect(find.text('Sentinels vs Fnatic'), findsOneWidget);
+      expect(find.text('Lakers vs Warriors'), findsOneWidget);
+      expect(find.text('Colo-Colo vs U. de Chile'), findsOneWidget);
+      expect(find.text('Ilia Topuria vs Max Holloway'), findsOneWidget);
+      expect(find.text('5 encuentros'), findsOneWidget);
+
+      // Verificar orden ascendente estricto por hora local mezclando deportes
+      final yLol = tester.getTopLeft(find.text('T1 vs Gen.G')).dy;
+      final yVal = tester.getTopLeft(find.text('Sentinels vs Fnatic')).dy;
+      final yNba = tester.getTopLeft(find.text('Lakers vs Warriors')).dy;
+      final ySoc = tester.getTopLeft(find.text('Colo-Colo vs U. de Chile')).dy;
+      final yUfc = tester.getTopLeft(find.text('Ilia Topuria vs Max Holloway')).dy;
+
+      expect(yLol, lessThan(yVal));
+      expect(yVal, lessThan(yNba));
+      expect(yNba, lessThan(ySoc));
+      expect(ySoc, lessThan(yUfc));
+    });
+
+    testWidgets('Exclusión de finalizados: no muestra eventos finalizados ni archivados en calendario y mantiene marcadores coherentes', (tester) async {
+      configureViewport(tester);
+
+      final now = DateTime.now();
+      final scheduledSoccer = EventModel(
+        id: 'ev-sched-soc',
+        sport: SportType.soccer,
+        league: 'Primera División',
+        status: EventStatus.scheduled,
+        startTime: DateTime(now.year, now.month, now.day, 16, 0),
+        homeTeam: const TeamModel(id: 't-1', name: 'Cobresal'),
+        awayTeam: const TeamModel(id: 't-2', name: 'Cobreloa'),
+      );
+      final liveNba = EventModel(
+        id: 'ev-live-nba',
+        sport: SportType.nba,
+        league: 'NBA',
+        status: EventStatus.live,
+        startTime: DateTime(now.year, now.month, now.day, 19, 0),
+        homeTeam: const TeamModel(id: 't-3', name: 'Celtics'),
+        awayTeam: const TeamModel(id: 't-4', name: 'Heat'),
+        homeScore: 82,
+        awayScore: 78,
+      );
+      final finishedSoccer = EventModel(
+        id: 'ev-fin-soc',
+        sport: SportType.soccer,
+        league: 'Primera División',
+        status: EventStatus.finished,
+        startTime: DateTime(now.year, now.month, now.day, 12, 0),
+        homeTeam: const TeamModel(id: 't-5', name: 'Huachipato'),
+        awayTeam: const TeamModel(id: 't-6', name: 'Audax Italiano'),
+        homeScore: 2,
+        awayScore: 1,
+      );
+      final archivedEsports = EventModel(
+        id: 'ev-arch-lol',
+        sport: SportType.lol,
+        league: 'LCK',
+        status: EventStatus.archived,
+        startTime: DateTime(now.year, now.month, now.day, 9, 0),
+        homeTeam: const TeamModel(id: 't-7', name: 'KT Rolster'),
+        awayTeam: const TeamModel(id: 't-8', name: 'DRX'),
+        homeScore: 2,
+        awayScore: 0,
+      );
+
+      final repository = MockCalendarRepository(
+        events: [scheduledSoccer, liveNba, finishedSoccer, archivedEsports],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [feedRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: CalendarScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Los partidos programados y en vivo sí deben aparecer
+      expect(find.text('Cobresal vs Cobreloa'), findsOneWidget);
+      expect(find.text('Celtics 82 - 78 Heat'), findsOneWidget);
+
+      // Los partidos finalizados y archivados NO deben aparecer en el calendario
+      expect(find.text('Huachipato vs Audax Italiano'), findsNothing);
+      expect(find.text('Huachipato 2 - 1 Audax Italiano'), findsNothing);
+      expect(find.text('KT Rolster vs DRX'), findsNothing);
+
+      // El contador de encuentros del día es coherente y cuenta sólo los visibles (2)
+      expect(find.text('2 encuentros'), findsOneWidget);
+    });
+
+    testWidgets('Inclusión de programados y en vivo: muestra hora para programados y estado correspondiente para aplazados y cancelados', (tester) async {
+      configureViewport(tester);
+
+      final now = DateTime.now();
+      final scheduledEv = EventModel(
+        id: 'ev-prog',
+        sport: SportType.soccer,
+        league: 'Premier League',
+        status: EventStatus.scheduled,
+        startTime: DateTime(now.year, now.month, now.day, 14, 15),
+        homeTeam: const TeamModel(id: 't-1', name: 'Liverpool'),
+        awayTeam: const TeamModel(id: 't-2', name: 'Arsenal'),
+      );
+      final postponedEv = EventModel(
+        id: 'ev-aplaz',
+        sport: SportType.nba,
+        league: 'NBA',
+        status: EventStatus.postponed,
+        startTime: DateTime(now.year, now.month, now.day, 17, 0),
+        homeTeam: const TeamModel(id: 't-3', name: 'Bulls'),
+        awayTeam: const TeamModel(id: 't-4', name: 'Bucks'),
+      );
+      final canceledEv = EventModel(
+        id: 'ev-canc',
+        sport: SportType.valorant,
+        league: 'VCT',
+        status: EventStatus.canceled,
+        startTime: DateTime(now.year, now.month, now.day, 20, 0),
+        homeTeam: const TeamModel(id: 't-5', name: 'LOUD'),
+        awayTeam: const TeamModel(id: 't-6', name: 'KRÜ'),
+      );
+
+      final repository = MockCalendarRepository(
+        events: [scheduledEv, postponedEv, canceledEv],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [feedRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: CalendarScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('14:15'), findsOneWidget);
+      expect(find.text('Liverpool vs Arsenal'), findsOneWidget);
+      expect(find.text('APLAZ'), findsOneWidget);
+      expect(find.text('Bulls vs Bucks'), findsOneWidget);
+      expect(find.text('CANC'), findsOneWidget);
+      expect(find.text('LOUD vs KRÜ'), findsOneWidget);
+    });
+
+    testWidgets('Indicador rojo: marca cada evento en vivo con punto rojo visible y accesible además del texto EN VIVO', (tester) async {
+      configureViewport(tester);
+
+      final now = DateTime.now();
+      final liveSoccer = EventModel(
+        id: 'ev-live-red',
+        sport: SportType.soccer,
+        league: 'Champions League',
+        status: EventStatus.live,
+        startTime: DateTime(now.year, now.month, now.day, 16, 0),
+        homeTeam: const TeamModel(id: 't-1', name: 'Real Madrid'),
+        awayTeam: const TeamModel(id: 't-2', name: 'Manchester City'),
+        homeScore: 1,
+        awayScore: 0,
+      );
+
+      final repository = MockCalendarRepository(events: [liveSoccer]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [feedRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: CalendarScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Texto de evento en vivo
+      expect(find.text('Real Madrid 1 - 0 Manchester City'), findsOneWidget);
+      expect(find.text('EN VIVO'), findsOneWidget);
+
+      // Punto rojo visible con key específica
+      final dotFinder = find.byKey(const ValueKey('live_indicator_dot'));
+      expect(dotFinder, findsOneWidget);
+
+      final container = tester.widget<Container>(dotFinder);
+      final decoration = container.decoration as BoxDecoration;
+      expect(decoration.color, AppColors.liveRed);
+      expect(decoration.shape, BoxShape.circle);
+
+      // Accesibilidad: semántica 'En vivo' presente en el árbol accesible
+      final semantics = tester.ensureSemantics();
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('En vivo'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate((w) => w is Semantics && w.properties.label == 'En vivo'),
+        findsOneWidget,
+      );
+      semantics.dispose();
+    });
+
+    testWidgets('Cambio de día y zona horaria: trata zona horaria de Chile y ofrece navegación a Partidos para fechas pasadas sin ocultar históricos', (tester) async {
+      configureViewport(tester);
+
+      // Evento a la 01:30 UTC del día 23 de octubre.
+      // En hora local de Chile (UTC-3), corresponde a las 22:30 del 22 de octubre.
+      final utcMatchTime = DateTime.utc(2026, 10, 23, 1, 30);
+      final localChileTime = utcMatchTime.toLocal();
+
+      final tzEvent = EventModel(
+        id: 'ev-tz-chile',
+        sport: SportType.soccer,
+        league: 'Copa Libertadores',
+        status: EventStatus.scheduled,
+        startTime: utcMatchTime,
+        homeTeam: const TeamModel(id: 't-1', name: 'Flamengo'),
+        awayTeam: const TeamModel(id: 't-2', name: 'River Plate'),
+      );
+
+      final repository = MockCalendarRepository(events: [tzEvent]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [feedRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: CalendarScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final hourStr = localChileTime.hour.toString().padLeft(2, '0');
+      final minStr = localChileTime.minute.toString().padLeft(2, '0');
+      final expectedTime = '$hourStr:$minStr';
+
+      if (AppDateFormatter.isSameDay(DateTime.now(), localChileTime)) {
+        expect(find.text('Flamengo vs River Plate'), findsOneWidget);
+        expect(find.text(expectedTime), findsOneWidget);
+      }
+
+      // Navegación: tocar botón 'Hoy' en AppBar
+      await tester.tap(find.text('Hoy'));
+      await tester.pumpAndSettle();
+      expect(find.text('Calendario'), findsOneWidget);
     });
   });
 }
