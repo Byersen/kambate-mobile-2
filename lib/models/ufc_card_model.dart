@@ -1,5 +1,6 @@
 import 'event_model.dart';
 import 'event_status.dart';
+import 'sport_type.dart';
 
 /// Segmento de la cartelera de UFC.
 enum UfcCardSegment {
@@ -647,6 +648,7 @@ class UfcCardModel {
   final String? venue;
   final String? city;
   final String? country;
+  final DateTime? date;
   final UfcCardStatus status;
   final List<UfcFightModel> fights;
 
@@ -658,6 +660,7 @@ class UfcCardModel {
     this.venue,
     this.city,
     this.country,
+    this.date,
     this.status = UfcCardStatus.scheduled,
     required this.fights,
   });
@@ -689,12 +692,35 @@ class UfcCardModel {
     return mainFights.firstOrNull ?? fights.firstOrNull;
   }
 
+  /// Combate co-estelar de la velada.
+  UfcFightModel? get coMainEvent {
+    for (final f in fights) {
+      if (f.isCoMainEvent) return f;
+    }
+    if (mainFights.length > 1) return mainFights[1];
+    return null;
+  }
+
   /// Retorna el combate que actualmente esté en vivo, si existe alguno.
   UfcFightModel? get liveFight {
     for (final f in fights) {
       if (f.isLive) return f;
     }
     return null;
+  }
+
+  /// Fecha legible en español para la velada.
+  String? get formattedDate {
+    if (date == null) return null;
+    final local = date!.toLocal();
+    final months = [
+      'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+      'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'
+    ];
+    final m = months[local.month - 1];
+    final h = local.hour.toString().padLeft(2, '0');
+    final min = local.minute.toString().padLeft(2, '0');
+    return '${local.day} de $m, ${local.year} • $h:$min';
   }
 
   /// Busca un combate por su identificador único.
@@ -716,6 +742,12 @@ class UfcCardModel {
     final name = value['name']?.toString() ?? '';
     if (name.isEmpty) return null;
 
+    DateTime? parsedDate;
+    final rawDate = value['date'] ?? value['start_date'] ?? value['startDate'];
+    if (rawDate != null) {
+      parsedDate = DateTime.tryParse(rawDate.toString());
+    }
+
     final fightsList = <UfcFightModel>[];
     if (value['fights'] is List) {
       for (final f in value['fights'] as List) {
@@ -735,16 +767,212 @@ class UfcCardModel {
       venue: value['venue']?.toString(),
       city: value['city']?.toString(),
       country: value['country']?.toString(),
+      date: parsedDate,
       status: UfcCardStatus.fromString(value['status']?.toString()),
       fights: fightsList,
     );
   }
 
+  /// Agrupa una lista de eventos individuales de UFC en una Cartelera completa (UfcCardModel).
+  /// Asigna segmentos (Cartelera principal / Preliminares), orden de combate, combate estelar y co-estelar,
+  /// categoría de peso y resultados oficiales sin inventar registros o datos inexistentes.
+  static UfcCardModel fromEvents(
+    List<EventModel> events, {
+    EventModel? currentEvent,
+  }) {
+    if (events.isEmpty) {
+      if (currentEvent != null) return fromEvent(currentEvent);
+      return const UfcCardModel(
+        cardId: 'ufc-card-empty',
+        name: 'UFC',
+        status: UfcCardStatus.scheduled,
+        fights: [],
+      );
+    }
+
+    final ref = currentEvent ?? events.first;
+
+    // Si el evento de referencia ya posee una cartelera completa provista por extraStats, se usa directamente
+    if (ref.ufcCard != null) return ref.ufcCard!;
+    for (final e in events) {
+      if (e.ufcCard != null) return e.ufcCard!;
+    }
+
+    // Ordenar los combates de la velada:
+    // En UFC, el combate estelar tiene 5 asaltos (o título) y suele disputarse al final.
+    final sorted = List<EventModel>.from(events);
+    sorted.sort((a, b) {
+      // 1. Asaltos (5 asaltos van primero en importancia de cartelera)
+      final aRounds = a.ufcStats?.round ?? 0;
+      final bRounds = b.ufcStats?.round ?? 0;
+      if (aRounds != bRounds) return bRounds.compareTo(aRounds);
+
+      // 2. Horario si difiere
+      if (a.startTime != null && b.startTime != null) {
+        final timeDiff = b.startTime!.compareTo(a.startTime!);
+        if (timeDiff != 0) return timeDiff;
+      }
+
+      // 3. Identificador / externalId
+      return a.id.compareTo(b.id);
+    });
+
+    final total = sorted.length;
+    final fights = <UfcFightModel>[];
+
+    for (var i = 0; i < total; i++) {
+      final ev = sorted[i];
+      final order = i + 1;
+      final isMain = i == 0;
+      final isCoMain = i == 1 && total > 1;
+
+      // Cartelera principal: los primeros 5 combates o todos si hay <= 5
+      final segment = (i < 5 || total <= 5)
+          ? UfcCardSegment.mainCard
+          : (i >= 9 ? UfcCardSegment.earlyPrelims : UfcCardSegment.prelims);
+
+      final f1 = ev.fighter1;
+      final f2 = ev.fighter2;
+      final stats = ev.ufcStats;
+
+      final ufcFighter1 = UfcFighterModel(
+        id: f1?.id ?? 'f1',
+        name: f1?.name ?? 'Peleador 1',
+        nickname: f1?.nickname,
+        photoUrl: f1?.photoUrl,
+        record: f1?.record,
+        corner: 'red',
+      );
+
+      final ufcFighter2 = UfcFighterModel(
+        id: f2?.id ?? 'f2',
+        name: f2?.name ?? 'Peleador 2',
+        nickname: f2?.nickname,
+        photoUrl: f2?.photoUrl,
+        record: f2?.record,
+        corner: 'blue',
+      );
+
+      final isEvLive = ev.status == EventStatus.live;
+      final isEvFinished = ev.status == EventStatus.finished;
+      final fightStatus = isEvLive
+          ? UfcFightStatus.live
+          : (isEvFinished ? UfcFightStatus.finished : UfcFightStatus.scheduled);
+
+      UfcFightResultModel? result;
+      if (isEvFinished &&
+          (stats?.winnerName != null ||
+              ev.fightResult != null ||
+              stats?.method != null)) {
+        result = UfcFightResultModel(
+          winnerName: stats?.winnerName ?? f1?.name,
+          winnerId: stats?.winnerName == f2?.name ? f2?.id : f1?.id,
+          method: stats?.method ?? ev.fightResult ?? 'Decisión',
+          round: stats?.round,
+          time: stats?.time,
+        );
+      }
+
+      final weightClass =
+          f1?.weightClass ?? f2?.weightClass ?? 'Peso acordado';
+
+      final titleFight = isMain &&
+          (stats?.round == 5 ||
+              ev.league.toLowerCase().contains('championship') ||
+              ev.league.toLowerCase().contains('título'));
+
+      fights.add(
+        UfcFightModel(
+          id: ev.id,
+          order: order,
+          segment: segment,
+          isMainEvent: isMain,
+          isCoMainEvent: isCoMain,
+          weightClass: weightClass,
+          titleFight: titleFight,
+          roundsScheduled: isMain ? 5 : 3,
+          status: fightStatus,
+          currentRound: stats?.round,
+          clock: stats?.time,
+          fighter1: ufcFighter1,
+          fighter2: ufcFighter2,
+          result: result,
+          taleOfTheTape: UfcTaleOfTheTapeModel(
+            division: weightClass,
+            record1: f1?.record,
+            record2: f2?.record,
+          ),
+        ),
+      );
+    }
+
+    final hasLive = fights.any((f) => f.isLive);
+    final allFinished = fights.isNotEmpty && fights.every((f) => f.isFinished);
+    final cardStatus = hasLive
+        ? UfcCardStatus.live
+        : (allFinished ? UfcCardStatus.finished : UfcCardStatus.scheduled);
+
+    String? cardExternalId;
+    if (ref.externalId != null && ref.externalId!.startsWith('ufc-')) {
+      final parts = ref.externalId!.split('-');
+      if (parts.length >= 2) cardExternalId = 'ufc-card-${parts[1]}';
+    }
+
+    return UfcCardModel(
+      cardId: cardExternalId ?? ref.id,
+      name: ref.league,
+      subtitle: ref.venue,
+      venue: ref.venue,
+      date: ref.startTime,
+      status: cardStatus,
+      fights: fights,
+    );
+  }
+
   /// Construye una cartelera a partir de un EventModel existente.
   /// Si el EventModel ya tiene `ufcCard`, lo retorna directamente.
+  /// Si se provee `allEvents`, busca y agrupa los combates hermanos de la misma velada.
   /// En caso contrario, sintetiza una cartelera de un combate con datos reales del evento.
-  static UfcCardModel fromEvent(EventModel event) {
+  static UfcCardModel fromEvent(
+    EventModel event, {
+    List<EventModel>? allEvents,
+  }) {
     if (event.ufcCard != null) return event.ufcCard!;
+
+    if (allEvents != null && allEvents.isNotEmpty) {
+      String? cardExternalPrefix;
+      if (event.externalId != null && event.externalId!.startsWith('ufc-')) {
+        final parts = event.externalId!.split('-');
+        if (parts.length >= 2) {
+          cardExternalPrefix = 'ufc-${parts[1]}-';
+        }
+      }
+
+      final pool = allEvents.where((e) {
+        if (e.sport != SportType.ufc) return false;
+        if (cardExternalPrefix != null &&
+            e.externalId != null &&
+            e.externalId!.startsWith(cardExternalPrefix)) {
+          return true;
+        }
+        if (e.league.trim().toLowerCase() ==
+            event.league.trim().toLowerCase()) {
+          if (e.startTime != null && event.startTime != null) {
+            return e.startTime!
+                    .difference(event.startTime!)
+                    .inHours
+                    .abs() <
+                18;
+          }
+          return true;
+        }
+        return false;
+      }).toList();
+
+      if (pool.length > 1) {
+        return fromEvents(pool, currentEvent: event);
+      }
+    }
 
     final f1 = event.fighter1;
     final f2 = event.fighter2;
@@ -775,7 +1003,10 @@ class UfcCardModel {
         : (isFinished ? UfcFightStatus.finished : UfcFightStatus.scheduled);
 
     UfcFightResultModel? result;
-    if (isFinished && (stats?.winnerName != null || event.fightResult != null || stats?.method != null)) {
+    if (isFinished &&
+        (stats?.winnerName != null ||
+            event.fightResult != null ||
+            stats?.method != null)) {
       result = UfcFightResultModel(
         winnerName: stats?.winnerName ?? (f1?.name),
         winnerId: stats?.winnerName == f2?.name ? f2?.id : f1?.id,
@@ -813,6 +1044,7 @@ class UfcCardModel {
       name: event.league,
       subtitle: event.venue,
       venue: event.venue,
+      date: event.startTime,
       status: cardStatus,
       fights: [singleFight],
     );
@@ -827,6 +1059,7 @@ class UfcCardModel {
       if (venue != null) 'venue': venue,
       if (city != null) 'city': city,
       if (country != null) 'country': country,
+      if (date != null) 'date': date!.toIso8601String(),
       'status': status.name,
       'fights': fights.map((f) => f.toJson()).toList(),
     };

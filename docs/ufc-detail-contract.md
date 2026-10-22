@@ -18,6 +18,7 @@ La entidad de cartelera agrupa los combates de una velada de UFC (ej. UFC 308, U
 | `subtitle` | Subtítulo descriptivo o zona horaria (ej. `Cartelera principal • Hora de Chile`, `Abu Dhabi • Hora local`) |
 | `venue` | Recinto o sede del evento (ej. `Etihad Arena, Abu Dhabi`, `Movistar Arena, Santiago`) |
 | `city`, `country` | Ciudad y país sede del evento |
+| `date` | Fecha y hora oficial de la velada en formato ISO 8601 (ej. `2024-10-26T14:00Z`) |
 | `status` | Estado general de la velada (`scheduled`, `live`, `finished`) |
 | `fights` | Lista ordenada de combates individuales (`UfcFightModel`) |
 
@@ -122,3 +123,21 @@ Si las estadísticas no están disponibles para un combate, la pestaña informa 
 5. **Navegación y retorno ("conservar retorno")**:
    - Cada tarjeta de combate es interactiva y abre la vista completa del detalle de combate.
    - El botón de retroceso (`AppBar` y navegación nativa) regresa a la cartelera manteniendo el filtro seleccionado y la posición del usuario.
+
+## 8. Estrategia de agrupación y persistencia
+
+1. **Persistencia granular en backend**:
+   - Cada combate se almacena como una entidad `Event` individual en PostgreSQL/Supabase con identificador externo determinista `ufc-{eventId}-{competitionId}`.
+   - Esto preserva integridad relacional, compatibilidad con tablas de participantes, marcadores y suscripciones en tiempo real.
+   - En la tabla satélite `UfcStats`, el campo `extraStats` alberga el bloque `card` (`UfcCardPayload`) con la velada completa consolidada.
+
+2. **Agrupación en el cliente (`mobile`)**:
+   - Cuando un evento cuenta con `ufcStats.extraStats.card`, se parsea directamente con `UfcCardModel.parse`.
+   - Cuando se cargan combates individuales desde la base de datos sin `extraStats.card`, el cliente los agrupa mediante `UfcCardModel.fromEvent(event, allEvents: ...)` o `UfcCardModel.fromEvents(...)`, detectando el prefijo común en `externalId` (`ufc-{cardId}-`) o la combinación de liga y fecha de velada.
+   - En ausencia de eventos hermanos, se construye de forma segura la cartelera monoevento preservando sus datos reales.
+
+## 9. Regla estricta de estados parciales (Anti-hallucination)
+
+- Récords MMA (`records`), apodos de combate (`nickname`), clasificaciones oficiales (`curatedRank`) y ficha física (`taleOfTheTape`) solo se pueblan si la fuente oficial (ESPN) los entrega explícitamente.
+- Ante ausencia de métricas físicas o récord, el sistema mantiene los campos como `null` y la interfaz presenta indicadores limpios de ausencia de datos, sin generar valores inventados ni simulaciones ficticias.
+
