@@ -70,10 +70,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       await CacheService.saveSelectedSports(sportSlugs);
       await CacheService.setOnboardingCompleted(true);
 
-      if (_selectedSports.length == 1) {
+      if (_selectedSports.isNotEmpty) {
         ref.read(selectedSportFilterProvider.notifier).state = _selectedSports.first;
       } else {
-        ref.read(selectedSportFilterProvider.notifier).state = SportType.all;
+        ref.read(selectedSportFilterProvider.notifier).state = SportType.soccer;
       }
 
       if (mounted) {

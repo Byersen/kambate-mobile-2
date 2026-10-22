@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/date_formatter.dart';
+import '../../../../core/utils/football_competition_priority.dart';
 import '../../../../models/event_model.dart';
 import '../../../../models/event_status.dart';
 import '../../../../models/sport_type.dart';
@@ -36,7 +37,7 @@ class FeedScreen extends ConsumerWidget {
     final updated = ref.watch(feedLastUpdatedProvider);
     final teams = ref.watch(favoriteTeamIdsProvider);
     final leagues = ref.watch(followedLeaguesProvider);
-    final events =
+    final filtered =
         (feed.asData?.value ?? <EventModel>[])
             .where(
               (event) =>
@@ -45,15 +46,11 @@ class FeedScreen extends ConsumerWidget {
                   (status == null || event.status == status) &&
                   event.status != EventStatus.archived,
             )
-            .toList()
-          ..sort((a, b) {
-            final priority = (_followed(b, teams, leagues) ? 1 : 0).compareTo(
-              _followed(a, teams, leagues) ? 1 : 0,
-            );
-            return priority != 0
-                ? priority
-                : a.startTime.compareTo(b.startTime);
-          });
+            .toList();
+    final events = FootballCompetitionPriority.sortEvents(
+      filtered,
+      isFollowed: (event) => _followed(event, teams, leagues),
+    );
     Future<void> refresh() =>
         ref.read(feedNotifierProvider.notifier).loadEvents(forceRefresh: true);
     final groups = [
@@ -106,98 +103,6 @@ class FeedScreen extends ConsumerWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 20, 20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      AppDateFormatter.getRelativeDayName(date),
-                      style: const TextStyle(
-                        fontSize: 34,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        const Text(
-                          'Tu jornada deportiva',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        Text(
-                          AppDateFormatter.formatDate(date),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                        if (!AppDateFormatter.isSameDay(
-                          date,
-                          DateTime.now(),
-                        ))
-                          GestureDetector(
-                            onTap: () {
-                              final now = DateTime.now();
-                              ref
-                                  .read(selectedFeedDateProvider.notifier)
-                                  .state = DateTime(
-                                now.year,
-                                now.month,
-                                now.day,
-                              );
-                            },
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(
-                                  alpha: 0.15,
-                                ),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: AppColors.primary.withValues(
-                                    alpha: 0.4,
-                                  ),
-                                ),
-                              ),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.today_rounded,
-                                    size: 13,
-                                    color: AppColors.primary,
-                                  ),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Ir a hoy',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
               child: SportFilterBar(
                 selectedSport: sport,
                 onSportSelected: (value) =>
@@ -212,6 +117,60 @@ class FeedScreen extends ConsumerWidget {
                     ref.read(selectedFeedDateProvider.notifier).state = value,
               ),
             ),
+            if (!AppDateFormatter.isSameDay(date, DateTime.now()))
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          final now = DateTime.now();
+                          ref.read(selectedFeedDateProvider.notifier).state =
+                              DateTime(now.year, now.month, now.day);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(
+                              alpha: 0.15,
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: AppColors.primary.withValues(
+                                alpha: 0.4,
+                              ),
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.today_rounded,
+                                size: 13,
+                                color: AppColors.primary,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Ir a hoy',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
             SliverToBoxAdapter(
               child: SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -338,7 +297,7 @@ class FeedScreen extends ConsumerWidget {
                           DateTime(now.year, now.month, now.day);
                     } else {
                       ref.read(selectedSportFilterProvider.notifier).state =
-                          SportType.all;
+                          SportType.soccer;
                       ref.read(selectedEventStatusProvider.notifier).state =
                           null;
                     }

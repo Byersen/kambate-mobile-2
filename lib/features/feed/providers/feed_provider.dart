@@ -13,9 +13,9 @@ final feedRepositoryProvider = Provider<FeedRepository>((ref) {
   return FeedRepository();
 });
 
-/// Sport discipline filter (all, soccer, nba, ufc, lol, valorant)
+/// Sport discipline filter (defaults to soccer; soccer, nba, ufc, lol, valorant)
 final selectedSportFilterProvider = StateProvider<SportType>((ref) {
-  return SportType.all;
+  return SportType.soccer;
 });
 
 final selectedEventStatusProvider = StateProvider<EventStatus?>((ref) => null);

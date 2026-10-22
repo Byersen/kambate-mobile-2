@@ -11,13 +11,21 @@ class SportFilterBar extends StatelessWidget {
   final SportType selectedSport;
   final ValueChanged<SportType> onSportSelected;
 
+  static const List<SportType> supportedSports = [
+    SportType.soccer,
+    SportType.nba,
+    SportType.ufc,
+    SportType.lol,
+    SportType.valorant,
+  ];
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
-        children: SportType.values.map((sport) {
+        children: supportedSports.map((sport) {
           final selected = sport == selectedSport;
           final label = switch (sport) {
             SportType.ufc => 'UFC',
