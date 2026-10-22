@@ -131,7 +131,7 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
     int? newHomeScore;
     int? newAwayScore;
     final scoreMatch = RegExp(
-      r'^\s*(\d+)\s*[-–:]\s*(\d+)\s*$',
+      r'(\d+)\s*[-–:]\s*(\d+)',
     ).firstMatch(record['score']?.toString() ?? '');
     if (scoreMatch != null) {
       newHomeScore = int.parse(scoreMatch.group(1)!);

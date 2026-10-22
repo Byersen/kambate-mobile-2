@@ -444,7 +444,7 @@ class EventModel {
         ? json['home_score'] as int
         : int.tryParse(json['home_score']?.toString() ?? '');
     final scoreParts = RegExp(
-      r'^\s*(\d+)\s*[-–:]\s*(\d+)\s*$',
+      r'(\d+)\s*[-–:]\s*(\d+)',
     ).firstMatch(json['score']?.toString() ?? '');
     homeScore ??= scoreParts != null ? int.parse(scoreParts.group(1)!) : null;
     homeScore ??=
