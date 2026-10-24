@@ -932,9 +932,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Texto de evento en vivo
+      // Texto de evento en vivo y solo punto rojo (sin texto EN VIVO)
       expect(find.text('Real Madrid 1 - 0 Manchester City'), findsOneWidget);
-      expect(find.text('EN VIVO'), findsOneWidget);
+      expect(find.text('EN VIVO'), findsNothing);
 
       // Punto rojo visible con key específica
       final dotFinder = find.byKey(const ValueKey('live_indicator_dot'));

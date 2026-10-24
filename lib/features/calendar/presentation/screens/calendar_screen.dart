@@ -658,33 +658,18 @@ class _SimpleMatchRow extends StatelessWidget {
 
     Widget timeWidget;
     if (event.isLive) {
-      timeWidget = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Semantics(
-            container: true,
-            label: 'En vivo',
-            child: Container(
-              key: const ValueKey('live_indicator_dot'),
-              width: 7,
-              height: 7,
-              decoration: const BoxDecoration(
-                color: AppColors.liveRed,
-                shape: BoxShape.circle,
-              ),
-            ),
+      timeWidget = Semantics(
+        container: true,
+        label: 'En vivo',
+        child: Container(
+          key: const ValueKey('live_indicator_dot'),
+          width: 8,
+          height: 8,
+          decoration: const BoxDecoration(
+            color: AppColors.liveRed,
+            shape: BoxShape.circle,
           ),
-          const SizedBox(width: 4),
-          const Text(
-            'EN VIVO',
-            style: TextStyle(
-              color: AppColors.liveRed,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ],
+        ),
       );
     } else {
       timeWidget = Text(
