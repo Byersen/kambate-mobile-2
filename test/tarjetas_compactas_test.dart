@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:kambate_mobile/core/theme/app_theme.dart';
+import 'package:kambate_mobile/core/utils/date_formatter.dart';
 import 'package:kambate_mobile/core/widgets/event_status_chip.dart';
 import 'package:kambate_mobile/features/feed/presentation/widgets/match_card.dart';
 import 'package:kambate_mobile/features/feed/presentation/widgets/scoreboard_row.dart';
@@ -97,7 +98,7 @@ void main() {
       expect(find.text('EN VIVO'), findsOneWidget);
 
       // 3. Hora / Periodo
-      expect(find.text("45+2'"), findsOneWidget);
+      expect(find.text('45+2′'), findsOneWidget);
 
       // 4. Equipos
       expect(find.text('Arsenal'), findsOneWidget);
@@ -180,7 +181,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('FINALIZADO'), findsOneWidget);
-      expect(find.textContaining('15:00'), findsOneWidget);
+      expect(find.text('FINAL'), findsOneWidget);
       expect(find.text('1'), findsNWidgets(2));
     });
 
@@ -339,6 +340,111 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('Tarea 28 — Reorganización de ScoreboardRow en tres columnas', () {
+    testWidgets('Alineación geométrica: las dos filas de equipos y marcadores quedan alineadas verticalmente', (tester) async {
+      final event = EventModel(
+        id: 'evt-geo-align',
+        sport: SportType.soccer,
+        league: 'LaLiga EA Sports',
+        status: EventStatus.live,
+        startTime: DateTime.utc(2026, 10, 24, 20, 0),
+        currentPeriod: "58'",
+        homeTeam: const TeamModel(id: 't-rma', name: 'Real Madrid'),
+        awayTeam: const TeamModel(id: 't-bar', name: 'FC Barcelona'),
+        homeScore: 2,
+        awayScore: 1,
+      );
+
+      await tester.pumpWidget(
+        wrapWithTheme(
+          Center(
+            child: ScoreboardRow(event: event, onTap: () {}),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final homeTeamPos = tester.getTopLeft(find.text('Real Madrid'));
+      final awayTeamPos = tester.getTopLeft(find.text('FC Barcelona'));
+      final homeScorePos = tester.getTopLeft(find.text('2'));
+      final awayScorePos = tester.getTopLeft(find.text('1'));
+      final timePos = tester.getTopLeft(find.text('58′'));
+
+      // Misma columna X para ambos equipos
+      expect(homeTeamPos.dx, equals(awayTeamPos.dx));
+      // Misma columna X para ambos marcadores
+      expect(homeScorePos.dx, equals(awayScorePos.dx));
+      // Los marcadores se ubican a la derecha de los equipos
+      expect(homeScorePos.dx, greaterThan(homeTeamPos.dx));
+      // El minuto está en la tercera columna, a la derecha del marcador
+      expect(timePos.dx, greaterThan(homeScorePos.dx));
+
+      // Alineación vertical de cada fila: el marcador local está a nivel vertical de su equipo
+      expect((homeTeamPos.dy - homeScorePos.dy).abs(), lessThan(6.0));
+      // El marcador visitante está a nivel vertical de su equipo
+      expect((awayTeamPos.dy - awayScorePos.dy).abs(), lessThan(6.0));
+      // La fila visitante está debajo de la local
+      expect(awayTeamPos.dy, greaterThan(homeTeamPos.dy));
+      expect(awayScorePos.dy, greaterThan(homeScorePos.dy));
+    });
+
+    testWidgets('Tercera columna presenta estado/minuto/hora sin duplicar en la tarjeta', (tester) async {
+      final liveEvent = EventModel(
+        id: 'evt-no-dup-live',
+        sport: SportType.soccer,
+        league: 'Champions League',
+        status: EventStatus.live,
+        startTime: DateTime.utc(2026, 10, 24, 20, 0),
+        currentPeriod: "75'",
+        homeTeam: const TeamModel(id: 't-1', name: 'Inter'),
+        awayTeam: const TeamModel(id: 't-2', name: 'Milan'),
+        homeScore: 1,
+        awayScore: 0,
+      );
+
+      await tester.pumpWidget(
+        wrapWithTheme(
+          ScoreboardRow(event: liveEvent, onTap: () {}),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // El minuto aparece exactamente una vez (en la tercera columna)
+      expect(find.text('75′'), findsOneWidget);
+      // El chip de estado aparece exactamente una vez (en la cabecera)
+      expect(find.byType(EventStatusChip), findsOneWidget);
+      expect(find.text('EN VIVO'), findsOneWidget);
+    });
+
+    testWidgets('UFC no inventa marcadores numéricos ni guiones de fútbol', (tester) async {
+      final ufcEvent = EventModel(
+        id: 'evt-ufc-check',
+        sport: SportType.ufc,
+        league: 'UFC Fight Night',
+        status: EventStatus.scheduled,
+        startTime: DateTime.utc(2026, 10, 24, 23, 0),
+        fighter1: const FighterModel(id: 'f-1', name: 'Brandon Moreno'),
+        fighter2: const FighterModel(id: 'f-2', name: 'Amir Albazi'),
+      );
+
+      await tester.pumpWidget(
+        wrapWithTheme(
+          ScoreboardRow(event: ufcEvent, onTap: () {}),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Brandon Moreno'), findsOneWidget);
+      expect(find.text('Amir Albazi'), findsOneWidget);
+      // No hay marcadores numéricos ni guiones neutrales de marcador
+      expect(find.text('—'), findsNothing);
+      expect(find.text('0'), findsNothing);
+      // Tercera columna muestra hora de inicio
+      expect(find.text('PROGRAMADO'), findsOneWidget);
+      expect(find.text(AppDateFormatter.formatEventTime(ufcEvent.startTime)), findsOneWidget);
     });
   });
 }

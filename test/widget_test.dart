@@ -487,4 +487,236 @@ void main() {
       await capturePreview(tester, boundary, 'inicio-b');
     }
   });
+
+  group('Tarea 28 — Disposición de ScoreboardRow en tres columnas', () {
+    testWidgets('Distribución en tres columnas: equipos, marcadores alineados y estado/minuto/hora sin duplicar', (tester) async {
+      final now = DateTime.now();
+      final liveEvent = EventModel(
+        id: 'evt-3col-live',
+        sport: SportType.soccer,
+        league: 'Champions League',
+        status: EventStatus.live,
+        startTime: DateTime(now.year, now.month, now.day, 20, 0),
+        currentPeriod: "34'",
+        homeTeam: const TeamModel(id: 't-rma', name: 'Real Madrid'),
+        awayTeam: const TeamModel(id: 't-mci', name: 'Manchester City'),
+        homeScore: 2,
+        awayScore: 1,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.light(),
+          home: Scaffold(
+            body: ScoreboardRow(event: liveEvent, onTap: () {}),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Columna 1: Equipos en sus filas
+      expect(find.text('Real Madrid'), findsOneWidget);
+      expect(find.text('Manchester City'), findsOneWidget);
+
+      // Columna 2: Marcadores alineados
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('1'), findsOneWidget);
+
+      // Columna 3: Minuto real de juego en vivo sin duplicarse
+      expect(find.text('34′'), findsOneWidget);
+      expect(find.byKey(const ValueKey('scoreboard_live_dot')), findsOneWidget);
+
+      // Encabezado: Competición y estado chip conservados sin duplicar el minuto
+      expect(find.textContaining('Champions League'), findsOneWidget);
+      expect(find.text('EN VIVO'), findsOneWidget);
+      expect(find.text('34′'), findsOneWidget); // Exactamente 1 ocurrencia, sin duplicarse en cabecera
+    });
+
+    testWidgets('En vivo sin minuto (otro deporte o descanso): muestra indicador en vivo accesible sin inventar reloj', (tester) async {
+      final now = DateTime.now();
+      final nbaLive = EventModel(
+        id: 'evt-3col-nba-live',
+        sport: SportType.nba,
+        league: 'NBA',
+        status: EventStatus.live,
+        startTime: DateTime(now.year, now.month, now.day, 21, 30),
+        currentPeriod: 'Q3 04:12',
+        homeTeam: const TeamModel(id: 't-bos', name: 'Boston Celtics'),
+        awayTeam: const TeamModel(id: 't-mia', name: 'Miami Heat'),
+        homeScore: 88,
+        awayScore: 82,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.light(),
+          home: Scaffold(
+            body: ScoreboardRow(event: nbaLive, onTap: () {}),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Boston Celtics'), findsOneWidget);
+      expect(find.text('Miami Heat'), findsOneWidget);
+      expect(find.text('88'), findsOneWidget);
+      expect(find.text('82'), findsOneWidget);
+
+      // Punto rojo accesible de en vivo presente
+      expect(find.byKey(const ValueKey('scoreboard_live_dot')), findsOneWidget);
+      final semantics = tester.ensureSemantics();
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('En vivo'), findsWidgets);
+      semantics.dispose();
+
+      // No inventa minuto de fútbol
+      expect(find.textContaining('′'), findsNothing);
+    });
+
+    testWidgets('Finalizado con score real: muestra marcadores finales y estado FINAL en tercera columna', (tester) async {
+      final now = DateTime.now();
+      final finishedEvent = EventModel(
+        id: 'evt-3col-finished',
+        sport: SportType.soccer,
+        league: 'LaLiga EA Sports',
+        status: EventStatus.finished,
+        startTime: DateTime(now.year, now.month, now.day, 16, 0),
+        homeTeam: const TeamModel(id: 't-bar', name: 'FC Barcelona'),
+        awayTeam: const TeamModel(id: 't-atm', name: 'Atlético de Madrid'),
+        homeScore: 3,
+        awayScore: 1,
+        score: '3 - 1',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.light(),
+          home: Scaffold(
+            body: ScoreboardRow(event: finishedEvent, onTap: () {}),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('FC Barcelona'), findsOneWidget);
+      expect(find.text('Atlético de Madrid'), findsOneWidget);
+      expect(find.text('3'), findsOneWidget);
+      expect(find.text('1'), findsOneWidget);
+      // Estado final en tercera columna
+      expect(find.text('FINAL'), findsOneWidget);
+      // Estado chip en cabecera
+      expect(find.text('FINALIZADO'), findsOneWidget);
+    });
+
+    testWidgets('Programado: muestra guiones neutrales en marcadores y hora de inicio en tercera columna', (tester) async {
+      final now = DateTime.now();
+      final schedEvent = EventModel(
+        id: 'evt-3col-sched',
+        sport: SportType.soccer,
+        league: 'Premier League',
+        status: EventStatus.scheduled,
+        startTime: DateTime(now.year, now.month, now.day, 19, 45),
+        homeTeam: const TeamModel(id: 't-liv', name: 'Liverpool'),
+        awayTeam: const TeamModel(id: 't-mun', name: 'Manchester United'),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.light(),
+          home: Scaffold(
+            body: ScoreboardRow(event: schedEvent, onTap: () {}),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Liverpool'), findsOneWidget);
+      expect(find.text('Manchester United'), findsOneWidget);
+      // Guiones neutrales, nunca 0 - 0 inventado
+      expect(find.text('—'), findsNWidgets(2));
+      expect(find.text('0 - 0'), findsNothing);
+      // Hora de inicio en tercera columna
+      expect(find.text(AppDateFormatter.formatEventTime(schedEvent.startTime)), findsOneWidget);
+      expect(find.text('PROGRAMADO'), findsOneWidget);
+    });
+
+    testWidgets('Combate UFC: no inventa marcadores numéricos y conserva contrato del deporte', (tester) async {
+      final now = DateTime.now();
+      final ufcFinished = EventModel(
+        id: 'evt-3col-ufc',
+        sport: SportType.ufc,
+        league: 'UFC 310',
+        status: EventStatus.finished,
+        startTime: DateTime(now.year, now.month, now.day, 23, 0),
+        fighter1: const FighterModel(id: 'f-jon', name: 'Jon Jones'),
+        fighter2: const FighterModel(id: 'f-sti', name: 'Stipe Miocic'),
+        fightResult: 'TKO Rd 3 04:29',
+        score: 'TKO Rd 3 04:29',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.light(),
+          home: Scaffold(
+            body: ScoreboardRow(event: ufcFinished, onTap: () {}),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Jon Jones'), findsOneWidget);
+      expect(find.text('Stipe Miocic'), findsOneWidget);
+      // No muestra guiones ni marcadores numéricos inventados
+      expect(find.text('—'), findsNothing);
+      expect(find.text('0'), findsNothing);
+      // Resultado oficial presente
+      expect(find.text('TKO Rd 3 04:29'), findsOneWidget);
+      expect(find.text('FINAL'), findsOneWidget);
+      expect(find.text('FINALIZADO'), findsOneWidget);
+    });
+
+    testWidgets('Nombres largos en ancho 320px y texto ampliado: sin desbordamiento RenderFlex ni desplazamiento de columnas', (tester) async {
+      final now = DateTime.now();
+      final extremeEvent = EventModel(
+        id: 'evt-3col-extreme',
+        sport: SportType.soccer,
+        league: 'Campeonato Nacional de Primera División AFP PlanVital',
+        status: EventStatus.live,
+        startTime: DateTime(now.year, now.month, now.day, 20, 0),
+        currentPeriod: "90+4'",
+        homeTeam: const TeamModel(
+          id: 't-ext-1',
+          name: 'Club Social y Deportivo Colo-Colo de Santiago de Chile',
+        ),
+        awayTeam: const TeamModel(
+          id: 't-ext-2',
+          name: 'Club Universidad de Chile de la Ciudad Deportiva Metropolitana',
+        ),
+        homeScore: 10,
+        awayScore: 9,
+      );
+
+      await tester.pumpWidget(
+        MediaQuery(
+          data: const MediaQueryData(
+            size: Size(320, 568),
+            textScaler: TextScaler.linear(1.4),
+          ),
+          child: MaterialApp(
+            theme: ThemeData.light(),
+            home: Scaffold(
+              body: ScoreboardRow(event: extremeEvent, onTap: () {}),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('90+4′'), findsOneWidget);
+      expect(find.text('10'), findsOneWidget);
+      expect(find.text('9'), findsOneWidget);
+      expect(find.text('EN VIVO'), findsOneWidget);
+    });
+  });
 }

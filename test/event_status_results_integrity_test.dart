@@ -192,7 +192,7 @@ void main() {
       );
 
       expect(find.text('EN VIVO'), findsOneWidget);
-      expect(find.text("42'"), findsOneWidget);
+      expect(find.text('42′'), findsOneWidget);
       expect(find.text('2'), findsOneWidget);
       expect(find.text('1'), findsOneWidget);
     });
