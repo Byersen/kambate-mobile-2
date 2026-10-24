@@ -328,60 +328,79 @@ class EventModel {
       );
     }
 
+    dynamic rawFootball = json['footballStats'] ?? json['football_stats'];
+    if (rawFootball is List && rawFootball.isNotEmpty) {
+      rawFootball = rawFootball.first;
+    }
     FootballStatsModel? footballStats;
-    if (json['footballStats'] is Map<String, dynamic>) {
-      footballStats = FootballStatsModel.fromJson(
-        json['footballStats'] as Map<String, dynamic>,
-      );
-    } else if (json['football_stats'] is Map<String, dynamic>) {
-      footballStats = FootballStatsModel.fromJson(
-        json['football_stats'] as Map<String, dynamic>,
-      );
+    if (rawFootball is Map<String, dynamic>) {
+      footballStats = FootballStatsModel.fromJson(rawFootball);
     }
 
+    dynamic rawNba = json['nbaStats'] ?? json['nba_stats'];
+    if (rawNba is List && rawNba.isNotEmpty) {
+      rawNba = rawNba.first;
+    }
     NbaStatsModel? nbaStats;
-    if (json['nbaStats'] is Map<String, dynamic>) {
-      nbaStats = NbaStatsModel.fromJson(
-        json['nbaStats'] as Map<String, dynamic>,
-      );
-    } else if (json['nba_stats'] is Map<String, dynamic>) {
-      nbaStats = NbaStatsModel.fromJson(
-        json['nba_stats'] as Map<String, dynamic>,
-      );
+    if (rawNba is Map<String, dynamic>) {
+      nbaStats = NbaStatsModel.fromJson(rawNba);
     }
 
+    dynamic rawUfc = json['ufcStats'] ?? json['ufc_stats'];
+    if (rawUfc is List && rawUfc.isNotEmpty) {
+      rawUfc = rawUfc.first;
+    }
     UfcStatsModel? ufcStats;
-    if (json['ufcStats'] is Map<String, dynamic>) {
-      ufcStats = UfcStatsModel.fromJson(
-        json['ufcStats'] as Map<String, dynamic>,
-      );
-    } else if (json['ufc_stats'] is Map<String, dynamic>) {
-      ufcStats = UfcStatsModel.fromJson(
-        json['ufc_stats'] as Map<String, dynamic>,
-      );
+    if (rawUfc is Map<String, dynamic>) {
+      ufcStats = UfcStatsModel.fromJson(rawUfc);
     }
 
+    dynamic rawEsports = json['esportsStats'] ?? json['esports_stats'];
+    if (rawEsports is List && rawEsports.isNotEmpty) {
+      rawEsports = rawEsports.first;
+    }
     EsportsStatsModel? esportsStats;
-    if (json['esportsStats'] is Map<String, dynamic>) {
-      esportsStats = EsportsStatsModel.fromJson(
-        json['esportsStats'] as Map<String, dynamic>,
-      );
-    } else if (json['esports_stats'] is Map<String, dynamic>) {
-      esportsStats = EsportsStatsModel.fromJson(
-        json['esports_stats'] as Map<String, dynamic>,
-      );
+    if (rawEsports is Map<String, dynamic>) {
+      esportsStats = EsportsStatsModel.fromJson(rawEsports);
     }
 
     final footballDetail = FootballDetailModel.parse(
       footballStats?.extraStats?['detail'],
     );
-    if (sport == SportType.soccer && footballDetail != null) {
-      final home = participants
-          .where((p) => p.id == footballDetail.homeParticipantId)
-          .firstOrNull;
-      final away = participants
-          .where((p) => p.id == footballDetail.awayParticipantId)
-          .firstOrNull;
+    if (sport == SportType.soccer) {
+      ParticipantModel? home;
+      ParticipantModel? away;
+      if (footballDetail != null) {
+        home = participants
+            .where((p) => p.id == footballDetail.homeParticipantId)
+            .firstOrNull;
+        away = participants
+            .where((p) => p.id == footballDetail.awayParticipantId)
+            .firstOrNull;
+      }
+      final extra = footballStats?.extraStats;
+      if (home == null && extra != null) {
+        final homeId = extra['homeTeamId']?.toString();
+        if (homeId != null && homeId.isNotEmpty) {
+          home = participants
+              .where((p) =>
+                  p.externalId == 'football-team-$homeId' ||
+                  p.externalId == homeId ||
+                  (p.externalId?.endsWith('-$homeId') ?? false))
+              .firstOrNull;
+        }
+      }
+      if (away == null && extra != null) {
+        final awayId = extra['awayTeamId']?.toString();
+        if (awayId != null && awayId.isNotEmpty) {
+          away = participants
+              .where((p) =>
+                  p.externalId == 'football-team-$awayId' ||
+                  p.externalId == awayId ||
+                  (p.externalId?.endsWith('-$awayId') ?? false))
+              .firstOrNull;
+        }
+      }
       if (home != null && away != null) {
         homeTeam = TeamModel(
           id: home.id,

@@ -31,28 +31,31 @@ class FeedRepository {
     int? leagueTier,
     bool forceRefresh = false,
   }) async {
-    if (!forceRefresh) {
-      final cached = await CacheService.getCachedEvents();
-      if (cached != null) {
-        source = FeedDataSource.cache;
-        lastUpdated = await CacheService.getLastSyncTime();
-        return _filter(cached, sport, leagueTier);
-      }
+    final cached = await CacheService.getCachedEvents();
+    final lastSync = await CacheService.getLastSyncTime();
+    final isCacheFresh = lastSync != null &&
+        DateTime.now().difference(lastSync) < const Duration(minutes: 5);
+
+    // Solo usar cache si fue actualizada hace menos de 5 minutos
+    if (!forceRefresh && cached != null && isCacheFresh) {
+      source = FeedDataSource.remote;
+      lastUpdated = lastSync;
+      return _filter(cached, sport, leagueTier);
     }
+
     try {
       final events = await fetchRemoteEvents();
       await CacheService.saveEvents(events);
       source = FeedDataSource.remote;
-      lastUpdated = await CacheService.getLastSyncTime();
-      // Un resultado vacío también es válido y sustituye la caché anterior.
+      lastUpdated = DateTime.now();
       return _filter(events, sport, leagueTier);
     } catch (error) {
-      debugPrint('No se pudieron actualizar los partidos: $error');
-      final cached = await CacheService.getCachedEvents();
-      if (cached == null) rethrow;
+      debugPrint('No se pudieron actualizar los partidos remotamente: $error');
+      final fallbackCached = cached ?? await CacheService.getCachedEvents();
+      if (fallbackCached == null) rethrow;
       source = FeedDataSource.cache;
-      lastUpdated = await CacheService.getLastSyncTime();
-      return _filter(cached, sport, leagueTier);
+      lastUpdated = lastSync ?? await CacheService.getLastSyncTime();
+      return _filter(fallbackCached, sport, leagueTier);
     }
   }
 

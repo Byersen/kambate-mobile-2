@@ -1,5 +1,6 @@
 class ParticipantModel {
   final String id;
+  final String? externalId;
   final String name;
   final String? slug;
   final String? shortName;
@@ -11,6 +12,7 @@ class ParticipantModel {
 
   const ParticipantModel({
     required this.id,
+    this.externalId,
     required this.name,
     this.slug,
     this.shortName,
@@ -26,6 +28,8 @@ class ParticipantModel {
   factory ParticipantModel.fromJson(Map<String, dynamic> json) {
     return ParticipantModel(
       id: json['id']?.toString() ?? '',
+      externalId:
+          json['external_id']?.toString() ?? json['externalId']?.toString(),
       name: json['name']?.toString() ?? 'Participante',
       slug: json['slug']?.toString(),
       shortName: json['short_name']?.toString() ?? json['shortName']?.toString(),
@@ -43,6 +47,7 @@ class ParticipantModel {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'external_id': externalId,
       'name': name,
       'slug': slug,
       'short_name': shortName,
