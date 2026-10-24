@@ -15,6 +15,7 @@ import 'package:kambate_mobile/models/event_status.dart';
 import 'package:kambate_mobile/models/fighter_model.dart';
 import 'package:kambate_mobile/models/participant_model.dart';
 import 'package:kambate_mobile/models/sport_type.dart';
+import 'package:kambate_mobile/models/stats_models.dart';
 import 'package:kambate_mobile/models/team_model.dart';
 import 'package:kambate_mobile/services/realtime_service.dart';
 import 'support/preview.dart';
@@ -999,4 +1000,304 @@ void main() {
       expect(find.text('Calendario'), findsOneWidget);
     });
   });
+
+  group('Tarea 27: Mostrar el minuto real del partido en vivo en Calendario', () {
+    testWidgets('Minuto disponible: muestra punto rojo y minuto real transcurrido (e.g. 23′) en fútbol en vivo', (tester) async {
+      configureViewport(tester);
+
+      final now = DateTime.now();
+      final liveSoccer = EventModel(
+        id: 'ev-soccer-23',
+        sport: SportType.soccer,
+        league: 'Primera División',
+        status: EventStatus.live,
+        startTime: DateTime(now.year, now.month, now.day, 17, 0),
+        currentPeriod: "23'",
+        homeTeam: const TeamModel(id: 't-1', name: 'Colo-Colo'),
+        awayTeam: const TeamModel(id: 't-2', name: 'U. de Chile'),
+        homeScore: 1,
+        awayScore: 0,
+      );
+
+      final repository = MockCalendarRepository(events: [liveSoccer]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [feedRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: CalendarScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Indicador de punto rojo visible y accesible
+      final dotFinder = find.byKey(const ValueKey('live_indicator_dot'));
+      expect(dotFinder, findsOneWidget);
+
+      final semantics = tester.ensureSemantics();
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('En vivo'), findsOneWidget);
+      semantics.dispose();
+
+      // Minuto real visible formateado con prima ′
+      expect(find.text('23′'), findsOneWidget);
+
+      // Color del texto del minuto es AppColors.liveRed
+      final minuteText = tester.widget<Text>(find.text('23′'));
+      expect(minuteText.style?.color, AppColors.liveRed);
+      expect(minuteText.style?.fontWeight, FontWeight.bold);
+
+      // Marcador y equipos
+      expect(find.text('Colo-Colo 1 - 0 U. de Chile'), findsOneWidget);
+    });
+
+    testWidgets('Tiempo añadido: conserva formato de tiempo añadido (e.g. 90+3′ o 45+2′) sin inventar sumas ni adiciones', (tester) async {
+      configureViewport(tester);
+
+      final now = DateTime.now();
+      final liveAdded1 = EventModel(
+        id: 'ev-added-90',
+        sport: SportType.soccer,
+        league: 'Premier League',
+        status: EventStatus.live,
+        startTime: DateTime(now.year, now.month, now.day, 16, 0),
+        currentPeriod: "90+3'",
+        homeTeam: const TeamModel(id: 't-1', name: 'Arsenal'),
+        awayTeam: const TeamModel(id: 't-2', name: 'Chelsea'),
+        homeScore: 2,
+        awayScore: 1,
+      );
+      final liveAdded2 = EventModel(
+        id: 'ev-added-45',
+        sport: SportType.soccer,
+        league: 'LaLiga',
+        status: EventStatus.live,
+        startTime: DateTime(now.year, now.month, now.day, 18, 0),
+        currentPeriod: '45+2′',
+        homeTeam: const TeamModel(id: 't-3', name: 'Barcelona'),
+        awayTeam: const TeamModel(id: 't-4', name: 'Sevilla'),
+        homeScore: 0,
+        awayScore: 0,
+      );
+
+      final repository = MockCalendarRepository(events: [liveAdded1, liveAdded2]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [feedRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: CalendarScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Muestra exactamente el tiempo añadido del proveedor
+      expect(find.text('90+3′'), findsOneWidget);
+      expect(find.text('45+2′'), findsOneWidget);
+
+      // No inventa sumas aritméticas (no 93′ ni 47′)
+      expect(find.text('93′'), findsNothing);
+      expect(find.text('47′'), findsNothing);
+    });
+
+    testWidgets('Minuto ausente o descanso: sin minuto válido muestra únicamente el punto rojo accesible sin texto de minuto', (tester) async {
+      configureViewport(tester);
+
+      final now = DateTime.now();
+      final liveWithoutClock = EventModel(
+        id: 'ev-no-clock',
+        sport: SportType.soccer,
+        league: 'Champions League',
+        status: EventStatus.live,
+        startTime: DateTime(now.year, now.month, now.day, 15, 0),
+        currentPeriod: null,
+        homeTeam: const TeamModel(id: 't-1', name: 'Bayern'),
+        awayTeam: const TeamModel(id: 't-2', name: 'PSG'),
+        homeScore: 1,
+        awayScore: 1,
+      );
+      final liveHalftime = EventModel(
+        id: 'ev-halftime',
+        sport: SportType.soccer,
+        league: 'Champions League',
+        status: EventStatus.live,
+        startTime: DateTime(now.year, now.month, now.day, 17, 30),
+        currentPeriod: 'HT',
+        homeTeam: const TeamModel(id: 't-3', name: 'Inter'),
+        awayTeam: const TeamModel(id: 't-4', name: 'Juventus'),
+        homeScore: 0,
+        awayScore: 0,
+      );
+
+      final repository = MockCalendarRepository(events: [liveWithoutClock, liveHalftime]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [feedRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: CalendarScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Ambos eventos muestran su punto rojo
+      expect(find.byKey(const ValueKey('live_indicator_dot')), findsNWidgets(2));
+
+      // Ninguno muestra texto de minuto ni etiqueta HT en el reloj
+      expect(find.text('HT'), findsNothing);
+      expect(find.textContaining('′'), findsNothing);
+    });
+
+    testWidgets('Valores de otros deportes: NBA, UFC y Esports conservan únicamente el punto rojo sin convertir su reloj en minuto de fútbol', (tester) async {
+      configureViewport(tester);
+
+      final now = DateTime.now();
+      final nbaLive = EventModel(
+        id: 'ev-nba-live',
+        sport: SportType.nba,
+        league: 'NBA',
+        status: EventStatus.live,
+        startTime: DateTime(now.year, now.month, now.day, 19, 0),
+        currentPeriod: '3.er cuarto · 02:34',
+        homeTeam: const TeamModel(id: 't-nba-1', name: 'Lakers'),
+        awayTeam: const TeamModel(id: 't-nba-2', name: 'Warriors'),
+        homeScore: 78,
+        awayScore: 75,
+      );
+      final ufcLive = EventModel(
+        id: 'ev-ufc-live',
+        sport: SportType.ufc,
+        league: 'UFC 309',
+        status: EventStatus.live,
+        startTime: DateTime(now.year, now.month, now.day, 21, 0),
+        currentPeriod: '03:14',
+        fighter1: const FighterModel(id: 'f-1', name: 'Jon Jones'),
+        fighter2: const FighterModel(id: 'f-2', name: 'Stipe Miocic'),
+      );
+      final lolLive = EventModel(
+        id: 'ev-lol-live',
+        sport: SportType.lol,
+        league: 'Worlds',
+        status: EventStatus.live,
+        startTime: DateTime(now.year, now.month, now.day, 22, 0),
+        currentPeriod: 'Partida 2 · 18:20',
+        homeTeam: const TeamModel(id: 't-lol-1', name: 'T1'),
+        awayTeam: const TeamModel(id: 't-lol-2', name: 'Gen.G'),
+      );
+
+      final repository = MockCalendarRepository(events: [nbaLive, ufcLive, lolLive]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [feedRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: CalendarScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Todos tienen punto rojo accesible
+      expect(find.byKey(const ValueKey('live_indicator_dot')), findsNWidgets(3));
+
+      // No se inventan minutos de fútbol a partir de cuentas regresivas ni asaltos
+      expect(find.textContaining('′'), findsNothing);
+      expect(find.text('02:34′'), findsNothing);
+      expect(find.text('03:14′'), findsNothing);
+    });
+
+    testWidgets('Estados no-live: eventos programados y cancelados conservan su presentación actual', (tester) async {
+      configureViewport(tester);
+
+      final now = DateTime.now();
+      final scheduledSoccer = EventModel(
+        id: 'ev-sched-soccer',
+        sport: SportType.soccer,
+        league: 'Primera División',
+        status: EventStatus.scheduled,
+        startTime: DateTime(now.year, now.month, now.day, 20, 30),
+        currentPeriod: "23'", // Placeholder accidental en programado no debe mostrarse como minuto live
+        homeTeam: const TeamModel(id: 't-1', name: 'Palestino'),
+        awayTeam: const TeamModel(id: 't-2', name: 'Cobresal'),
+      );
+      final canceledSoccer = EventModel(
+        id: 'ev-canc-soccer',
+        sport: SportType.soccer,
+        league: 'Primera División',
+        status: EventStatus.canceled,
+        startTime: DateTime(now.year, now.month, now.day, 16, 0),
+        currentPeriod: "10'",
+        homeTeam: const TeamModel(id: 't-3', name: 'Everton'),
+        awayTeam: const TeamModel(id: 't-4', name: 'Iquique'),
+      );
+
+      final repository = MockCalendarRepository(events: [scheduledSoccer, canceledSoccer]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [feedRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: CalendarScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Programado muestra hora local 20:30, no punto rojo ni minuto
+      expect(find.text('20:30'), findsOneWidget);
+      expect(find.text('CANC'), findsOneWidget);
+      expect(find.text('23′'), findsNothing);
+      expect(find.text('10′'), findsNothing);
+      expect(find.byKey(const ValueKey('live_indicator_dot')), findsNothing);
+    });
+
+    testWidgets('Actualización en tiempo real: el minuto visible se actualiza reactivamente con el evento', (tester) async {
+      configureViewport(tester);
+
+      final now = DateTime.now();
+      final initialEvent = EventModel(
+        id: 'ev-rt-live',
+        sport: SportType.soccer,
+        league: 'Copa Libertadores',
+        status: EventStatus.live,
+        startTime: DateTime(now.year, now.month, now.day, 18, 0),
+        currentPeriod: "12'",
+        homeTeam: const TeamModel(id: 't-1', name: 'River Plate'),
+        awayTeam: const TeamModel(id: 't-2', name: 'Boca Juniors'),
+        homeScore: 0,
+        awayScore: 0,
+      );
+
+      final repository = MockCalendarRepository(events: [initialEvent]);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [feedRepositoryProvider.overrideWithValue(repository)],
+          child: const MaterialApp(home: CalendarScreen()),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Inicialmente en minuto 12′
+      expect(find.text('12′'), findsOneWidget);
+      expect(find.text('13′'), findsNothing);
+
+      // Llega actualización en tiempo real con minuto 13′ y gol 1 - 0
+      final container = ProviderScope.containerOf(tester.element(find.byType(CalendarScreen)));
+      final notifier = container.read(feedNotifierProvider.notifier);
+
+      await notifier.applyRealtimeUpdate(
+        RealtimeEventUpdate(
+          eventId: 'ev-rt-live',
+          record: {
+            'id': 'ev-rt-live',
+            'status': 'LIVE',
+            'score': '1 - 0',
+            'current_period': "13'",
+          },
+          requiresRefresh: false,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // El widget se actualiza inmediatamente reflejando el minuto 13′ y el nuevo resultado
+      expect(find.text('13′'), findsOneWidget);
+      expect(find.text('12′'), findsNothing);
+      expect(find.text('River Plate 1 - 0 Boca Juniors'), findsOneWidget);
+    });
+  });
 }
+
