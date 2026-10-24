@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/date_formatter.dart';
+import '../../../../core/utils/match_minute_formatter.dart';
 import '../../../../core/widgets/event_status_chip.dart';
 import '../../../../models/event_model.dart';
 import '../../../../models/event_status.dart';
@@ -23,6 +24,10 @@ class ScoreboardRow extends StatelessWidget {
         !event.isCombat &&
         (event.status == EventStatus.live ||
             event.status == EventStatus.finished);
+
+    final homeScoreText = showScore ? event.homeScore?.toString() ?? '—' : '—';
+    final awayScoreText = showScore ? event.awayScore?.toString() ?? '—' : '—';
+
     return Material(
       color: AppColors.surface,
       child: InkWell(
@@ -35,20 +40,58 @@ class ScoreboardRow extends StatelessWidget {
             children: [
               _buildHeader(context),
               const SizedBox(height: 7),
-              _participant(
-                event.participant1Name,
-                event.isCombat
-                    ? (event.fighter1?.photoUrl ?? event.homeTeam?.logoUrl)
-                    : event.homeTeam?.logoUrl,
-                showScore ? event.homeScore?.toString() ?? '—' : '—',
-              ),
-              const SizedBox(height: 5.5),
-              _participant(
-                event.participant2Name,
-                event.isCombat
-                    ? (event.fighter2?.photoUrl ?? event.awayTeam?.logoUrl)
-                    : event.awayTeam?.logoUrl,
-                showScore ? event.awayScore?.toString() ?? '—' : '—',
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  // Columna 1: Local y visitante, cada uno en su fila con logo y nombre
+                  Expanded(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _participantRow(
+                          event.participant1Name,
+                          event.isCombat
+                              ? (event.fighter1?.photoUrl ??
+                                  event.homeTeam?.logoUrl)
+                              : event.homeTeam?.logoUrl,
+                        ),
+                        const SizedBox(height: 5.5),
+                        _participantRow(
+                          event.participant2Name,
+                          event.isCombat
+                              ? (event.fighter2?.photoUrl ??
+                                  event.awayTeam?.logoUrl)
+                              : event.awayTeam?.logoUrl,
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Columna 2: Marcador local y visitante, alineado con sus equipos y solo cuando el estado/datos permitan mostrarlo
+                  if (!event.isCombat) ...[
+                    const SizedBox(width: 12),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        _scoreBox(homeScoreText),
+                        const SizedBox(height: 5.5),
+                        _scoreBox(awayScoreText),
+                      ],
+                    ),
+                  ],
+
+                  // Columna 3: Minuto real si está en vivo, estado final si terminó u hora de inicio si está programado
+                  const SizedBox(width: 14),
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: 44),
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: _buildTimeOrStatus(context),
+                    ),
+                  ),
+                ],
               ),
               if (event.status == EventStatus.finished &&
                   event.score != null &&
@@ -76,10 +119,6 @@ class ScoreboardRow extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
-    final timeOrPeriod = event.isLive && event.currentPeriod != null
-        ? event.currentPeriod!
-        : AppDateFormatter.formatEventTime(event.startTime);
-
     final leagueText = event.league.toLowerCase().contains(
               event.sport.displayName.toLowerCase(),
             )
@@ -92,31 +131,7 @@ class ScoreboardRow extends StatelessWidget {
         final isLargeScale = textScaler.scale(1.0) > 1.25;
         final isNarrow = constraints.maxWidth < 310;
 
-        final statusAndTime = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            EventStatusChip(status: event.status),
-            const SizedBox(width: 5),
-            Flexible(
-              child: Text(
-                timeOrPeriod,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: event.isLive ? FontWeight.bold : FontWeight.w500,
-                  color: event.isLive
-                      ? AppColors.liveRed
-                      : AppColors.textSecondary,
-                ),
-              ),
-            ),
-          ],
-        );
-
-        if (isLargeScale ||
-            (isNarrow &&
-                (leagueText.length > 24 || timeOrPeriod.length > 18))) {
+        if (isLargeScale || (isNarrow && leagueText.length > 24)) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -150,7 +165,7 @@ class ScoreboardRow extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 3),
-              statusAndTime,
+              EventStatusChip(status: event.status),
             ],
           );
         }
@@ -190,47 +205,57 @@ class ScoreboardRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            statusAndTime,
+            EventStatusChip(status: event.status),
           ],
         );
       },
     );
   }
 
-  Widget _participant(String name, String? logo, String score) {
+  Widget _participantRow(String name, String? logo) {
     final fallback = Icon(
       event.sport.icon,
       size: 16,
       color: AppColors.textMuted,
     );
-    return Row(
-      children: [
-        SizedBox(
-          width: 22,
-          height: 22,
-          child: logo == null || logo.trim().isEmpty
-              ? fallback
-              : Image.network(
-                  logo.trim(),
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, error, stack) => fallback,
-                ),
-        ),
-        const SizedBox(width: 9),
-        Expanded(
-          child: Text(
-            name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+    return SizedBox(
+      height: 22,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 22,
+            height: 22,
+            child: logo == null || logo.trim().isEmpty
+                ? fallback
+                : Image.network(
+                    logo.trim(),
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, error, stack) => fallback,
+                  ),
+          ),
+          const SizedBox(width: 9),
+          Expanded(
+            child: Text(
+              name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textPrimary,
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 10),
-        Text(
+        ],
+      ),
+    );
+  }
+
+  Widget _scoreBox(String score) {
+    return SizedBox(
+      height: 22,
+      child: Center(
+        child: Text(
           score,
           style: TextStyle(
             fontSize: 16.5,
@@ -238,7 +263,87 @@ class ScoreboardRow extends StatelessWidget {
             color: event.isLive ? AppColors.primary : AppColors.textPrimary,
           ),
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget _buildTimeOrStatus(BuildContext context) {
+    if (event.isLive) {
+      final liveMinute = MatchMinuteFormatter.format(event);
+      final dot = Semantics(
+        container: true,
+        label: 'En vivo',
+        child: Container(
+          key: const ValueKey('scoreboard_live_dot'),
+          width: 7,
+          height: 7,
+          decoration: const BoxDecoration(
+            color: AppColors.liveRed,
+            shape: BoxShape.circle,
+          ),
+        ),
+      );
+
+      if (liveMinute != null) {
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            dot,
+            const SizedBox(width: 4),
+            Text(
+              liveMinute,
+              style: const TextStyle(
+                color: AppColors.liveRed,
+                fontSize: 11.5,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        );
+      }
+      return dot;
+    }
+
+    if (event.status == EventStatus.finished) {
+      return const Text(
+        'FINAL',
+        style: TextStyle(
+          color: AppColors.textMuted,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    }
+
+    if (event.status == EventStatus.postponed) {
+      return Text(
+        AppDateFormatter.formatEventTime(event.startTime),
+        style: const TextStyle(
+          color: AppColors.warning,
+          fontSize: 11.5,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+    }
+
+    if (event.status == EventStatus.canceled) {
+      return const Text(
+        'CANC',
+        style: TextStyle(
+          color: AppColors.textMuted,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    }
+
+    return Text(
+      AppDateFormatter.formatEventTime(event.startTime),
+      style: const TextStyle(
+        color: AppColors.textSecondary,
+        fontSize: 11.5,
+        fontWeight: FontWeight.w600,
+      ),
     );
   }
 }
