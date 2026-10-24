@@ -288,7 +288,7 @@ void main() {
       expect(offsetBefore, greaterThan(50.0));
 
       // Entrar al detalle del primer partido visible tras scroll
-      await tester.tap(find.byType(ScoreboardRow).first);
+      await tester.tap(find.byType(ScoreboardRow).hitTestable().first);
       await tester.pumpAndSettle();
       expect(find.byType(MatchDetailScreen), findsOneWidget);
 
