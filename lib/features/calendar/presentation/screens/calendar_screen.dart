@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/date_formatter.dart';
+import '../../../../core/utils/match_minute_formatter.dart';
 import '../../../../models/event_model.dart';
 import '../../../../models/event_status.dart';
 import '../../../../models/sport_type.dart';
@@ -658,7 +659,8 @@ class _SimpleMatchRow extends StatelessWidget {
 
     Widget timeWidget;
     if (event.isLive) {
-      timeWidget = Semantics(
+      final liveMinute = MatchMinuteFormatter.format(event);
+      final dot = Semantics(
         container: true,
         label: 'En vivo',
         child: Container(
@@ -671,6 +673,26 @@ class _SimpleMatchRow extends StatelessWidget {
           ),
         ),
       );
+
+      if (liveMinute != null) {
+        timeWidget = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            dot,
+            const SizedBox(width: 5),
+            Text(
+              liveMinute,
+              style: const TextStyle(
+                color: AppColors.liveRed,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        );
+      } else {
+        timeWidget = dot;
+      }
     } else {
       timeWidget = Text(
         timeStr,
