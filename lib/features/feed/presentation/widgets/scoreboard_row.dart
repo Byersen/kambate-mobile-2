@@ -12,11 +12,13 @@ class ScoreboardRow extends StatelessWidget {
     required this.event,
     required this.onTap,
     this.followed = false,
+    this.showHeader = true,
   });
 
   final EventModel event;
   final VoidCallback onTap;
   final bool followed;
+  final bool showHeader;
 
   @override
   Widget build(BuildContext context) {
@@ -38,8 +40,10 @@ class ScoreboardRow extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeader(context),
-              const SizedBox(height: 7),
+              if (showHeader) ...[
+                _buildHeader(context),
+                const SizedBox(height: 7),
+              ],
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [

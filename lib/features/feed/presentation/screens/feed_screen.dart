@@ -12,6 +12,7 @@ import '../../data/feed_repository.dart';
 import '../../providers/connection_provider.dart';
 import '../../providers/feed_provider.dart';
 import '../widgets/scoreboard_row.dart';
+import '../widgets/live_feed_refresh_scope.dart';
 import '../widgets/sport_filter_bar.dart';
 
 class FeedScreen extends ConsumerWidget {
@@ -20,6 +21,7 @@ class FeedScreen extends ConsumerWidget {
   bool _followed(EventModel event, Set<String> teams, Set<String> leagues) {
     return event.isFavorite ||
         leagues.contains(event.league.toLowerCase()) ||
+        leagues.contains(event.leagueModel?.name.trim().toLowerCase()) ||
         teams.contains(event.homeTeam?.id) ||
         teams.contains(event.awayTeam?.id) ||
         teams.contains(event.fighter1?.id) ||
@@ -84,7 +86,7 @@ class FeedScreen extends ConsumerWidget {
       ),
     ];
 
-    return Scaffold(
+    final scaffold = Scaffold(
       appBar: AppBar(
         title: const Text(
           'KAMBATE',
@@ -343,6 +345,7 @@ class FeedScreen extends ConsumerWidget {
         ),
       ),
     );
+    return LiveFeedRefreshScope(child: scaffold);
   }
 
   Widget _eventList(
@@ -352,45 +355,54 @@ class FeedScreen extends ConsumerWidget {
     Set<String> leagues,
   ) {
     final competitionGroups = groupEventsByCompetition(events);
-    final items = <_FeedListItem>[];
-    for (final compGroup in competitionGroups) {
-      items.add(_CompetitionHeaderItem(compGroup));
-      for (final event in compGroup.events) {
-        items.add(_EventItem(event));
-      }
-    }
-
     return SliverList.separated(
-      itemCount: items.length,
-      separatorBuilder: (_, index) {
-        final current = items[index];
-        final next = index + 1 < items.length ? items[index + 1] : null;
-
-        if (next is _CompetitionHeaderItem) {
-          return const SizedBox(height: 8);
-        }
-        if (current is _EventItem && next is _EventItem) {
-          return const Divider(height: 1, indent: 16, endIndent: 16);
-        }
-        return const SizedBox.shrink();
-      },
+      itemCount: competitionGroups.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
       itemBuilder: (context, index) {
-        final item = items[index];
-        if (item is _CompetitionHeaderItem) {
-          return _CompetitionHeader(
-            key: ValueKey('competition_header_${item.group.key}'),
-            group: item.group,
-          );
-        } else if (item is _EventItem) {
-          final event = item.event;
-          return ScoreboardRow(
-            key: ValueKey(event.id),
-            event: event,
-            followed: _followed(event, teams, leagues),
-            onTap: () => context.push('/detail/${event.id}', extra: event),
-          );
-        }
-        return const SizedBox.shrink();
+        final group = competitionGroups[index];
+        return Container(
+          key: ValueKey('competition_block_${group.key}'),
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(11),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _CompetitionHeader(
+                  key: ValueKey('competition_header_${group.key}'),
+                  group: group,
+                ),
+                for (
+                  var eventIndex = 0;
+                  eventIndex < group.events.length;
+                  eventIndex++
+                ) ...[
+                  if (eventIndex > 0)
+                    const Divider(height: 1, indent: 16, endIndent: 16),
+                  ScoreboardRow(
+                    key: ValueKey(group.events[eventIndex].id),
+                    event: group.events[eventIndex],
+                    followed: _followed(
+                      group.events[eventIndex],
+                      teams,
+                      leagues,
+                    ),
+                    showHeader: false,
+                    onTap: () {
+                      final event = group.events[eventIndex];
+                      context.push('/detail/${event.id}', extra: event);
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
       },
     );
   }
@@ -513,121 +525,95 @@ class CompetitionGroup {
   });
 }
 
-sealed class _FeedListItem {}
-
-class _CompetitionHeaderItem extends _FeedListItem {
-  final CompetitionGroup group;
-  _CompetitionHeaderItem(this.group);
-}
-
-class _EventItem extends _FeedListItem {
-  final EventModel event;
-  _EventItem(this.event);
-}
-
-class _CompetitionHeader extends StatelessWidget {
+class _CompetitionHeader extends ConsumerWidget {
   const _CompetitionHeader({super.key, required this.group});
 
   final CompetitionGroup group;
 
   @override
-  Widget build(BuildContext context) {
-    final hasLogo =
-        group.logoUrl != null && group.logoUrl!.trim().isNotEmpty;
-    final hasRoundOrPhase =
-        group.roundOrPhase != null && group.roundOrPhase!.trim().isNotEmpty;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final hasLogo = group.logoUrl != null && group.logoUrl!.trim().isNotEmpty;
+    final league = group.events.first.leagueModel;
+    final following = ref
+        .watch(followedLeaguesProvider)
+        .contains(group.name.toLowerCase());
+    final query = <String, String>{
+      if (league != null && league.id.isNotEmpty) 'leagueId': league.id,
+      if (league != null && league.slug.isNotEmpty) 'slug': league.slug,
+    };
+    final leaguePath = '/league/${Uri.encodeComponent(group.name)}';
+    final destination = query.isEmpty
+        ? leaguePath
+        : '$leaguePath?${Uri(queryParameters: query).query}';
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 4, 16, 2),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceMuted.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: AppColors.border.withValues(alpha: 0.5),
-          width: 0.8,
-        ),
-      ),
+    return ColoredBox(
+      color: AppColors.surfaceMuted,
       child: Row(
         children: [
-          if (hasLogo) ...[
-            ClipRRect(
-              borderRadius: BorderRadius.circular(4),
-              child: Image.network(
-                group.logoUrl!.trim(),
-                width: 18,
-                height: 18,
-                fit: BoxFit.contain,
-                errorBuilder: (context, error, stackTrace) => Icon(
-                  group.sport.icon,
-                  size: 14,
-                  color: AppColors.textSecondary,
+          Expanded(
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => context.push(destination, extra: group.sport),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
+                  child: Row(
+                    children: [
+                      if (hasLogo)
+                        Image.network(
+                          group.logoUrl!.trim(),
+                          width: 20,
+                          height: 20,
+                          fit: BoxFit.contain,
+                          errorBuilder: (_, _, _) => Icon(
+                            group.sport.icon,
+                            size: 18,
+                            color: AppColors.textSecondary,
+                          ),
+                        )
+                      else
+                        Icon(
+                          group.sport.icon,
+                          size: 18,
+                          color: AppColors.textSecondary,
+                        ),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Text(
+                          group.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.textPrimary,
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 20,
+                        color: AppColors.textSecondary,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 8),
-          ] else ...[
-            Icon(
-              group.sport.icon,
-              size: 14,
-              color: AppColors.textSecondary,
-            ),
-            const SizedBox(width: 8),
-          ],
-          Expanded(
-            child: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    group.name,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
-                      letterSpacing: 0.2,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                if (group.country != null &&
-                    group.country!.trim().isNotEmpty) ...[
-                  const SizedBox(width: 6),
-                  Text(
-                    '• ${group.country!.trim()}',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ],
             ),
           ),
-          if (hasRoundOrPhase) ...[
-            const SizedBox(width: 8),
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(6),
-                border: Border.all(
-                  color: AppColors.border.withValues(alpha: 0.7),
-                  width: 0.8,
-                ),
-              ),
-              child: Text(
-                group.roundOrPhase!.trim(),
-                style: const TextStyle(
-                  fontSize: 10.5,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textSecondary,
-                ),
-              ),
+          IconButton(
+            key: ValueKey('follow_league_${group.key}'),
+            tooltip: following
+                ? 'Dejar de seguir ${group.name}'
+                : 'Seguir ${group.name}',
+            onPressed: () =>
+                ref.read(followedLeaguesProvider.notifier).toggle(group.name),
+            icon: Icon(
+              following ? Icons.star_rounded : Icons.star_border_rounded,
+              color: following ? AppColors.warning : AppColors.textSecondary,
             ),
-          ],
+          ),
+          const SizedBox(width: 4),
         ],
       ),
     );

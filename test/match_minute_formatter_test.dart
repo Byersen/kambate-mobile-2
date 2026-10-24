@@ -74,6 +74,47 @@ void main() {
       expect(MatchMinuteFormatter.format(evFallback), '34′');
     });
 
+    test(
+      'usa el reloj real aunque currentPeriod sea un estado no numérico',
+      () {
+        final ev = makeEvent(
+          sport: SportType.soccer,
+          status: EventStatus.live,
+          currentPeriod: 'En vivo',
+          footballStats: const FootballStatsModel(
+            id: 'fs-clock',
+            extraStats: {'clock': "42'"},
+          ),
+        );
+        expect(MatchMinuteFormatter.format(ev), '42′');
+
+        final fromDetail = makeEvent(
+          sport: SportType.soccer,
+          status: EventStatus.live,
+          currentPeriod: 'En vivo',
+          footballStats: const FootballStatsModel(
+            id: 'fs-detail',
+            extraStats: {'statusDetail': "45+2'"},
+          ),
+        );
+        expect(MatchMinuteFormatter.format(fromDetail), '45+2′');
+      },
+    );
+
+    test('lee el descuento ESPN en el payload real de Supabase', () {
+      final event = EventModel.fromJson({
+        'id': 'espn-live',
+        'sport': {'slug': 'football'},
+        'status': 'LIVE',
+        'startDate': '2026-10-24T20:00:00Z',
+        'footballStats': [
+          {'id': 'stats-live', 'extraStats': {'clock': "90'+5'"}},
+        ],
+      });
+      expect(MatchMinuteFormatter.format(event), '90+5′');
+      expect(MatchMinuteFormatter.formatRawMinute('45′+2′'), '45+2′');
+    });
+
     test('Tiempo añadido real se conserva fielmente y no inventa sumas ni adiciones', () {
       final ev90Plus3 = makeEvent(
         sport: SportType.soccer,

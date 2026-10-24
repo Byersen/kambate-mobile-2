@@ -6,11 +6,13 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kambate_mobile/core/router/app_router.dart';
+import 'package:kambate_mobile/core/theme/app_colors.dart';
 import 'package:kambate_mobile/core/utils/date_formatter.dart';
 import 'package:kambate_mobile/features/feed/data/feed_repository.dart';
 import 'package:kambate_mobile/features/feed/providers/connection_provider.dart';
 import 'package:kambate_mobile/features/feed/providers/feed_provider.dart';
 import 'package:kambate_mobile/features/feed/presentation/widgets/scoreboard_row.dart';
+import 'package:kambate_mobile/features/favorites/providers/favorites_provider.dart';
 import 'package:kambate_mobile/features/match_detail/presentation/screens/match_detail_screen.dart';
 import 'package:kambate_mobile/main.dart';
 import 'package:kambate_mobile/models/event_model.dart';
@@ -233,6 +235,70 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('No hay encuentros para estos filtros'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'La liga reúne sus partidos y permite seguirla desde la cabecera',
+    (tester) async {
+      final now = DateTime.now();
+      final day = DateTime(now.year, now.month, now.day, 18);
+      EventModel liveMatch(
+        String id,
+        String home,
+        String away,
+        String minute,
+      ) => EventModel(
+        id: id,
+        sport: SportType.soccer,
+        league: 'Serie A',
+        leagueModel: const LeagueModel(
+          id: 'serie-a-id',
+          name: 'Serie A',
+          slug: 'ita.1',
+        ),
+        status: EventStatus.live,
+        startTime: day,
+        footballStats: FootballStatsModel(
+          id: 'stats-$id',
+          extraStats: {'clock': minute},
+        ),
+        homeTeam: TeamModel(id: '$id-home', name: home),
+        awayTeam: TeamModel(id: '$id-away', name: away),
+        homeScore: 1,
+        awayScore: 0,
+      );
+
+      final app = await mount(
+        tester,
+        customEvents: [
+          liveMatch('match-a', 'Inter', 'Roma', "23'"),
+        liveMatch('match-b', 'Milan', 'Napoli', "45'+2'"),
+        ],
+      );
+
+      expect(
+        find.byKey(const ValueKey('competition_block_league_id:serie-a-id')),
+        findsOneWidget,
+      );
+      expect(find.text('Serie A'), findsOneWidget);
+      expect(find.byType(ScoreboardRow), findsNWidgets(2));
+      expect(find.text('EN VIVO'), findsNothing);
+      expect(find.textContaining('Fútbol • Serie A'), findsNothing);
+      expect(find.text('23′'), findsOneWidget);
+      expect(
+        tester.widget<Text>(find.text('23′')).style?.color,
+        AppColors.liveRed,
+      );
+      expect(find.text('45+2′'), findsOneWidget);
+
+      final follow = find.byKey(
+        const ValueKey('follow_league_league_id:serie-a-id'),
+      );
+      await tester.ensureVisible(follow);
+      await tester.tap(follow);
+      await tester.pumpAndSettle();
+      expect(app.container.read(followedLeaguesProvider), contains('serie a'));
     },
   );
 
@@ -788,9 +854,9 @@ void main() {
 
       await mount(tester, customEvents: feedEvents);
 
-      // Verificamos que UEFA Champions League tiene cabecera con su nombre y fase
-      expect(find.text('UEFA Champions League'), findsWidgets);
-      expect(find.text('Fase de Liga'), findsOneWidget);
+      // La competición aparece una sola vez en la cabecera del bloque.
+      expect(find.text('UEFA Champions League'), findsOneWidget);
+      expect(find.byKey(const ValueKey('competition_block_league_id:ucl-id')), findsOneWidget);
 
       // Verificamos que Real Madrid y Barcelona están presentes una sola vez cada uno
       expect(find.text('Real Madrid'), findsOneWidget);

@@ -39,6 +39,8 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
   final FeedRepository _repository;
   final Ref _ref;
   StreamSubscription<RealtimeEventUpdate>? _realtimeSubscription;
+  Timer? _liveRefreshTimer;
+  bool _liveRefreshEnabled = false;
   DateTime? _lastRefreshTime;
   bool _isLoading = false;
 
@@ -51,6 +53,26 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
   DateTime? get lastRefreshTime => _lastRefreshTime;
   bool get isLoading => _isLoading;
 
+  void startLiveRefresh() {
+    _liveRefreshEnabled = true;
+    _startLiveRefresh();
+  }
+
+  void stopLiveRefresh() {
+    _liveRefreshEnabled = false;
+    _liveRefreshTimer?.cancel();
+  }
+
+  void _startLiveRefresh() {
+    _liveRefreshTimer?.cancel();
+    _liveRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      final events = state.asData?.value;
+      if (mounted && !_isLoading && (events?.any((e) => e.isLive) ?? false)) {
+        unawaited(loadEvents(forceRefresh: true));
+      }
+    });
+  }
+
   /// Listen to Supabase Realtime PostgreSQL updates
   void _listenToRealtimeUpdates() {
     _realtimeSubscription = RealtimeService().onEventUpdate.listen(
@@ -61,6 +83,7 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
   /// Maneja el regreso a la app desde segundo plano.
   /// Evita solicitudes duplicadas o en ráfaga con un enfriamiento de 15 segundos.
   Future<void> onAppResumed() async {
+    if (_liveRefreshEnabled) _startLiveRefresh();
     if (_isLoading) return;
     if (_lastRefreshTime != null &&
         DateTime.now().difference(_lastRefreshTime!) <
@@ -73,6 +96,7 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
 
   /// Pausa temporizadores pendientes cuando la app pasa a segundo plano o inactiva.
   void onAppPaused() {
+    _liveRefreshTimer?.cancel();
     RealtimeService().pause();
   }
 
@@ -272,6 +296,7 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
 
   @override
   void dispose() {
+    _liveRefreshTimer?.cancel();
     _realtimeSubscription?.cancel();
     super.dispose();
   }

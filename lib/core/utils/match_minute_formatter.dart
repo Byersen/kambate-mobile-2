@@ -27,10 +27,16 @@ class MatchMinuteFormatter {
       return null;
     }
 
-    final raw = event.currentPeriod ??
-        event.footballStats?.extraStats?['clock']?.toString();
-
-    return formatRawMinute(raw);
+    final extra = event.footballStats?.extraStats;
+    for (final raw in [
+      extra?['clock']?.toString(),
+      event.currentPeriod,
+      extra?['statusDetail']?.toString(),
+    ]) {
+      final minute = formatRawMinute(raw);
+      if (minute != null) return minute;
+    }
+    return null;
   }
 
   /// Parsea y formatea un reloj crudo entregado por el proveedor de fútbol.
@@ -66,7 +72,7 @@ class MatchMinuteFormatter {
 
     // 1. Tiempo añadido (stoppage time): e.g. "90+3'", "90+3′", "90+3", "45+2'", "105+1'"
     final addedTimeMatch =
-        RegExp(r"^(\d{1,3})\s*\+\s*(\d{1,2})['′]?$").firstMatch(trimmed);
+        RegExp(r"^(\d{1,3})['′]?\s*\+\s*(\d{1,2})['′]?$").firstMatch(trimmed);
     if (addedTimeMatch != null) {
       final base = addedTimeMatch.group(1)!;
       final added = addedTimeMatch.group(2)!;
