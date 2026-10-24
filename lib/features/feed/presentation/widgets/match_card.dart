@@ -23,7 +23,7 @@ class MatchCard extends StatelessWidget {
     final isEsports = event.sport == SportType.lol || event.sport == SportType.valorant;
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 3.5),
       clipBehavior: Clip.antiAlias,
       elevation: event.isLive ? 2.5 : 1.0,
       shape: RoundedRectangleBorder(
@@ -46,8 +46,9 @@ class MatchCard extends StatelessWidget {
               ),
             ),
           ),
-          padding: const EdgeInsets.all(13),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -184,7 +185,7 @@ class MatchCard extends StatelessWidget {
                 ],
               ),
 
-              const SizedBox(height: 11),
+              const SizedBox(height: 7),
 
               if (event.isCombat)
                 _buildCombatBody(context)
@@ -195,7 +196,7 @@ class MatchCard extends StatelessWidget {
 
               // 3. Footer (Venue or Esports Format)
               if (event.venue != null) ...[
-                const SizedBox(height: 7),
+                const SizedBox(height: 5),
                 Row(
                   children: [
                     const Icon(Icons.location_on_outlined, size: 11, color: AppColors.textMuted),
@@ -223,13 +224,13 @@ class MatchCard extends StatelessWidget {
         Row(
           children: [
             _buildAvatar(event.homeTeam?.name ?? 'Local', event.homeTeam?.logoUrl),
-            const SizedBox(width: 9),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 event.homeTeam?.name ?? 'Local',
                 style: const TextStyle(
                   color: AppColors.textPrimary,
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -240,23 +241,23 @@ class MatchCard extends StatelessWidget {
                 '${event.homeScore}',
                 style: TextStyle(
                   color: event.isLive ? AppColors.primary : AppColors.textPrimary,
-                  fontSize: 17,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
           ],
         ),
-        const SizedBox(height: 7),
+        const SizedBox(height: 5),
         Row(
           children: [
             _buildAvatar(event.awayTeam?.name ?? 'Visitante', event.awayTeam?.logoUrl),
-            const SizedBox(width: 9),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 event.awayTeam?.name ?? 'Visitante',
                 style: const TextStyle(
                   color: AppColors.textPrimary,
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -267,7 +268,7 @@ class MatchCard extends StatelessWidget {
                 '${event.awayScore}',
                 style: TextStyle(
                   color: event.isLive ? AppColors.primary : AppColors.textPrimary,
-                  fontSize: 17,
+                  fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -284,8 +285,8 @@ class MatchCard extends StatelessWidget {
     return Column(
       children: [
         Container(
-          margin: const EdgeInsets.only(bottom: 7),
-          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
+          margin: const EdgeInsets.only(bottom: 5),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
             color: AppColors.surfaceDark,
             borderRadius: BorderRadius.circular(5),
@@ -317,13 +318,13 @@ class MatchCard extends StatelessWidget {
         Row(
           children: [
             _buildAvatar(event.homeTeam?.name ?? 'Equipo 1', event.homeTeam?.logoUrl),
-            const SizedBox(width: 9),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 event.homeTeam?.name ?? 'Equipo 1',
                 style: const TextStyle(
                   color: AppColors.textPrimary,
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -331,7 +332,7 @@ class MatchCard extends StatelessWidget {
             ),
             if (event.homeScore != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                 decoration: BoxDecoration(
                   color: event.isLive
                       ? event.sport.color.withValues(alpha: 0.2)
@@ -342,25 +343,25 @@ class MatchCard extends StatelessWidget {
                   '${event.homeScore}',
                   style: TextStyle(
                     color: event.isLive ? event.sport.color : AppColors.textPrimary,
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
           ],
         ),
-        const SizedBox(height: 7),
+        const SizedBox(height: 5),
 
         Row(
           children: [
             _buildAvatar(event.awayTeam?.name ?? 'Equipo 2', event.awayTeam?.logoUrl),
-            const SizedBox(width: 9),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 event.awayTeam?.name ?? 'Equipo 2',
                 style: const TextStyle(
                   color: AppColors.textPrimary,
-                  fontSize: 13.5,
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -368,7 +369,7 @@ class MatchCard extends StatelessWidget {
             ),
             if (event.awayScore != null)
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
                 decoration: BoxDecoration(
                   color: event.isLive
                       ? event.sport.color.withValues(alpha: 0.2)
@@ -379,7 +380,7 @@ class MatchCard extends StatelessWidget {
                   '${event.awayScore}',
                   style: TextStyle(
                     color: event.isLive ? event.sport.color : AppColors.textPrimary,
-                    fontSize: 15,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -399,13 +400,13 @@ class MatchCard extends StatelessWidget {
               _buildAvatar(
                   event.fighter1?.name ?? 'Peleador 1', event.fighter1?.photoUrl,
                   isLarge: true),
-              const SizedBox(height: 5),
+              const SizedBox(height: 3.5),
               Text(
                 event.fighter1?.name ?? 'Peleador 1',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: AppColors.textPrimary,
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
                 maxLines: 1,
@@ -414,23 +415,23 @@ class MatchCard extends StatelessWidget {
               if (event.fighter1?.record != null)
                 Text(
                   event.fighter1!.record!,
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 10.5),
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
                 ),
             ],
           ),
         ),
 
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3.5),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
           decoration: BoxDecoration(
             color: AppColors.cardBorderDark.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(7),
+            borderRadius: BorderRadius.circular(6),
           ),
           child: Text(
             event.fightResult ?? 'VS',
             style: TextStyle(
               color: event.fightResult != null ? AppColors.primary : AppColors.secondary,
-              fontSize: 10.5,
+              fontSize: 10,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -442,13 +443,13 @@ class MatchCard extends StatelessWidget {
               _buildAvatar(
                   event.fighter2?.name ?? 'Peleador 2', event.fighter2?.photoUrl,
                   isLarge: true),
-              const SizedBox(height: 5),
+              const SizedBox(height: 3.5),
               Text(
                 event.fighter2?.name ?? 'Peleador 2',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   color: AppColors.textPrimary,
-                  fontSize: 12.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
                 maxLines: 1,
@@ -457,7 +458,7 @@ class MatchCard extends StatelessWidget {
               if (event.fighter2?.record != null)
                 Text(
                   event.fighter2!.record!,
-                  style: const TextStyle(color: AppColors.textMuted, fontSize: 10.5),
+                  style: const TextStyle(color: AppColors.textMuted, fontSize: 10),
                 ),
             ],
           ),
@@ -467,7 +468,7 @@ class MatchCard extends StatelessWidget {
   }
 
   Widget _buildAvatar(String name, String? imageUrl, {bool isLarge = false}) {
-    final size = isLarge ? 36.0 : 22.0;
+    final size = isLarge ? 32.0 : 20.0;
     final initials = name.isNotEmpty
         ? name.split(' ').map((e) => e.isNotEmpty ? e[0] : '').take(2).join()
         : '?';
@@ -488,7 +489,7 @@ class MatchCard extends StatelessWidget {
         initials,
         style: TextStyle(
           color: event.sport.color,
-          fontSize: isLarge ? 11.5 : 9.5,
+          fontSize: isLarge ? 11.0 : 9.0,
           fontWeight: FontWeight.bold,
         ),
       ),

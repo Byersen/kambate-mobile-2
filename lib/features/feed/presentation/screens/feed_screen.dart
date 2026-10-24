@@ -329,7 +329,7 @@ class FeedScreen extends ConsumerWidget {
                     teams,
                     leagues,
                   ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
                 ],
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
@@ -476,19 +476,19 @@ class _SectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       color: AppColors.surface,
-      padding: const EdgeInsets.fromLTRB(16, 18, 16, 14),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
       child: Row(
         children: [
           Icon(
             icon,
-            size: 22,
+            size: 19,
             color: live ? AppColors.liveRed : AppColors.primary,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: Text(
               '$label ($count)',
-              style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w800),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
             ),
           ),
           if (onSeeAll != null)
