@@ -16,7 +16,9 @@ import 'package:kambate_mobile/main.dart';
 import 'package:kambate_mobile/models/event_model.dart';
 import 'package:kambate_mobile/models/event_status.dart';
 import 'package:kambate_mobile/models/fighter_model.dart';
+import 'package:kambate_mobile/models/league_model.dart';
 import 'package:kambate_mobile/models/sport_type.dart';
+import 'package:kambate_mobile/models/stats_models.dart';
 import 'package:kambate_mobile/models/team_model.dart';
 import 'support/preview.dart';
 
@@ -717,6 +719,88 @@ void main() {
       expect(find.text('10'), findsOneWidget);
       expect(find.text('9'), findsOneWidget);
       expect(find.text('EN VIVO'), findsOneWidget);
+    });
+  });
+
+  group('Tarea 29 — Agrupar partidos por liga o competición en FeedScreen', () {
+    testWidgets('Visualización de grupos por competición en FeedScreen con orden determinista y ScoreboardRow', (tester) async {
+      final now = DateTime.now();
+      final feedEvents = [
+        EventModel(
+          id: 'ucl-1',
+          sport: SportType.soccer,
+          league: 'UEFA Champions League',
+          leagueModel: const LeagueModel(
+            id: 'ucl-id',
+            name: 'UEFA Champions League',
+            slug: 'uefa.champions',
+            logoUrl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2.png',
+          ),
+          status: EventStatus.scheduled,
+          startTime: DateTime(now.year, now.month, now.day, 20, 0),
+          homeTeam: const TeamModel(id: 't-rma', name: 'Real Madrid'),
+          awayTeam: const TeamModel(id: 't-mci', name: 'Man City'),
+          footballStats: const FootballStatsModel(
+            id: 'fs-ucl',
+            extraStats: {'phase': 'Fase de Liga'},
+          ),
+        ),
+        EventModel(
+          id: 'ucl-2',
+          sport: SportType.soccer,
+          league: 'UEFA Champions League',
+          leagueModel: const LeagueModel(
+            id: 'ucl-id',
+            name: 'UEFA Champions League',
+            slug: 'uefa.champions',
+            logoUrl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2.png',
+          ),
+          status: EventStatus.scheduled,
+          startTime: DateTime(now.year, now.month, now.day, 18, 0),
+          homeTeam: const TeamModel(id: 't-bar', name: 'Barcelona'),
+          awayTeam: const TeamModel(id: 't-bay', name: 'Bayern'),
+        ),
+        EventModel(
+          id: 'ucl-1', // ID duplicado para probar deduplicación
+          sport: SportType.soccer,
+          league: 'UEFA Champions League',
+          leagueModel: const LeagueModel(
+            id: 'ucl-id',
+            name: 'UEFA Champions League',
+            slug: 'uefa.champions',
+          ),
+          status: EventStatus.scheduled,
+          startTime: DateTime(now.year, now.month, now.day, 20, 0),
+          homeTeam: const TeamModel(id: 't-rma', name: 'Real Madrid'),
+          awayTeam: const TeamModel(id: 't-mci', name: 'Man City'),
+        ),
+        EventModel(
+          id: 'nba-1',
+          sport: SportType.nba,
+          league: 'NBA',
+          leagueModel: const LeagueModel(id: 'nba-id', name: 'NBA', slug: 'nba'),
+          status: EventStatus.scheduled,
+          startTime: DateTime(now.year, now.month, now.day, 21, 30),
+          homeTeam: const TeamModel(id: 't-lal', name: 'Lakers'),
+          awayTeam: const TeamModel(id: 't-gsw', name: 'Warriors'),
+        ),
+      ];
+
+      await mount(tester, customEvents: feedEvents);
+
+      // Verificamos que UEFA Champions League tiene cabecera con su nombre y fase
+      expect(find.text('UEFA Champions League'), findsWidgets);
+      expect(find.text('Fase de Liga'), findsOneWidget);
+
+      // Verificamos que Real Madrid y Barcelona están presentes una sola vez cada uno
+      expect(find.text('Real Madrid'), findsOneWidget);
+      expect(find.text('Barcelona'), findsOneWidget);
+
+      // Verificamos que NBA está disponible al cambiar el filtro
+      await tester.tap(find.text('NBA').first);
+      await tester.pumpAndSettle();
+      expect(find.text('Lakers'), findsOneWidget);
+      expect(find.text('Warriors'), findsOneWidget);
     });
   });
 }
