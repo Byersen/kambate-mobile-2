@@ -93,6 +93,52 @@ class EventModel {
       UfcCardModel.parse(metadata?['card']) ??
       UfcCardModel.parse(metadata?['detail']);
 
+  String? get leagueLogoUrl {
+    final fromModel = leagueModel?.logoUrl;
+    if (fromModel != null && fromModel.isNotEmpty) return fromModel;
+    final fromFootball = footballStats?.extraStats?['leagueLogo']?.toString() ??
+        footballStats?.extraStats?['league_logo']?.toString();
+    if (fromFootball != null && fromFootball.isNotEmpty) return fromFootball;
+    final fromMeta = metadata?['leagueLogo']?.toString() ??
+        metadata?['league_logo']?.toString();
+    if (fromMeta != null && fromMeta.isNotEmpty) return fromMeta;
+    return null;
+  }
+
+  String? get roundOrPhase {
+    final explicit = footballStats?.extraStats?['round']?.toString() ??
+        footballStats?.extraStats?['phase']?.toString() ??
+        footballStats?.extraStats?['jornada']?.toString() ??
+        metadata?['round']?.toString() ??
+        metadata?['phase']?.toString() ??
+        metadata?['jornada']?.toString();
+    if (explicit != null && explicit.trim().isNotEmpty) return explicit.trim();
+
+    if (sport == SportType.lol || sport == SportType.valorant) {
+      final format = esportsStats?.format ??
+          valorantDetail?.format ??
+          lolDetail?.format;
+      if (format != null && format.trim().isNotEmpty) return format.trim();
+    }
+
+    if (sport == SportType.ufc) {
+      if (ufcStats?.round != null && ufcStats!.round! > 0) {
+        return 'Ronda ${ufcStats!.round}';
+      }
+    }
+
+    final seasonSlug = seasonModel?.slug;
+    if (seasonSlug != null &&
+        !RegExp(r'^\d{4}(-\d{2,4})?$').hasMatch(seasonSlug) &&
+        !seasonSlug.contains('regular')) {
+      if (seasonSlug == 'league-phase') return 'Fase de Liga';
+      if (seasonSlug.contains('group')) return 'Fase de Grupos';
+      if (seasonSlug.contains('playoff')) return 'Playoffs';
+    }
+
+    return null;
+  }
+
   EventModel copyWith({
     String? id,
     String? externalId,

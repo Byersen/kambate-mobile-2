@@ -10,7 +10,7 @@ enum FeedDataSource { remote, cache }
 const _eventSelect = '''
   id, externalId, startDate, status, score,
   sport:Sport(id, name, slug),
-  league:League(id, name, slug, country, isActive),
+  league:League(id, name, slug, country, logoUrl, isActive),
   season:Season(id, name, slug, isCurrent),
   participants:Participant(id, name, externalId, logoUrl),
   footballStats:FootballStats(*), nbaStats:NbaStats(*),
