@@ -47,8 +47,15 @@ class FeedScreen extends ConsumerWidget {
                   event.status != EventStatus.archived,
             )
             .toList();
+    final uniqueFiltered = <EventModel>[];
+    final seenFilteredIds = <String>{};
+    for (final event in filtered) {
+      if (seenFilteredIds.add(event.id)) {
+        uniqueFiltered.add(event);
+      }
+    }
     final events = FootballCompetitionPriority.sortEvents(
-      filtered,
+      uniqueFiltered,
       isFollowed: (event) => _followed(event, teams, leagues),
     );
     Future<void> refresh() =>
@@ -344,19 +351,285 @@ class FeedScreen extends ConsumerWidget {
     Set<String> teams,
     Set<String> leagues,
   ) {
+    final competitionGroups = groupEventsByCompetition(events);
+    final items = <_FeedListItem>[];
+    for (final compGroup in competitionGroups) {
+      items.add(_CompetitionHeaderItem(compGroup));
+      for (final event in compGroup.events) {
+        items.add(_EventItem(event));
+      }
+    }
+
     return SliverList.separated(
-      itemCount: events.length,
-      separatorBuilder: (_, index) =>
-          const Divider(height: 1, indent: 16, endIndent: 16),
-      itemBuilder: (context, index) {
-        final event = events[index];
-        return ScoreboardRow(
-          key: ValueKey(event.id),
-          event: event,
-          followed: _followed(event, teams, leagues),
-          onTap: () => context.push('/detail/${event.id}', extra: event),
-        );
+      itemCount: items.length,
+      separatorBuilder: (_, index) {
+        final current = items[index];
+        final next = index + 1 < items.length ? items[index + 1] : null;
+
+        if (next is _CompetitionHeaderItem) {
+          return const SizedBox(height: 8);
+        }
+        if (current is _EventItem && next is _EventItem) {
+          return const Divider(height: 1, indent: 16, endIndent: 16);
+        }
+        return const SizedBox.shrink();
       },
+      itemBuilder: (context, index) {
+        final item = items[index];
+        if (item is _CompetitionHeaderItem) {
+          return _CompetitionHeader(
+            key: ValueKey('competition_header_${item.group.key}'),
+            group: item.group,
+          );
+        } else if (item is _EventItem) {
+          final event = item.event;
+          return ScoreboardRow(
+            key: ValueKey(event.id),
+            event: event,
+            followed: _followed(event, teams, leagues),
+            onTap: () => context.push('/detail/${event.id}', extra: event),
+          );
+        }
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  static List<CompetitionGroup> groupEventsByCompetition(
+    List<EventModel> events,
+  ) {
+    final seenEventIds = <String>{};
+    final uniqueEvents = <EventModel>[];
+    for (final event in events) {
+      if (seenEventIds.add(event.id)) {
+        uniqueEvents.add(event);
+      }
+    }
+
+    final groupMap = <String, CompetitionGroup>{};
+    final orderedKeys = <String>[];
+
+    for (final event in uniqueEvents) {
+      final String groupKey;
+      final String groupName;
+      final String? logoUrl;
+      final String? country;
+
+      if (event.leagueModel != null &&
+          event.leagueModel!.id.trim().isNotEmpty) {
+        groupKey = 'league_id:${event.leagueModel!.id.trim()}';
+        groupName = event.leagueModel!.name.trim().isNotEmpty
+            ? event.leagueModel!.name.trim()
+            : event.league;
+        logoUrl = event.leagueLogoUrl;
+        country = event.leagueModel!.country;
+      } else {
+        final normalizedLeague = event.league.trim().toLowerCase();
+        groupKey = 'no_league_id:${event.sport.name}:$normalizedLeague';
+        groupName = event.league.trim().isNotEmpty
+            ? event.league.trim()
+            : 'Competición';
+        logoUrl = event.leagueLogoUrl;
+        country = null;
+      }
+
+      if (!groupMap.containsKey(groupKey)) {
+        groupMap[groupKey] = CompetitionGroup(
+          key: groupKey,
+          name: groupName,
+          logoUrl: logoUrl,
+          country: country,
+          roundOrPhase: event.roundOrPhase,
+          sport: event.sport,
+          events: [event],
+        );
+        orderedKeys.add(groupKey);
+      } else {
+        final existingGroup = groupMap[groupKey]!;
+        existingGroup.events.add(event);
+        if ((existingGroup.logoUrl == null ||
+                existingGroup.logoUrl!.isEmpty) &&
+            logoUrl != null &&
+            logoUrl.isNotEmpty) {
+          groupMap[groupKey] = CompetitionGroup(
+            key: existingGroup.key,
+            name: existingGroup.name,
+            logoUrl: logoUrl,
+            country: existingGroup.country ?? country,
+            roundOrPhase: existingGroup.roundOrPhase ?? event.roundOrPhase,
+            sport: existingGroup.sport,
+            events: existingGroup.events,
+          );
+        } else if (existingGroup.roundOrPhase == null &&
+            event.roundOrPhase != null) {
+          groupMap[groupKey] = CompetitionGroup(
+            key: existingGroup.key,
+            name: existingGroup.name,
+            logoUrl: existingGroup.logoUrl,
+            country: existingGroup.country ?? country,
+            roundOrPhase: event.roundOrPhase,
+            sport: existingGroup.sport,
+            events: existingGroup.events,
+          );
+        }
+      }
+    }
+
+    final result = <CompetitionGroup>[];
+    for (final key in orderedKeys) {
+      final group = groupMap[key]!;
+      if (group.events.isEmpty) continue;
+
+      group.events.sort((a, b) {
+        final cmp = a.startTime.compareTo(b.startTime);
+        if (cmp != 0) return cmp;
+        return a.id.compareTo(b.id);
+      });
+
+      result.add(group);
+    }
+
+    return result;
+  }
+}
+
+class CompetitionGroup {
+  final String key;
+  final String name;
+  final String? logoUrl;
+  final String? country;
+  final String? roundOrPhase;
+  final SportType sport;
+  final List<EventModel> events;
+
+  CompetitionGroup({
+    required this.key,
+    required this.name,
+    this.logoUrl,
+    this.country,
+    this.roundOrPhase,
+    required this.sport,
+    required this.events,
+  });
+}
+
+sealed class _FeedListItem {}
+
+class _CompetitionHeaderItem extends _FeedListItem {
+  final CompetitionGroup group;
+  _CompetitionHeaderItem(this.group);
+}
+
+class _EventItem extends _FeedListItem {
+  final EventModel event;
+  _EventItem(this.event);
+}
+
+class _CompetitionHeader extends StatelessWidget {
+  const _CompetitionHeader({super.key, required this.group});
+
+  final CompetitionGroup group;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasLogo =
+        group.logoUrl != null && group.logoUrl!.trim().isNotEmpty;
+    final hasRoundOrPhase =
+        group.roundOrPhase != null && group.roundOrPhase!.trim().isNotEmpty;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 4, 16, 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted.withValues(alpha: 0.6),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: AppColors.border.withValues(alpha: 0.5),
+          width: 0.8,
+        ),
+      ),
+      child: Row(
+        children: [
+          if (hasLogo) ...[
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: Image.network(
+                group.logoUrl!.trim(),
+                width: 18,
+                height: 18,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) => Icon(
+                  group.sport.icon,
+                  size: 14,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+          ] else ...[
+            Icon(
+              group.sport.icon,
+              size: 14,
+              color: AppColors.textSecondary,
+            ),
+            const SizedBox(width: 8),
+          ],
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    group.name,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                      letterSpacing: 0.2,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (group.country != null &&
+                    group.country!.trim().isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    '• ${group.country!.trim()}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (hasRoundOrPhase) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: AppColors.border.withValues(alpha: 0.7),
+                  width: 0.8,
+                ),
+              ),
+              child: Text(
+                group.roundOrPhase!.trim(),
+                style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
