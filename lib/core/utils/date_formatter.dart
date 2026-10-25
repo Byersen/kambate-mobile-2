@@ -99,7 +99,9 @@ class AppDateFormatter {
     final minStr = local.minute.toString().padLeft(2, '0');
     final timeStr = '$hourStr:$minStr';
 
-    if (relName == 'Hoy' || relName == 'Ayer' || relName == 'Mañana') {
+    if (relName == 'Hoy') {
+      return timeStr;
+    } else if (relName == 'Ayer' || relName == 'Mañana') {
       return '$relName • $timeStr';
     } else {
       final shortDate = formatShortDayMonth(local);

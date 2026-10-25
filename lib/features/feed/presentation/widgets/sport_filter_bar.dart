@@ -21,70 +21,79 @@ class SportFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: supportedSports.map((sport) {
-          final selected = sport == selectedSport;
-          final label = switch (sport) {
-            SportType.ufc => 'UFC',
-            SportType.lol => 'LoL',
-            _ => sport.displayName,
-          };
-          return Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: Semantics(
-              selected: selected,
-              button: true,
-              child: InkWell(
-                onTap: () => onSportSelected(sport),
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  constraints: const BoxConstraints(
-                    minWidth: 62,
-                    minHeight: 76,
-                  ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 12,
-                  ),
-                  decoration: BoxDecoration(
-                    color: selected
-                        ? AppColors.primary.withValues(alpha: 0.09)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        sport.icon,
-                        size: 25,
-                        color: selected
-                            ? AppColors.primary
-                            : AppColors.textSecondary,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 12,
+    return Center(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (var i = 0; i < supportedSports.length; i++) ...[
+              if (i > 0) const SizedBox(width: 6),
+              Builder(
+                builder: (context) {
+                  final sport = supportedSports[i];
+                  final selected = sport == selectedSport;
+                  final label = switch (sport) {
+                    SportType.ufc => 'UFC',
+                    SportType.lol => 'LoL',
+                    _ => sport.displayName,
+                  };
+                  return Semantics(
+                    selected: selected,
+                    button: true,
+                    child: InkWell(
+                      onTap: () => onSportSelected(sport),
+                      borderRadius: BorderRadius.circular(14),
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          minWidth: 62,
+                          minHeight: 76,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
                           color: selected
-                              ? AppColors.primary
-                              : AppColors.textPrimary,
-                          fontWeight: selected
-                              ? FontWeight.w700
-                              : FontWeight.w500,
+                              ? AppColors.primary.withValues(alpha: 0.09)
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              sport.icon,
+                              size: 25,
+                              color: selected
+                                  ? AppColors.primary
+                                  : AppColors.textSecondary,
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              label,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: selected
+                                    ? AppColors.primary
+                                    : AppColors.textPrimary,
+                                fontWeight: selected
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
+                    ),
+                  );
+                },
               ),
-            ),
-          );
-        }).toList(),
+            ],
+          ],
+        ),
       ),
     );
   }
