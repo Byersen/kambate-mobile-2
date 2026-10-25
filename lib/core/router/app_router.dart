@@ -152,9 +152,28 @@ GoRouter createRouter({String initialLocation = '/feed'}) {
           final leagueId = state.uri.queryParameters['leagueId'];
           final seasonId = state.uri.queryParameters['seasonId'];
           final slug = state.uri.queryParameters['slug'];
+          final decodedName = Uri.decodeComponent(leagueName);
+          final lowerName = decodedName.toLowerCase();
+          final lowerSlug = slug?.toLowerCase() ?? '';
+          final resolvedSport = extraSport ??
+              (lowerName.contains('worlds') ||
+                      lowerSlug.contains('worlds') ||
+                      lowerName.contains('lck') ||
+                      lowerName.contains('lec') ||
+                      lowerName.contains('lcs')
+                  ? SportType.lol
+                  : lowerName.contains('nba') || lowerSlug.contains('nba')
+                      ? SportType.nba
+                      : lowerName.contains('ufc') || lowerSlug.contains('ufc')
+                          ? SportType.ufc
+                          : (lowerName.contains('vct') ||
+                                  lowerName.contains('valorant') ||
+                                  lowerSlug.contains('valorant'))
+                              ? SportType.valorant
+                              : SportType.soccer);
           return LeagueDetailScreen(
-            leagueName: Uri.decodeComponent(leagueName),
-            sport: extraSport ?? SportType.soccer,
+            leagueName: decodedName,
+            sport: resolvedSport,
             leagueId: leagueId,
             seasonId: seasonId,
             leagueSlug: slug,

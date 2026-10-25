@@ -74,6 +74,7 @@ class LeagueDetailRepository {
       return 'nba';
     }
     if (l.contains('ufc') || l.contains('mma')) return 'ufc';
+    if (l.contains('worlds') || l.contains('world championship')) return 'worlds';
     if (l.contains('lol') || l.contains('legends') || l.contains('lck') || l.contains('lec') || l.contains('lcs')) {
       return 'lol';
     }
