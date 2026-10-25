@@ -221,6 +221,14 @@ class FootballCompetitionPriority {
     }
 
     otherEvents.sort((a, b) {
+      if (a.sport == SportType.lol && b.sport == SportType.lol) {
+        final aIsWorlds = a.league.toLowerCase().contains('worlds') ||
+            (a.leagueModel?.slug.toLowerCase().contains('worlds') ?? false);
+        final bIsWorlds = b.league.toLowerCase().contains('worlds') ||
+            (b.leagueModel?.slug.toLowerCase().contains('worlds') ?? false);
+        if (aIsWorlds && !bIsWorlds) return -1;
+        if (!aIsWorlds && bIsWorlds) return 1;
+      }
       final timeComp = a.startTime.compareTo(b.startTime);
       if (timeComp != 0) return timeComp;
       return a.id.compareTo(b.id);

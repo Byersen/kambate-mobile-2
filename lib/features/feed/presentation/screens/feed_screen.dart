@@ -455,6 +455,21 @@ class FeedScreen extends ConsumerWidget {
       result.add(group);
     }
 
+    // Priorizar la competición Worlds al mostrar League of Legends
+    if (result.any((g) => g.sport == SportType.lol)) {
+      result.sort((a, b) {
+        if (a.sport == SportType.lol && b.sport == SportType.lol) {
+          final aIsWorlds = a.name.toLowerCase().contains('worlds') ||
+              a.key.toLowerCase().contains('worlds');
+          final bIsWorlds = b.name.toLowerCase().contains('worlds') ||
+              b.key.toLowerCase().contains('worlds');
+          if (aIsWorlds && !bIsWorlds) return -1;
+          if (!aIsWorlds && bIsWorlds) return 1;
+        }
+        return 0;
+      });
+    }
+
     return result;
   }
 

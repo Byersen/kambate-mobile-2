@@ -339,6 +339,17 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
       return true;
     }).toList();
 
+    // Priorizar Worlds al filtrar por LoL
+    if (selectedSport == SportType.lol) {
+      filteredLeagues.sort((a, b) {
+        final aIsWorlds = a.name.toLowerCase().contains('worlds');
+        final bIsWorlds = b.name.toLowerCase().contains('worlds');
+        if (aIsWorlds && !bIsWorlds) return -1;
+        if (!aIsWorlds && bIsWorlds) return 1;
+        return a.name.compareTo(b.name);
+      });
+    }
+
     // Si se está buscando texto y no hay ligas, pero hay equipos que coinciden
     final matchingTeams = query.isNotEmpty
         ? allTeams.where((team) {
@@ -507,6 +518,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
     if (l.contains('tur') || l.contains('turkish') || l.contains('süper') || l.contains('super')) return 'Süper Lig';
     if (l.contains('fifa') || l.contains('world cup') || l.contains('mundial')) return 'Copa Mundial';
     if (l.contains('copa américa')) return 'Copa América';
+    if (l.contains('worlds') || l.contains('world championship')) return 'Worlds';
     if (l.contains('eurocopa') || (l.contains('uefa') && l.contains('euro'))) return 'Eurocopa';
     return league.toUpperCase();
   }

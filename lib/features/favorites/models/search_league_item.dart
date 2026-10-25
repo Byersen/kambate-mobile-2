@@ -48,6 +48,14 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     color: AppColors.ufc,
   ),
   SearchLeagueItem(
+    name: 'Worlds',
+    subtitle: 'League of Legends World Championship',
+    sport: SportType.lol,
+    region: 'Internacional',
+    icon: Icons.sports_esports,
+    color: AppColors.lol,
+  ),
+  SearchLeagueItem(
     name: 'LCK',
     subtitle: 'League of Legends',
     sport: SportType.lol,
