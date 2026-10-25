@@ -344,6 +344,8 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(ChoiceChip, 'En vivo'));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.byType(ScoreboardRow));
     await tester.pumpAndSettle();
     await tester.tap(find.byType(ScoreboardRow));

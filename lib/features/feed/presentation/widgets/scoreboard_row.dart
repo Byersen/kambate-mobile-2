@@ -5,6 +5,7 @@ import '../../../../core/utils/match_minute_formatter.dart';
 import '../../../../core/widgets/event_status_chip.dart';
 import '../../../../models/event_model.dart';
 import '../../../../models/event_status.dart';
+import '../../../../models/sport_type.dart';
 
 class ScoreboardRow extends StatelessWidget {
   const ScoreboardRow({
@@ -123,11 +124,24 @@ class ScoreboardRow extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
-    final leagueText = event.league.toLowerCase().contains(
+    var rawLeague = event.league;
+    if (event.sport == SportType.soccer) {
+      final regex = RegExp(
+        r'\b(english|spanish|german|french|dutch)\b',
+        caseSensitive: false,
+      );
+      rawLeague = rawLeague
+          .replaceAll(regex, '')
+          .replaceAll(RegExp(r'\s+'), ' ')
+          .replaceAll(RegExp(r'^[\s\-–—:]+|[\s\-–—:]+$'), '')
+          .trim();
+      if (rawLeague.isEmpty) rawLeague = event.league;
+    }
+    final leagueText = rawLeague.toLowerCase().contains(
               event.sport.displayName.toLowerCase(),
             )
-        ? event.league
-        : '${event.sport.displayName} • ${event.league}';
+        ? rawLeague
+        : '${event.sport.displayName} • $rawLeague';
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -274,38 +288,24 @@ class ScoreboardRow extends StatelessWidget {
   Widget _buildTimeOrStatus(BuildContext context) {
     if (event.isLive) {
       final liveMinute = MatchMinuteFormatter.format(event);
-      final dot = Semantics(
-        container: true,
-        label: 'En vivo',
-        child: Container(
-          key: const ValueKey('scoreboard_live_dot'),
-          width: 7,
-          height: 7,
-          decoration: const BoxDecoration(
-            color: AppColors.liveRed,
-            shape: BoxShape.circle,
-          ),
-        ),
-      );
-
       if (liveMinute != null) {
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            dot,
-            const SizedBox(width: 4),
-            Text(
-              liveMinute,
-              style: const TextStyle(
-                color: AppColors.liveRed,
-                fontSize: 11.5,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+        return Text(
+          liveMinute,
+          style: const TextStyle(
+            color: AppColors.liveRed,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
         );
       }
-      return dot;
+      return const Text(
+        'VIVO',
+        style: TextStyle(
+          color: AppColors.liveRed,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      );
     }
 
     if (event.status == EventStatus.finished) {
