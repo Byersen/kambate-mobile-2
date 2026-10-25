@@ -324,7 +324,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Datos guardados ·'), findsOneWidget);
+      expect(find.textContaining('Datos guardados ·'), findsNothing);
       expect(find.text('Arsenal vs Chelsea'), findsOneWidget);
     });
 

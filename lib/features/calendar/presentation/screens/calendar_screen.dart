@@ -83,9 +83,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   Widget build(BuildContext context) {
     final eventsAsync = ref.watch(feedNotifierProvider);
     final favoriteTeamIds = ref.watch(favoriteTeamIdsProvider);
-    final source = ref.watch(feedDataSourceProvider);
-    final updated = ref.watch(feedLastUpdatedProvider);
-    final connectionStatus = ref.watch(connectionStatusProvider);
+
 
     return Scaffold(
       appBar: AppBar(
@@ -208,40 +206,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.only(bottom: 24),
               children: [
-                if ((source == FeedDataSource.cache ||
-                        connectionStatus == ConnectionStatus.offlineCached) &&
-                    !eventsAsync.isLoading)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceMuted,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.cloud_off_outlined,
-                            size: 20,
-                            color: AppColors.textSecondary,
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              updated == null
-                                  ? 'Mostrando datos guardados. Desliza para actualizar.'
-                                  : 'Datos guardados · ${AppDateFormatter.formatEventTime(updated)}. Desliza para actualizar.',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+
                 _buildFilterBar(),
 
                 Padding(
@@ -675,20 +640,13 @@ class _SimpleMatchRow extends StatelessWidget {
       );
 
       if (liveMinute != null) {
-        timeWidget = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            dot,
-            const SizedBox(width: 5),
-            Text(
-              liveMinute,
-              style: const TextStyle(
-                color: AppColors.liveRed,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+        timeWidget = Text(
+          liveMinute,
+          style: const TextStyle(
+            color: AppColors.liveRed,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
         );
       } else {
         timeWidget = dot;
