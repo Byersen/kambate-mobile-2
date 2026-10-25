@@ -9,6 +9,8 @@ import '../../../feed/presentation/widgets/match_card.dart';
 import '../../../feed/providers/feed_provider.dart';
 import '../../data/league_detail_repository.dart';
 import '../../providers/league_detail_provider.dart';
+import '../../providers/lol_worlds_provider.dart';
+import '../widgets/lol_worlds_swiss_view.dart';
 
 class LeagueDetailScreen extends ConsumerStatefulWidget {
   final String leagueName;
@@ -86,6 +88,60 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
       orElse: () => const <EventModel>[],
     );
     final params = _resolveParams(events);
+
+    final isWorlds = widget.sport == SportType.lol &&
+        (params.leagueSlug?.contains('worlds') == true ||
+            widget.leagueName.toLowerCase().contains('worlds'));
+
+    if (isWorlds) {
+      final worldsAsync = ref.watch(lolWorldsStageProvider(params.seasonId));
+      return Scaffold(
+        backgroundColor: AppColors.backgroundDark,
+        appBar: AppBar(
+          backgroundColor: AppColors.surfaceDark,
+          leading: IconButton(
+            icon: const Icon(
+              Icons.arrow_back_ios_new_rounded,
+              color: AppColors.textPrimary,
+            ),
+            onPressed: () => context.pop(),
+          ),
+          title: Text(
+            widget.leagueName.toUpperCase(),
+            style: const TextStyle(
+              color: AppColors.textPrimary,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+          actions: [
+            IconButton(
+              icon: const Icon(
+                Icons.refresh_rounded,
+                color: AppColors.textSecondary,
+              ),
+              onPressed: () =>
+                  ref.refresh(lolWorldsStageProvider(params.seasonId)),
+            ),
+          ],
+        ),
+        body: worldsAsync.when(
+          data: (stageData) => LolWorldsSwissView(
+            stageData: stageData,
+            onRefresh: () =>
+                ref.refresh(lolWorldsStageProvider(params.seasonId)),
+          ),
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(
+            child: _buildNoCoverageState(
+              icon: Icons.error_outline_rounded,
+              title: 'Error al conectar con la fuente',
+              subtitle: 'No se pudo recuperar la información de Worlds ($e).',
+            ),
+          ),
+        ),
+      );
+    }
 
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
@@ -233,6 +289,9 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
 
     if (l.contains('nba')) return 'NBA';
     if (l.contains('ufc')) return 'UFC';
+    if (l.contains('worlds') || l.contains('world championship')) {
+      return 'Worlds';
+    }
     if (l.contains('fifa') || l.contains('world cup') || l.contains('mundial')) {
       return 'Copa Mundial';
     }
