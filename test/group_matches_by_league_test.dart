@@ -449,9 +449,9 @@ void main() {
       // Columna 2: Marcadores alineados
       expect(find.text('1'), findsOneWidget);
       expect(find.text('0'), findsOneWidget);
-      // Columna 3: Minuto en vivo
+      // Columna 3: Minuto en vivo (sin punto rojo)
       expect(find.text('45+2′'), findsOneWidget);
-      expect(find.byKey(const ValueKey('scoreboard_live_dot')), findsOneWidget);
+      expect(find.byKey(const ValueKey('scoreboard_live_dot')), findsNothing);
     });
   });
 }

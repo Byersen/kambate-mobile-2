@@ -273,9 +273,11 @@ void main() {
         tester,
         customEvents: [
           liveMatch('match-a', 'Inter', 'Roma', "23'"),
-        liveMatch('match-b', 'Milan', 'Napoli', "45'+2'"),
+          liveMatch('match-b', 'Milan', 'Napoli', "45'+2'"),
         ],
       );
+      await tester.tap(find.widgetWithText(ChoiceChip, 'En vivo'));
+      await tester.pumpAndSettle();
 
       expect(
         find.byKey(const ValueKey('competition_block_league_id:serie-a-id')),
@@ -388,11 +390,17 @@ void main() {
       ];
 
       for (final item in sportsToTest) {
+        app.container.read(selectedEventStatusProvider.notifier).state = null;
         app.container.read(selectedSportFilterProvider.notifier).state =
             item.sport;
         await tester.pumpAndSettle();
 
-        final matchFinder = find.text(item.matchText);
+        var matchFinder = find.text(item.matchText);
+        if (matchFinder.evaluate().isEmpty) {
+          await tester.tap(find.widgetWithText(ChoiceChip, 'En vivo'));
+          await tester.pumpAndSettle();
+          matchFinder = find.text(item.matchText);
+        }
         await tester.ensureVisible(matchFinder);
         await tester.tap(matchFinder);
         await tester.pumpAndSettle();
@@ -406,22 +414,14 @@ void main() {
   );
 
   testWidgets(
-    'Pulsar Ver todos en cabecera de sección filtra por estado correspondiente',
+    'Seleccionar filtro por estado filtra por estado correspondiente',
     (tester) async {
       final app = await mount(tester);
       expect(app.container.read(selectedEventStatusProvider), isNull);
 
-      final resultadosTitle = find.text('Resultados (1)');
-      await tester.dragUntilVisible(
-        resultadosTitle,
-        find.byType(CustomScrollView).first,
-        const Offset(0, -100),
-      );
-      await tester.pumpAndSettle();
-
-      final verTodosBtn = find.text('Ver todos').last;
-      await tester.ensureVisible(verTodosBtn);
-      await tester.tap(verTodosBtn);
+      final resultadosChip = find.widgetWithText(ChoiceChip, 'Resultados');
+      await tester.ensureVisible(resultadosChip);
+      await tester.tap(resultadosChip);
       await tester.pumpAndSettle();
 
       expect(
@@ -453,12 +453,14 @@ void main() {
 
       expect(
         find.textContaining('Datos guardados ·'),
-        findsOneWidget,
+        findsNothing,
       );
       expect(
         app.container.read(connectionStatusProvider),
         ConnectionStatus.offlineCached,
       );
+      await tester.tap(find.widgetWithText(ChoiceChip, 'En vivo'));
+      await tester.pumpAndSettle();
       expect(find.text('Colo-Colo'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
@@ -519,6 +521,9 @@ void main() {
         textScale: 1.3,
         customEvents: [longEvent],
       );
+
+      await tester.tap(find.widgetWithText(ChoiceChip, 'En vivo'));
+      await tester.pumpAndSettle();
 
       final rowFinder = find.byType(ScoreboardRow);
       await tester.dragUntilVisible(
@@ -590,9 +595,9 @@ void main() {
       expect(find.text('2'), findsOneWidget);
       expect(find.text('1'), findsOneWidget);
 
-      // Columna 3: Minuto real de juego en vivo sin duplicarse
+      // Columna 3: Minuto real de juego en vivo sin duplicarse y sin punto rojo
       expect(find.text('34′'), findsOneWidget);
-      expect(find.byKey(const ValueKey('scoreboard_live_dot')), findsOneWidget);
+      expect(find.byKey(const ValueKey('scoreboard_live_dot')), findsNothing);
 
       // Encabezado: Competición y estado chip conservados sin duplicar el minuto
       expect(find.textContaining('Champions League'), findsOneWidget);
@@ -630,8 +635,8 @@ void main() {
       expect(find.text('88'), findsOneWidget);
       expect(find.text('82'), findsOneWidget);
 
-      // Punto rojo accesible de en vivo presente
-      expect(find.byKey(const ValueKey('scoreboard_live_dot')), findsOneWidget);
+      // Indicador en vivo presente (VIVO) sin punto rojo
+      expect(find.text('VIVO'), findsOneWidget);
       final semantics = tester.ensureSemantics();
       await tester.pumpAndSettle();
       expect(find.bySemanticsLabel('En vivo'), findsWidgets);

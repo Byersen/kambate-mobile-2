@@ -19,9 +19,19 @@ class FeedScreen extends ConsumerWidget {
   const FeedScreen({super.key});
 
   bool _followed(EventModel event, Set<String> teams, Set<String> leagues) {
+    final leagueCleaned = event.sport == SportType.soccer
+        ? cleanFootballLeagueName(event.league).toLowerCase()
+        : event.league.toLowerCase();
+    final modelName = event.leagueModel?.name.trim().toLowerCase();
+    final modelNameCleaned = event.leagueModel != null && event.sport == SportType.soccer
+        ? cleanFootballLeagueName(event.leagueModel!.name).toLowerCase()
+        : null;
+
     return event.isFavorite ||
         leagues.contains(event.league.toLowerCase()) ||
-        leagues.contains(event.leagueModel?.name.trim().toLowerCase()) ||
+        leagues.contains(leagueCleaned) ||
+        (modelName != null && leagues.contains(modelName)) ||
+        (modelNameCleaned != null && leagues.contains(modelNameCleaned)) ||
         teams.contains(event.homeTeam?.id) ||
         teams.contains(event.awayTeam?.id) ||
         teams.contains(event.fighter1?.id) ||
@@ -62,29 +72,7 @@ class FeedScreen extends ConsumerWidget {
     );
     Future<void> refresh() =>
         ref.read(feedNotifierProvider.notifier).loadEvents(forceRefresh: true);
-    final groups = [
-      (label: 'En vivo', icon: Icons.sensors_rounded, state: EventStatus.live),
-      (
-        label: 'Próximos',
-        icon: Icons.calendar_today_outlined,
-        state: EventStatus.scheduled,
-      ),
-      (
-        label: 'Resultados',
-        icon: Icons.flag_outlined,
-        state: EventStatus.finished,
-      ),
-      (
-        label: 'Aplazados',
-        icon: Icons.pause_circle_outline,
-        state: EventStatus.postponed,
-      ),
-      (
-        label: 'Cancelados',
-        icon: Icons.cancel_outlined,
-        state: EventStatus.canceled,
-      ),
-    ];
+
 
     final scaffold = Scaffold(
       appBar: AppBar(
@@ -191,8 +179,6 @@ class FeedScreen extends ConsumerWidget {
                       ('En vivo', EventStatus.live),
                       ('Próximos', EventStatus.scheduled),
                       ('Resultados', EventStatus.finished),
-                      ('Aplazados', EventStatus.postponed),
-                      ('Cancelados', EventStatus.canceled),
                     ])
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
@@ -219,43 +205,7 @@ class FeedScreen extends ConsumerWidget {
                 ),
               ),
             ),
-            if ((source == FeedDataSource.cache ||
-                    ref.watch(connectionStatusProvider) ==
-                        ConnectionStatus.offlineCached) &&
-                !feed.isLoading)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                  child: Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceMuted,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.cloud_off_outlined,
-                          size: 20,
-                          color: AppColors.textSecondary,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            updated == null
-                                ? 'Mostrando datos guardados. Desliza para actualizar.'
-                                : 'Datos guardados · ${AppDateFormatter.formatEventTime(updated)}. Desliza para actualizar.',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
+
             if (feed.isLoading)
               const SliverToBoxAdapter(
                 child: Padding(
@@ -313,33 +263,15 @@ class FeedScreen extends ConsumerWidget {
                   },
                 ),
               )
-            else
-              for (final group in groups)
-                if (events.any((event) => event.status == group.state)) ...[
-                  SliverToBoxAdapter(
-                    child: _SectionHeader(
-                      label: group.label,
-                      icon: group.icon,
-                      count: events
-                          .where((event) => event.status == group.state)
-                          .length,
-                      live: group.state == EventStatus.live,
-                      onSeeAll: () {
-                        ref.read(selectedEventStatusProvider.notifier).state =
-                            group.state;
-                      },
-                    ),
-                  ),
-                  _eventList(
-                    context,
-                    events
-                        .where((event) => event.status == group.state)
-                        .toList(),
-                    teams,
-                    leagues,
-                  ),
-                  const SliverToBoxAdapter(child: SizedBox(height: 8)),
-                ],
+            else ...[
+              _eventList(
+                context,
+                events,
+                teams,
+                leagues,
+              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 8)),
+            ],
             const SliverToBoxAdapter(child: SizedBox(height: 24)),
           ],
         ),
@@ -423,7 +355,7 @@ class FeedScreen extends ConsumerWidget {
 
     for (final event in uniqueEvents) {
       final String groupKey;
-      final String groupName;
+      String groupName;
       final String? logoUrl;
       final String? country;
 
@@ -436,13 +368,21 @@ class FeedScreen extends ConsumerWidget {
         logoUrl = event.leagueLogoUrl;
         country = event.leagueModel!.country;
       } else {
-        final normalizedLeague = event.league.trim().toLowerCase();
+        final rawLeague = event.league.trim();
+        final cleanedRawLeague = event.sport == SportType.soccer
+            ? cleanFootballLeagueName(rawLeague)
+            : rawLeague;
+        final normalizedLeague = cleanedRawLeague.trim().toLowerCase();
         groupKey = 'no_league_id:${event.sport.name}:$normalizedLeague';
-        groupName = event.league.trim().isNotEmpty
-            ? event.league.trim()
+        groupName = cleanedRawLeague.trim().isNotEmpty
+            ? cleanedRawLeague.trim()
             : 'Competición';
         logoUrl = event.leagueLogoUrl;
         country = null;
+      }
+
+      if (event.sport == SportType.soccer) {
+        groupName = cleanFootballLeagueName(groupName);
       }
 
       if (!groupMap.containsKey(groupKey)) {
@@ -493,6 +433,20 @@ class FeedScreen extends ConsumerWidget {
       if (group.events.isEmpty) continue;
 
       group.events.sort((a, b) {
+        if (group.sport == SportType.soccer) {
+          int statusOrder(EventModel e) {
+            if (e.status == EventStatus.finished) return 0;
+            if (e.status == EventStatus.live) return 1;
+            return 2;
+          }
+          final orderA = statusOrder(a);
+          final orderB = statusOrder(b);
+          if (orderA != orderB) return orderA.compareTo(orderB);
+        } else {
+          final aLive = a.status == EventStatus.live ? 0 : 1;
+          final bLive = b.status == EventStatus.live ? 0 : 1;
+          if (aLive != bLive) return aLive.compareTo(bLive);
+        }
         final cmp = a.startTime.compareTo(b.startTime);
         if (cmp != 0) return cmp;
         return a.id.compareTo(b.id);
@@ -502,6 +456,18 @@ class FeedScreen extends ConsumerWidget {
     }
 
     return result;
+  }
+
+  static String cleanFootballLeagueName(String name) {
+    var cleaned = name;
+    final regex = RegExp(
+      r'\b(english|spanish|german|french|dutch)\b',
+      caseSensitive: false,
+    );
+    cleaned = cleaned.replaceAll(regex, '');
+    cleaned = cleaned.replaceAll(RegExp(r'\s+'), ' ').trim();
+    cleaned = cleaned.replaceAll(RegExp(r'^[\s\-–—:]+|[\s\-–—:]+$'), '').trim();
+    return cleaned.isNotEmpty ? cleaned : name;
   }
 }
 
