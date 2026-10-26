@@ -228,6 +228,15 @@ class FootballCompetitionPriority {
             (b.leagueModel?.slug.toLowerCase().contains('worlds') ?? false);
         if (aIsWorlds && !bIsWorlds) return -1;
         if (!aIsWorlds && bIsWorlds) return 1;
+
+        int statusOrder(EventModel e) {
+          if (e.status == EventStatus.finished) return 0;
+          if (e.status == EventStatus.live) return 1;
+          return 2;
+        }
+        final orderA = statusOrder(a);
+        final orderB = statusOrder(b);
+        if (orderA != orderB) return orderA.compareTo(orderB);
       }
       final timeComp = a.startTime.compareTo(b.startTime);
       if (timeComp != 0) return timeComp;
