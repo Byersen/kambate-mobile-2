@@ -9,6 +9,7 @@ class SearchLeagueItem {
   final String region;
   final IconData? icon;
   final Color? color;
+  final bool isCompetition;
 
   const SearchLeagueItem({
     required this.name,
@@ -17,6 +18,7 @@ class SearchLeagueItem {
     required this.region,
     this.icon,
     this.color,
+    this.isCompetition = false,
   });
 }
 
@@ -30,6 +32,7 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Europa',
     icon: Icons.sports_soccer,
     color: AppColors.soccer,
+    isCompetition: true,
   ),
   SearchLeagueItem(
     name: 'NBA',
@@ -48,14 +51,6 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     color: AppColors.ufc,
   ),
   SearchLeagueItem(
-    name: 'Worlds',
-    subtitle: 'League of Legends World Championship',
-    sport: SportType.lol,
-    region: 'Internacional',
-    icon: Icons.sports_esports,
-    color: AppColors.lol,
-  ),
-  SearchLeagueItem(
     name: 'LCK',
     subtitle: 'League of Legends',
     sport: SportType.lol,
@@ -70,6 +65,7 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Norteamérica',
     icon: Icons.track_changes,
     color: AppColors.valorant,
+    isCompetition: false,
   ),
   SearchLeagueItem(
     name: 'Europa League',
@@ -78,6 +74,34 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Europa',
     icon: Icons.sports_soccer,
     color: AppColors.soccer,
+    isCompetition: true,
+  ),
+  SearchLeagueItem(
+    name: 'Worlds',
+    subtitle: 'League of Legends World Championship',
+    sport: SportType.lol,
+    region: 'Internacional',
+    icon: Icons.sports_esports,
+    color: AppColors.lol,
+    isCompetition: true,
+  ),
+  SearchLeagueItem(
+    name: 'Valorant Champions',
+    subtitle: 'Valorant Champions Tour',
+    sport: SportType.valorant,
+    region: 'Internacional',
+    icon: Icons.emoji_events,
+    color: AppColors.valorant,
+    isCompetition: true,
+  ),
+  SearchLeagueItem(
+    name: 'Valorant Masters',
+    subtitle: 'Valorant Champions Tour',
+    sport: SportType.valorant,
+    region: 'Internacional',
+    icon: Icons.military_tech,
+    color: AppColors.valorant,
+    isCompetition: true,
   ),
   SearchLeagueItem(
     name: 'Premier League',
@@ -204,6 +228,14 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     subtitle: 'Valorant',
     sport: SportType.valorant,
     region: 'Europa',
+    icon: Icons.track_changes,
+    color: AppColors.valorant,
+  ),
+  SearchLeagueItem(
+    name: 'VCT Ascension Americas',
+    subtitle: 'Valorant',
+    sport: SportType.valorant,
+    region: 'Norteamérica',
     icon: Icons.track_changes,
     color: AppColors.valorant,
   ),

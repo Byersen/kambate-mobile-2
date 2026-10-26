@@ -411,6 +411,86 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
       );
     }
 
+    // Vista separada para Valorant: Competiciones (Champions, Masters) y Ligas (VCT Americas, EMEA, Ascension Americas)
+    if (selectedSport == SportType.valorant) {
+      final allowedNames = {
+        'valorant champions',
+        'valorant masters',
+        'vct americas',
+        'vct emea',
+        'vct ascension americas',
+      };
+      final valFiltered = filteredLeagues
+          .where((l) => allowedNames.contains(l.name.toLowerCase()))
+          .toList();
+      final competitions = valFiltered.where((l) => l.isCompetition).toList();
+      final leagues = valFiltered.where((l) => !l.isCompetition).toList();
+
+      return ListView(
+        key: const PageStorageKey('explore-valorant-sections-list'),
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 24),
+        children: [
+          if (competitions.isNotEmpty) ...[
+            _buildCategoryHeader(
+              'Competiciones',
+              competitions.length,
+              AppColors.valorant,
+              icon: Icons.emoji_events_rounded,
+            ),
+            const SizedBox(height: 6),
+            GridView.builder(
+              key: const ValueKey('valorant-competitions-grid'),
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.18,
+              ),
+              itemCount: competitions.length,
+              itemBuilder: (context, index) {
+                final league = competitions[index];
+                return LeagueSearchCard(
+                  key: ValueKey('league_card_${league.name}'),
+                  league: league,
+                );
+              },
+            ),
+            const SizedBox(height: 16),
+          ],
+          if (leagues.isNotEmpty) ...[
+            _buildCategoryHeader(
+              'Ligas',
+              leagues.length,
+              AppColors.valorant,
+              icon: Icons.track_changes_rounded,
+            ),
+            const SizedBox(height: 6),
+            GridView.builder(
+              key: const ValueKey('valorant-leagues-grid'),
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: 1.18,
+              ),
+              itemCount: leagues.length,
+              itemBuilder: (context, index) {
+                final league = leagues[index];
+                return LeagueSearchCard(
+                  key: ValueKey('league_card_${league.name}'),
+                  league: league,
+                );
+              },
+            ),
+          ],
+        ],
+      );
+    }
+
     // 4. Vista Completa: Tarjetas de ligas en dos columnas según vista-buscar.png
     return GridView.builder(
       key: const PageStorageKey('explore-leagues-grid'),
@@ -445,13 +525,21 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
         final region = _getRegionForLeague(event.league);
         final country = event.leagueModel?.country ?? _getCountryOrConfederation(event.league);
         final flag = _getCountryFlag(country);
+        final isComp = key == 'valorant champions' ||
+            key == 'valorant masters' ||
+            key == 'worlds' ||
+            key == 'champions league' ||
+            key == 'europa league';
         map[key] = SearchLeagueItem(
           name: prettyName,
           subtitle: '$flag $country',
           sport: event.sport,
           region: region,
-          icon: event.sport.icon,
+          icon: isComp
+              ? (key.contains('masters') ? Icons.military_tech : Icons.emoji_events)
+              : event.sport.icon,
           color: event.sport.color,
+          isCompetition: isComp,
         );
       }
     }
@@ -460,6 +548,9 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
 
   String _getCountryOrConfederation(String league) {
     final l = league.toLowerCase();
+    if (l.contains('valorant champions') || l.contains('valorant masters')) return 'Internacional';
+    if (l.contains('ascension') || l.contains('vct americas')) return 'Norteamérica';
+    if (l.contains('vct emea')) return 'Europa';
     if (['mex', 'mx'].any((x) => l.contains(x))) return 'México';
     if (['usa', 'mls', 'major league'].any((x) => l.contains(x))) return 'Estados Unidos';
     if (['libertadores', 'sudamericana', 'recopa', 'conmebol'].any((x) => l.contains(x))) return 'CONMEBOL';
@@ -481,16 +572,35 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
   }
 
   String _getRegionForLeague(String league) {
+    final l = league.toLowerCase();
+    if (l.contains('valorant champions') || l.contains('valorant masters')) return 'Internacional';
+    if (l.contains('ascension') || l.contains('vct americas')) return 'Norteamérica';
+    if (l.contains('vct emea')) return 'Europa';
     final country = _getCountryOrConfederation(league).toUpperCase();
-    if (['MÉXICO', 'ESTADOS UNIDOS'].contains(country)) return 'Norteamérica';
-    if (['CONMEBOL', 'ARGENTINA', 'BRASIL', 'CHILE'].contains(country)) return 'Sudamérica';
-    if (['UEFA', 'ESPAÑA', 'INGLATERRA', 'ITALIA', 'ALEMANIA', 'FRANCIA', 'PAÍSES BAJOS', 'PORTUGAL'].contains(country)) return 'Europa';
-    if (['MUNDIAL', 'COPA AMÉRICA', 'EUROCOPA'].contains(country)) return 'Internacional';
+    if (['MÉXICO', 'ESTADOS UNIDOS', 'NORTEAMÉRICA'].contains(country)) return 'Norteamérica';
+    if (['CONMEBOL', 'ARGENTINA', 'BRASIL', 'CHILE', 'SUDAMÉRICA'].contains(country)) return 'Sudamérica';
+    if (['UEFA', 'ESPAÑA', 'INGLATERRA', 'ITALIA', 'ALEMANIA', 'FRANCIA', 'PAÍSES BAJOS', 'PORTUGAL', 'EUROPA'].contains(country)) return 'Europa';
+    if (['MUNDIAL', 'COPA AMÉRICA', 'EUROCOPA', 'INTERNACIONAL'].contains(country)) return 'Internacional';
     return 'Internacional';
   }
 
   String _getPrettyLeagueName(String league) {
     final l = league.toLowerCase();
+    if (l.contains('valorant champions') || (l.contains('champions') && (l.contains('val') || l.contains('vct')))) {
+      return 'Valorant Champions';
+    }
+    if (l.contains('valorant masters') || l.contains('vct masters') || (l.contains('masters') && (l.contains('val') || l.contains('vct')))) {
+      return 'Valorant Masters';
+    }
+    if (l.contains('ascension') && (l.contains('americas') || l.contains('val') || l.contains('vct'))) {
+      return 'VCT Ascension Americas';
+    }
+    if (l.contains('vct americas') || (l.contains('americas') && (l.contains('vct') || l.contains('val')))) {
+      return 'VCT Americas';
+    }
+    if (l.contains('vct emea') || (l.contains('emea') && (l.contains('vct') || l.contains('val')))) {
+      return 'VCT EMEA';
+    }
     if (l.contains('mex') || l.contains('mx')) return 'Liga MX';
     if (l.contains('usa') || l.contains('mls') || l.contains('major league')) return 'MLS';
     if (l.contains('copa argentina')) return 'Copa Argentina';
@@ -530,6 +640,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
       case 'BRASIL': return '🇧🇷';
       case 'MÉXICO': return '🇲🇽';
       case 'ESTADOS UNIDOS': return '🇺🇸';
+      case 'NORTEAMÉRICA': return '🌎';
       case 'ESPAÑA': return '🇪🇸';
       case 'INGLATERRA': return '🏴󠁧󠁢󠁥󠁮󠁧󠁿';
       case 'ITALIA': return '🇮🇹';
@@ -539,10 +650,54 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
       case 'PORTUGAL': return '🇵🇹';
       case 'CONMEBOL': return '🌎';
       case 'UEFA': return '🇪🇺';
+      case 'EUROPA': return '🇪🇺';
       case 'INTERNACIONAL': return '🌐';
       case 'MUNDIAL': return '🏆';
       default: return '🏳️';
     }
+  }
+
+  Widget _buildCategoryHeader(
+    String title,
+    int count,
+    Color color, {
+    IconData? icon,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            title.toUpperCase(),
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Container(
+              height: 1,
+              color: color.withValues(alpha: 0.25),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            '$count ${count == 1 ? (title.toLowerCase().contains('liga') ? 'liga' : 'competición') : (title.toLowerCase().contains('liga') ? 'ligas' : 'competiciones')}',
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildSportGroupHeader(SportType sport, int count) {
