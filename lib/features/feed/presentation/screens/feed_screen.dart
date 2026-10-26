@@ -52,11 +52,32 @@ class FeedScreen extends ConsumerWidget {
     final filtered =
         (feed.asData?.value ?? <EventModel>[])
             .where(
-              (event) =>
-                  AppDateFormatter.isSameDay(event.startTime, date) &&
-                  (sport == SportType.all || event.sport == sport) &&
-                  (status == null || event.status == status) &&
-                  event.status != EventStatus.archived,
+              (event) {
+                if (!AppDateFormatter.isSameDay(event.startTime, date)) return false;
+                if (sport != SportType.all && event.sport != sport) return false;
+                if (status != null && event.status != status) return false;
+                if (event.status == EventStatus.archived) return false;
+
+                // Regla de acotamiento Valorant (Tarea 32):
+                // Al elegir Valorant, muestra partidos únicamente de VCT Americas y VCT EMEA;
+                // incluye VCT Ascension Americas solo si el proveedor ofrece eventos identificables y actuales.
+                // Oculta el resto de torneos en esta experiencia por ahora.
+                if (sport == SportType.valorant) {
+                  final slug = event.leagueModel?.slug.toLowerCase() ?? '';
+                  final name = event.league.toLowerCase();
+                  final isAmericas = slug == 'vct-americas' ||
+                      (name.contains('vct') && name.contains('americas') && !name.contains('ascension'));
+                  final isEmea = slug == 'vct-emea' ||
+                      (name.contains('vct') && name.contains('emea') && !name.contains('ascension'));
+                  final isAscensionAmericas = slug == 'vct-ascension-americas' ||
+                      (name.contains('ascension') && name.contains('americas'));
+                  if (!isAmericas && !isEmea && !isAscensionAmericas) {
+                    return false;
+                  }
+                }
+
+                return true;
+              },
             )
             .toList();
     final uniqueFiltered = <EventModel>[];

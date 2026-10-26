@@ -109,6 +109,7 @@ class EventModel {
     final explicit = footballStats?.extraStats?['round']?.toString() ??
         footballStats?.extraStats?['phase']?.toString() ??
         footballStats?.extraStats?['jornada']?.toString() ??
+        esportsStats?.extraStats?['phase']?.toString() ??
         metadata?['round']?.toString() ??
         metadata?['phase']?.toString() ??
         metadata?['jornada']?.toString();
