@@ -18,6 +18,16 @@ class LeagueDetailRepository {
   static String resolveLeagueSlug(String leagueName) {
     final l = leagueName.toLowerCase().trim();
 
+    // League of Legends
+    if (l.contains('worlds') || l.contains('world championship')) return 'worlds';
+    if (l.contains('msi') || l.contains('mid-season invitational')) return 'msi';
+    if (l.contains('lck')) return 'lck';
+    if (l.contains('lec')) return 'lec';
+    if (l.contains('lcs')) return 'lcs';
+    if (l.contains('lpl')) return 'lpl';
+    if (l.contains('lol') || l.contains('legends')) return 'lol';
+
+    // Valorant
     if (l.contains('valorant champions') || (l.contains('champions') && (l.contains('val') || l.contains('vct')))) {
       return 'valorant-champions';
     }
@@ -33,6 +43,7 @@ class LeagueDetailRepository {
     if (l.contains('vct emea') || (l.contains('emea') && (l.contains('val') || l.contains('vct')))) {
       return 'vct-emea';
     }
+    if (l.contains('valorant') || l.contains('vct')) return 'valorant';
 
     if (l.contains('mex') || l.contains('mx')) return 'mex.1';
     if (l.contains('usa') || l.contains('mls') || l.contains('major league')) {
@@ -90,11 +101,6 @@ class LeagueDetailRepository {
       return 'nba';
     }
     if (l.contains('ufc') || l.contains('mma')) return 'ufc';
-    if (l.contains('worlds') || l.contains('world championship')) return 'worlds';
-    if (l.contains('lol') || l.contains('legends') || l.contains('lck') || l.contains('lec') || l.contains('lcs')) {
-      return 'lol';
-    }
-    if (l.contains('valorant') || l.contains('vct')) return 'valorant';
 
     return leagueName.toLowerCase().replaceAll(' ', '-');
   }

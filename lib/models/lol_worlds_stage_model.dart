@@ -392,7 +392,17 @@ class LolWorldsStageModel {
 
   bool get isUnconfigured => coverageStatus == 'UNCONFIGURED_CREDENTIALS';
   bool get isProviderError => coverageStatus == 'PROVIDER_ERROR';
-  bool get isEmpty => !hasCoverage || (stage == null && matches.isEmpty && swissStandings.isEmpty);
+  bool get isRateLimited => coverageStatus == 'RATE_LIMITED';
+  bool get isUnauthorized =>
+      coverageStatus == 'UNAUTHORIZED' || coverageStatus == 'FORBIDDEN';
+  bool get isNoCoverage => coverageStatus == 'NO_COVERAGE';
+  bool get hasMatches => matches.isNotEmpty;
+  bool get hasSwissStandings => swissStandings.isNotEmpty;
+  bool get isPartialCoverage =>
+      hasCoverage && (matches.isEmpty != swissStandings.isEmpty);
+  bool get isEmpty =>
+      !hasCoverage ||
+      (stage == null && matches.isEmpty && swissStandings.isEmpty);
 
   factory LolWorldsStageModel.empty({
     String slug = 'worlds',

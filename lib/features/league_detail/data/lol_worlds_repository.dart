@@ -30,22 +30,40 @@ class LolWorldsRepository {
         options: Options(responseType: ResponseType.json),
       );
 
-      if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
-        return LolWorldsStageModel.fromJson(response.data as Map<String, dynamic>);
+      if (response.statusCode == 200 && response.data is Map) {
+        return LolWorldsStageModel.fromJson(
+          Map<String, dynamic>.from(response.data as Map),
+        );
       }
     } catch (e) {
-      debugPrint('Error al consultar Worlds stage en backend ($e). Intentando ruta alternativa...');
+      if (e is DioException && e.response?.data is Map) {
+        try {
+          return LolWorldsStageModel.fromJson(
+            Map<String, dynamic>.from(e.response!.data as Map),
+          );
+        } catch (_) {}
+      }
+      debugPrint('Aviso: ruta primaria de Worlds stage no disponible. Intentando alternativa...');
       try {
         final fallbackRes = await _dio.get(
           '$apiUrl/scrapers/leagues/worlds/stage',
           queryParameters: query,
           options: Options(responseType: ResponseType.json),
         );
-        if (fallbackRes.statusCode == 200 && fallbackRes.data is Map<String, dynamic>) {
-          return LolWorldsStageModel.fromJson(fallbackRes.data as Map<String, dynamic>);
+        if (fallbackRes.statusCode == 200 && fallbackRes.data is Map) {
+          return LolWorldsStageModel.fromJson(
+            Map<String, dynamic>.from(fallbackRes.data as Map),
+          );
         }
       } catch (fallbackErr) {
-        debugPrint('Fallback Worlds stage también falló ($fallbackErr)');
+        if (fallbackErr is DioException && fallbackErr.response?.data is Map) {
+          try {
+            return LolWorldsStageModel.fromJson(
+              Map<String, dynamic>.from(fallbackErr.response!.data as Map),
+            );
+          } catch (_) {}
+        }
+        debugPrint('Aviso: ruta alternativa de Worlds stage también finalizó sin datos');
       }
     }
 
