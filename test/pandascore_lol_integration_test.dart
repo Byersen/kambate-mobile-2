@@ -724,6 +724,79 @@ void main() {
       expect(find.text('Sin registro de posiciones'), findsOneWidget);
       expect(find.text('El proveedor oficial aún no ha publicado el registro de la etapa suiza.'), findsOneWidget);
     });
+
+    test('14. En la vista principal los partidos de LoL siguen el orden de fútbol (finalizados -> en vivo -> programados)', () {
+      final lolFinishedEarlier = EventModel(
+        id: 'lol-fin-early',
+        sport: SportType.lol,
+        league: 'Worlds',
+        status: EventStatus.finished,
+        startTime: now.subtract(const Duration(hours: 4)),
+        homeTeam: const TeamModel(id: 't1', name: 'T1'),
+        awayTeam: const TeamModel(id: 'cfo', name: 'CFO'),
+      );
+      final lolFinishedLater = EventModel(
+        id: 'lol-fin-later',
+        sport: SportType.lol,
+        league: 'Worlds',
+        status: EventStatus.finished,
+        startTime: now.subtract(const Duration(hours: 2)),
+        homeTeam: const TeamModel(id: 'kc', name: 'KC'),
+        awayTeam: const TeamModel(id: 'blg', name: 'BLG'),
+      );
+      final lolLive = EventModel(
+        id: 'lol-live',
+        sport: SportType.lol,
+        league: 'Worlds',
+        status: EventStatus.live,
+        startTime: now.subtract(const Duration(minutes: 30)),
+        homeTeam: const TeamModel(id: 'los', name: 'LOS'),
+        awayTeam: const TeamModel(id: 'tsw', name: 'TSW'),
+      );
+      final lolScheduledEarly = EventModel(
+        id: 'lol-sched-early',
+        sport: SportType.lol,
+        league: 'Worlds',
+        status: EventStatus.scheduled,
+        startTime: now.add(const Duration(hours: 1)),
+        homeTeam: const TeamModel(id: 'tl', name: 'TL'),
+        awayTeam: const TeamModel(id: 'al', name: 'AL'),
+      );
+      final lolScheduledLater = EventModel(
+        id: 'lol-sched-later',
+        sport: SportType.lol,
+        league: 'Worlds',
+        status: EventStatus.scheduled,
+        startTime: now.add(const Duration(hours: 3)),
+        homeTeam: const TeamModel(id: 'gen', name: 'GEN'),
+        awayTeam: const TeamModel(id: 'dk', name: 'DK'),
+      );
+
+      // Enviados deliberadamente desordenados
+      final mixedLol = [
+        lolScheduledLater,
+        lolLive,
+        lolFinishedLater,
+        lolScheduledEarly,
+        lolFinishedEarlier,
+      ];
+
+      final groups = FeedScreen.groupEventsByCompetition(mixedLol);
+      expect(groups, hasLength(1));
+      final events = groups.first.events;
+      expect(events, hasLength(5));
+
+      // 1. Primero los partidos que ya se jugaron (finalizados por orden de inicio)
+      expect(events[0].id, 'lol-fin-early');
+      expect(events[1].id, 'lol-fin-later');
+
+      // 2. Luego los partidos que se están jugando (en vivo)
+      expect(events[2].id, 'lol-live');
+
+      // 3. Después los partidos que empiezan más tarde (programados por orden cronológico)
+      expect(events[3].id, 'lol-sched-early');
+      expect(events[4].id, 'lol-sched-later');
+    });
   });
 }
 
