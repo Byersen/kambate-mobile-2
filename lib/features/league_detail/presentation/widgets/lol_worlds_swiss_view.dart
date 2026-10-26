@@ -201,11 +201,23 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
     final allMatches = data.matches;
     final rounds = data.rounds;
 
-    final filteredMatches = _selectedRoundNumber == null
-        ? allMatches
-        : allMatches
-            .where((m) => m.roundNumber == _selectedRoundNumber)
-            .toList();
+    final filteredMatches = List<LolWorldsMatchModel>.from(
+      _selectedRoundNumber == null
+          ? allMatches
+          : allMatches.where((m) => m.roundNumber == _selectedRoundNumber),
+    )..sort((a, b) {
+        int statusOrder(LolWorldsMatchModel m) {
+          if (m.isFinished) return 0;
+          if (m.isLive) return 1;
+          return 2;
+        }
+        final orderA = statusOrder(a);
+        final orderB = statusOrder(b);
+        if (orderA != orderB) return orderA.compareTo(orderB);
+        final cmp = a.startTime.compareTo(b.startTime);
+        if (cmp != 0) return cmp;
+        return a.id.compareTo(b.id);
+      });
 
     return Column(
       children: [

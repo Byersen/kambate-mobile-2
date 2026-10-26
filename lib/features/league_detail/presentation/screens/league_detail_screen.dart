@@ -660,7 +660,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
               }
 
               final activeRound = _resolveActiveRound(leagueEvents);
-              final List<EventModel> roundMatches;
+              List<EventModel> roundMatches;
               final String headerTitle;
 
               if (activeRound != null) {
@@ -674,6 +674,23 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
                 // y mostrar los partidos con una agrupación neutral
                 roundMatches = leagueEvents;
                 headerTitle = 'PARTIDOS';
+              }
+
+              if (widget.sport == SportType.soccer || widget.sport == SportType.lol) {
+                roundMatches = List<EventModel>.from(roundMatches)
+                  ..sort((a, b) {
+                    int statusOrder(EventModel e) {
+                      if (e.status == EventStatus.finished) return 0;
+                      if (e.status == EventStatus.live) return 1;
+                      return 2;
+                    }
+                    final orderA = statusOrder(a);
+                    final orderB = statusOrder(b);
+                    if (orderA != orderB) return orderA.compareTo(orderB);
+                    final cmp = a.startTime.compareTo(b.startTime);
+                    if (cmp != 0) return cmp;
+                    return a.id.compareTo(b.id);
+                  });
               }
 
               return [
