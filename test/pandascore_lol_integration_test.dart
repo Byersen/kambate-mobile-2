@@ -461,6 +461,269 @@ void main() {
       expect(find.text('Estadísticas por partida'), findsOneWidget);
       expect(find.textContaining('KDA y recursos'), findsOneWidget);
     });
+
+    testWidgets('11. Validación E2E: Preservación de casos programado, en vivo y finalizado en LolWorldsSwissView', (tester) async {
+      final scheduledCase = LolWorldsMatchModel(
+        id: '1711000',
+        externalId: 'pandascore-lol-match-1711000',
+        roundNumber: 3,
+        roundName: 'Ronda 3: TL vs AL',
+        startTime: DateTime.parse('2026-10-26T22:00:00Z'),
+        status: 'SCHEDULED',
+        homeTeam: const LolWorldsParticipantModel(
+          id: '390',
+          name: 'Team Liquid',
+          code: 'TL',
+          score: null,
+        ),
+        awayTeam: const LolWorldsParticipantModel(
+          id: '129971',
+          name: "Anyone's Legend",
+          code: 'AL',
+          score: null,
+        ),
+        format: 'Bo1',
+      );
+
+      final liveCase = LolWorldsMatchModel(
+        id: '1710999',
+        externalId: 'pandascore-lol-match-1710999',
+        roundNumber: 3,
+        roundName: 'Ronda 3: LOS vs TSW',
+        startTime: DateTime.parse('2026-10-26T18:59:21Z'),
+        status: 'LIVE',
+        homeTeam: const LolWorldsParticipantModel(
+          id: '133796',
+          name: 'Los Grandes',
+          code: 'LOS',
+          score: 1,
+        ),
+        awayTeam: const LolWorldsParticipantModel(
+          id: '136073',
+          name: 'Team Secret Whales',
+          code: 'TSW',
+          score: 0,
+        ),
+        format: 'Bo1',
+      );
+
+      final finishedCase = LolWorldsMatchModel(
+        id: '1710998',
+        externalId: 'pandascore-lol-match-1710998',
+        roundNumber: 3,
+        roundName: 'Ronda 3: T1 vs CFO',
+        startTime: DateTime.parse('2026-10-26T17:06:19Z'),
+        status: 'FINISHED',
+        winnerTeamId: '126061',
+        homeTeam: const LolWorldsParticipantModel(
+          id: '126061',
+          name: 'T1',
+          code: 'T1',
+          score: 1,
+        ),
+        awayTeam: const LolWorldsParticipantModel(
+          id: '130355',
+          name: 'CTBC Flying Oyster',
+          code: 'CFO',
+          score: 0,
+        ),
+        format: 'Bo1',
+      );
+
+      final e2eStageModel = LolWorldsStageModel(
+        version: 1,
+        competition: const LolWorldsCompetitionModel(
+          slug: 'worlds',
+          name: 'League of Legends World Championship',
+          sport: 'lol',
+        ),
+        season: const LolWorldsSeasonModel(
+          slug: '2026',
+          name: 'Worlds 2026',
+          year: 2026,
+          isCurrent: true,
+        ),
+        stage: const LolWorldsStageInfoModel(
+          id: '22047',
+          slug: 'group-stage',
+          name: 'Group Stage (Swiss)',
+          format: 'swiss',
+          status: 'in_progress',
+          currentRoundNumber: 3,
+          totalRounds: 5,
+        ),
+        rounds: const [
+          LolWorldsRoundModel(
+            roundNumber: 3,
+            name: 'Ronda 3',
+            status: 'in_progress',
+            matchIds: ['1711000', '1710999', '1710998'],
+          ),
+        ],
+        matches: [scheduledCase, liveCase, finishedCase],
+        swissStandings: const [
+          LolSwissStandingEntryModel(
+            position: 1,
+            teamId: '2882',
+            teamName: 'Gen.G',
+            teamCode: 'GEN',
+            wins: 3,
+            losses: 0,
+            diff: 3,
+            advancementStatus: 'QUALIFIED',
+            advancementText: 'Clasificado a Cuartos de Final',
+          ),
+        ],
+        hasCoverage: true,
+        coverageStatus: 'ACTIVE',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LolWorldsSwissView(
+              stageData: e2eStageModel,
+              onRefresh: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Verificar caso programado: nombres, formato, sin marcadores
+      expect(find.byKey(const ValueKey('lol-match-card-1711000')), findsOneWidget);
+      expect(find.text('Team Liquid'), findsOneWidget);
+      expect(find.text("Anyone's Legend"), findsOneWidget);
+
+      // Verificar caso en vivo: badge EN VIVO, marcador 1 - 0
+      expect(find.byKey(const ValueKey('lol-match-card-1710999')), findsOneWidget);
+      expect(find.text('Los Grandes'), findsOneWidget);
+      expect(find.text('Team Secret Whales'), findsOneWidget);
+      expect(find.text('EN VIVO'), findsOneWidget);
+
+      // Verificar caso finalizado: badge FINAL, ganador T1
+      expect(find.byKey(const ValueKey('lol-match-card-1710998')), findsOneWidget);
+      expect(find.text('CTBC Flying Oyster'), findsOneWidget);
+      expect(find.text('FINAL'), findsOneWidget);
+
+      // Verificar tabla suiza
+      await tester.tap(find.text('Tabla Suiza'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('lol-standing-row-1')), findsOneWidget);
+      expect(find.text('Gen.G'), findsOneWidget);
+      expect(find.text('3-0'), findsOneWidget);
+      expect(find.text('+3'), findsOneWidget);
+      expect(find.text('Clasificado a Cuartos de Final'), findsOneWidget);
+    });
+
+    testWidgets('12. Validación de errores HTTP (401, 403, 429, timeout) renderiza mensajes entendibles y distintivos', (tester) async {
+      final errorCases = [
+        {
+          'status': 'UNAUTHORIZED',
+          'msg': 'Credenciales de PandaScore invalidas o expiradas (401).',
+          'expectedTitle': 'Acceso no autorizado',
+        },
+        {
+          'status': 'FORBIDDEN',
+          'msg': 'Acceso prohibido para el plan o recurso en PandaScore (403).',
+          'expectedTitle': 'Acceso no autorizado',
+        },
+        {
+          'status': 'RATE_LIMITED',
+          'msg': 'Limite de peticiones de PandaScore excedido (429).',
+          'expectedTitle': 'Límite de solicitudes alcanzado',
+        },
+        {
+          'status': 'PROVIDER_ERROR',
+          'msg': 'Error de comunicacion con el proveedor PandaScore: connect ETIMEDOUT',
+          'expectedTitle': 'Error de conexión con el proveedor',
+        },
+      ];
+
+      for (final ec in errorCases) {
+        final errModel = LolWorldsStageModel.empty(
+          coverageStatus: ec['status']!,
+          message: ec['msg'],
+        );
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: LolWorldsSwissView(
+                stageData: errModel,
+                onRefresh: () {},
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(ec['expectedTitle']!), findsOneWidget);
+        expect(find.text(ec['msg']!), findsOneWidget);
+        expect(find.text('Sin datos simulados ni fixtures inventados'), findsOneWidget);
+        expect(find.text('Comprobar disponibilidad'), findsOneWidget);
+      }
+    });
+
+    testWidgets('13. Torneo sin standings (404) y competición no cubierta presentan interfaz limpia y honesta', (tester) async {
+      // Caso torneo sin standings pero con partidos
+      final tournNoStandings = LolWorldsStageModel(
+        version: 1,
+        competition: const LolWorldsCompetitionModel(
+          slug: 'worlds',
+          name: 'League of Legends World Championship',
+          sport: 'lol',
+        ),
+        season: const LolWorldsSeasonModel(
+          slug: '2026',
+          name: 'Worlds 2026',
+          year: 2026,
+          isCurrent: true,
+        ),
+        stage: const LolWorldsStageInfoModel(
+          id: '22048',
+          slug: 'playoffs',
+          name: 'Playoffs',
+          format: 'tournament',
+          status: 'in_progress',
+        ),
+        rounds: const [],
+        matches: [
+          LolWorldsMatchModel(
+            id: '1711021',
+            status: 'SCHEDULED',
+            startTime: DateTime.now().add(const Duration(days: 10)),
+            homeTeam: const LolWorldsParticipantModel(name: 'TBD'),
+            awayTeam: const LolWorldsParticipantModel(name: 'TBD'),
+          ),
+        ],
+        swissStandings: const [],
+        hasCoverage: true,
+        coverageStatus: 'ACTIVE',
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LolWorldsSwissView(
+              stageData: tournNoStandings,
+              onRefresh: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('PLAYOFFS'), findsOneWidget);
+
+      await tester.tap(find.text('Tabla Suiza'));
+      await tester.pumpAndSettle();
+
+      // Debe indicar que no hay posiciones sin inventar datos
+      expect(find.text('Sin registro de posiciones'), findsOneWidget);
+      expect(find.text('El proveedor oficial aún no ha publicado el registro de la etapa suiza.'), findsOneWidget);
+    });
   });
 }
 

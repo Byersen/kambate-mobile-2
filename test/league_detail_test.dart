@@ -142,7 +142,8 @@ void main() {
       expect(LeagueDetailRepository.resolveLeagueSlug('Champions League'), 'uefa.champions');
       expect(LeagueDetailRepository.resolveLeagueSlug('NBA'), 'nba');
       expect(LeagueDetailRepository.resolveLeagueSlug('UFC'), 'ufc');
-      expect(LeagueDetailRepository.resolveLeagueSlug('LCK'), 'lol');
+      expect(LeagueDetailRepository.resolveLeagueSlug('LCK'), 'lck');
+      expect(LeagueDetailRepository.resolveLeagueSlug('League of Legends'), 'lol');
       expect(LeagueDetailRepository.resolveLeagueSlug('VCT Americas'), 'vct-americas');
     });
   });
