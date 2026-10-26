@@ -1339,12 +1339,13 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
   }
 
   Widget _buildStatsTab(LeagueDetailParams params) {
-    if (widget.sport == SportType.valorant) {
+    if (widget.sport == SportType.valorant || widget.sport == SportType.lol) {
       return _buildNoCoverageState(
         icon: Icons.sports_esports_outlined,
         title: 'Estadísticas por partida',
-        subtitle:
-            'Las estadísticas de jugadores, agentes, K/D y ACS se registran dentro de cada enfrentamiento y mapa individual.',
+        subtitle: widget.sport == SportType.lol
+            ? 'Las estadísticas de jugadores, campeones, KDA y recursos se registran dentro de cada partida de la serie.'
+            : 'Las estadísticas de jugadores, agentes, K/D y ACS se registran dentro de cada enfrentamiento y mapa individual.',
       );
     }
 

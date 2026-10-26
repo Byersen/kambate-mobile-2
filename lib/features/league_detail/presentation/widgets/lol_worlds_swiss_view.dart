@@ -52,8 +52,8 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
   Widget build(BuildContext context) {
     final data = widget.stageData;
 
-    // Si la fuente no tiene cobertura o requiere credenciales
-    if (!data.hasCoverage || data.isUnconfigured) {
+    // Si la fuente no tiene cobertura, credenciales no configuradas o está vacía
+    if (!data.hasCoverage || data.isUnconfigured || data.isEmpty) {
       return _buildNoCoverageView(data);
     }
 
@@ -819,6 +819,47 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
   }
 
   Widget _buildNoCoverageView(LolWorldsStageModel data) {
+    final String title;
+    final String subtitle;
+    final IconData icon;
+
+    if (data.isUnconfigured) {
+      title = 'Cobertura oficial no disponible';
+      subtitle = data.message ??
+          'La fuente oficial de Worlds requiere credenciales de API (LOL_ESPORTS_API_KEY o PANDASCORE_API_KEY) no configuradas en el entorno.';
+      icon = Icons.lock_outline_rounded;
+    } else if (data.isNoCoverage) {
+      title = 'Sin cobertura del proveedor';
+      subtitle = data.message ??
+          'El proveedor oficial no reporta partidos ni fases activas para esta edición de Worlds.';
+      icon = Icons.sports_esports_outlined;
+    } else if (data.isRateLimited) {
+      title = 'Límite de solicitudes alcanzado';
+      subtitle = data.message ??
+          'Se ha superado la cuota de consultas hacia el proveedor oficial de League of Legends. Por favor, intenta más tarde.';
+      icon = Icons.timer_outlined;
+    } else if (data.isUnauthorized) {
+      title = 'Acceso no autorizado';
+      subtitle = data.message ??
+          'El proveedor oficial denegó el acceso a las estadísticas de League of Legends.';
+      icon = Icons.security_outlined;
+    } else if (data.isProviderError) {
+      title = 'Error de conexión con el proveedor';
+      subtitle = data.message ??
+          'No se pudo conectar con el servicio oficial de League of Legends.';
+      icon = Icons.cloud_off_outlined;
+    } else if (data.isEmpty) {
+      title = 'Sin información disponible';
+      subtitle = data.message ??
+          'Actualmente no hay partidas ni etapas activas registradas para Worlds en el proveedor oficial.';
+      icon = Icons.event_busy_rounded;
+    } else {
+      title = 'Cobertura oficial no disponible';
+      subtitle = data.message ??
+          'No hay información confirmada por el proveedor oficial para esta edición de Worlds.';
+      icon = Icons.lock_outline_rounded;
+    }
+
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(28.0),
@@ -831,17 +872,17 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
                 color: AppColors.lol.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.lock_outline_rounded,
+              child: Icon(
+                icon,
                 size: 44,
                 color: AppColors.lol,
               ),
             ),
             const SizedBox(height: 18),
-            const Text(
-              'Cobertura oficial no disponible',
+            Text(
+              title,
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: const TextStyle(
                 color: AppColors.textPrimary,
                 fontSize: 17,
                 fontWeight: FontWeight.bold,
@@ -849,8 +890,7 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
             ),
             const SizedBox(height: 10),
             Text(
-              data.message ??
-                  'La fuente oficial de Worlds requiere credenciales de API (LOL_ESPORTS_API_KEY o PANDASCORE_API_KEY) no configuradas en el entorno.',
+              subtitle,
               textAlign: TextAlign.center,
               style: const TextStyle(
                 color: AppColors.textMuted,
