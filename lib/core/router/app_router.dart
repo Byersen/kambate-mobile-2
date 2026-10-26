@@ -158,9 +158,14 @@ GoRouter createRouter({String initialLocation = '/feed'}) {
           final resolvedSport = extraSport ??
               (lowerName.contains('worlds') ||
                       lowerSlug.contains('worlds') ||
+                      lowerName.contains('msi') ||
+                      lowerSlug.contains('msi') ||
                       lowerName.contains('lck') ||
                       lowerName.contains('lec') ||
-                      lowerName.contains('lcs')
+                      lowerName.contains('lcs') ||
+                      lowerName.contains('lpl') ||
+                      lowerName.contains('lol') ||
+                      lowerSlug.contains('lol')
                   ? SportType.lol
                   : lowerName.contains('nba') || lowerSlug.contains('nba')
                       ? SportType.nba

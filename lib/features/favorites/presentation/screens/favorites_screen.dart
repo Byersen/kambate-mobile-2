@@ -339,6 +339,26 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
       return true;
     }).toList();
 
+    // Preservar la presentación canónica de las 6 primeras tarjetas de vista-buscar.png en vista general
+    if (selectedSport == SportType.all && query.isEmpty && selectedRegion == 'Todos') {
+      const top6Names = [
+        'champions league',
+        'nba',
+        'ufc',
+        'lck',
+        'vct americas',
+        'europa league',
+      ];
+      filteredLeagues.sort((a, b) {
+        final aIdx = top6Names.indexOf(a.name.toLowerCase());
+        final bIdx = top6Names.indexOf(b.name.toLowerCase());
+        if (aIdx != -1 && bIdx != -1) return aIdx.compareTo(bIdx);
+        if (aIdx != -1) return -1;
+        if (bIdx != -1) return 1;
+        return 0;
+      });
+    }
+
     // Priorizar Worlds al filtrar por LoL
     if (selectedSport == SportType.lol) {
       filteredLeagues.sort((a, b) {
