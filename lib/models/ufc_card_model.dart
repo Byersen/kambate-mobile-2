@@ -808,10 +808,8 @@ class UfcCardModel {
       if (aRounds != bRounds) return bRounds.compareTo(aRounds);
 
       // 2. Horario si difiere
-      if (a.startTime != null && b.startTime != null) {
-        final timeDiff = b.startTime!.compareTo(a.startTime!);
-        if (timeDiff != 0) return timeDiff;
-      }
+      final timeDiff = b.startTime.compareTo(a.startTime);
+      if (timeDiff != 0) return timeDiff;
 
       // 3. Identificador / externalId
       return a.id.compareTo(b.id);
@@ -929,6 +927,67 @@ class UfcCardModel {
     );
   }
 
+  /// Agrupa todos los eventos futuros y en vivo de UFC en veladas/carteleras completas,
+  /// excluyendo eventos finalizados y ordenando cronológicamente por fecha.
+  static List<UfcCardModel> groupUpcomingCards(
+    List<EventModel> events, {
+    DateTime? now,
+  }) {
+    final referenceNow = now ?? DateTime.now();
+    final ufcEvents = events.where((e) {
+      if (e.sport != SportType.ufc) return false;
+      // Excluir eventos pasados y finalizados
+      if (e.status == EventStatus.finished) return false;
+      if (e.startTime.isBefore(referenceNow.subtract(const Duration(hours: 12)))) {
+        return false;
+      }
+      return true;
+    }).toList();
+
+    if (ufcEvents.isEmpty) return const [];
+
+    final Map<String, List<EventModel>> groups = {};
+    for (final ev in ufcEvents) {
+      String groupKey;
+      if (ev.ufcCard != null) {
+        groupKey = ev.ufcCard!.cardId;
+      } else if (ev.externalId != null && ev.externalId!.startsWith('ufc-')) {
+        final parts = ev.externalId!.split('-');
+        groupKey = parts.length >= 2 ? 'ufc-${parts[1]}' : ev.id;
+      } else {
+        final d = ev.startTime;
+        final dateKey = '${d.year}-${d.month}-${d.day}';
+        groupKey = '${ev.league.trim().toLowerCase()}_$dateKey';
+      }
+      groups.putIfAbsent(groupKey, () => []).add(ev);
+    }
+
+    final List<UfcCardModel> cards = [];
+    for (final entry in groups.entries) {
+      final cardEvents = entry.value;
+      final existingCard = cardEvents
+          .map((e) => e.ufcCard)
+          .where((c) => c != null)
+          .firstOrNull;
+
+      if (existingCard != null) {
+        cards.add(existingCard);
+      } else {
+        cards.add(fromEvents(cardEvents));
+      }
+    }
+
+    // Ordenar cronológicamente (las más próximas primero)
+    cards.sort((a, b) {
+      if (a.date == null && b.date == null) return 0;
+      if (a.date == null) return 1;
+      if (b.date == null) return -1;
+      return a.date!.compareTo(b.date!);
+    });
+
+    return cards;
+  }
+
   /// Construye una cartelera a partir de un EventModel existente.
   /// Si el EventModel ya tiene `ufcCard`, lo retorna directamente.
   /// Si se provee `allEvents`, busca y agrupa los combates hermanos de la misma velada.
@@ -957,14 +1016,11 @@ class UfcCardModel {
         }
         if (e.league.trim().toLowerCase() ==
             event.league.trim().toLowerCase()) {
-          if (e.startTime != null && event.startTime != null) {
-            return e.startTime!
-                    .difference(event.startTime!)
-                    .inHours
-                    .abs() <
-                18;
-          }
-          return true;
+          return e.startTime
+                  .difference(event.startTime)
+                  .inHours
+                  .abs() <
+              18;
         }
         return false;
       }).toList();
