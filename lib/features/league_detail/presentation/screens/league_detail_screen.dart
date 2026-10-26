@@ -10,7 +10,10 @@ import '../../../feed/providers/feed_provider.dart';
 import '../../data/league_detail_repository.dart';
 import '../../providers/league_detail_provider.dart';
 import '../../providers/lol_worlds_provider.dart';
+import '../../providers/ufc_rankings_provider.dart';
 import '../widgets/lol_worlds_swiss_view.dart';
+import '../widgets/ufc_rankings_view.dart';
+import '../widgets/ufc_upcoming_cards_view.dart';
 
 class LeagueDetailScreen extends ConsumerStatefulWidget {
   final String leagueName;
@@ -138,6 +141,84 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
               title: 'Error al conectar con la fuente',
               subtitle: 'No se pudo recuperar la información de Worlds ($e).',
             ),
+          ),
+        ),
+      );
+    }
+
+    final isUfc = widget.sport == SportType.ufc ||
+        params.leagueSlug == 'ufc' ||
+        widget.leagueName.toLowerCase().contains('ufc');
+
+    if (isUfc) {
+      final rankingsAsync = ref.watch(ufcRankingsProvider);
+      return DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          backgroundColor: AppColors.backgroundDark,
+          appBar: AppBar(
+            backgroundColor: AppColors.surfaceDark,
+            leading: IconButton(
+              icon: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: AppColors.textPrimary,
+              ),
+              onPressed: () => context.pop(),
+            ),
+            title: Text(
+              widget.leagueName.toUpperCase(),
+              style: const TextStyle(
+                color: AppColors.textPrimary,
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            actions: [
+              IconButton(
+                icon: const Icon(
+                  Icons.refresh_rounded,
+                  color: AppColors.textSecondary,
+                ),
+                onPressed: () {
+                  ref.invalidate(feedNotifierProvider);
+                  ref.invalidate(ufcRankingsProvider);
+                },
+              ),
+            ],
+            bottom: const TabBar(
+              indicatorColor: AppColors.ufcRed,
+              labelColor: AppColors.ufcRed,
+              unselectedLabelColor: AppColors.textMuted,
+              labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              tabs: [
+                Tab(text: 'Próximas carteleras'),
+                Tab(text: 'Rankings'),
+              ],
+            ),
+          ),
+          body: TabBarView(
+            children: [
+              UfcUpcomingCardsView(
+                allEvents: events,
+                onRefresh: () async => ref.invalidate(feedNotifierProvider),
+              ),
+              rankingsAsync.when(
+                data: (rankings) => UfcRankingsView(
+                  rankings: rankings,
+                  allEvents: events,
+                  onRefresh: () async => ref.invalidate(ufcRankingsProvider),
+                ),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => Center(
+                  child: _buildNoCoverageState(
+                    icon: Icons.error_outline_rounded,
+                    title: 'Error al conectar con la fuente',
+                    subtitle:
+                        'No se pudieron recuperar los rankings oficiales de UFC ($e).',
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       );

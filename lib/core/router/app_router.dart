@@ -180,6 +180,15 @@ GoRouter createRouter({String initialLocation = '/feed'}) {
           );
         },
       ),
+      GoRoute(
+        parentNavigatorKey: _rootNavigatorKey,
+        path: '/ufc',
+        builder: (context, state) => const LeagueDetailScreen(
+          leagueName: 'UFC',
+          sport: SportType.ufc,
+          leagueSlug: 'ufc',
+        ),
+      ),
     ],
   );
 }
