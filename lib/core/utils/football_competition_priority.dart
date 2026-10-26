@@ -1,4 +1,5 @@
 import '../../models/event_model.dart';
+import '../../models/event_status.dart';
 import '../../models/league_model.dart';
 import '../../models/sport_type.dart';
 
