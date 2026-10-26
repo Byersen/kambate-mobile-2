@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../models/event_model.dart';
+import '../../../../models/event_status.dart';
 import '../../../../models/league_detail_model.dart';
 import '../../../../models/sport_type.dart';
 import '../../../feed/presentation/widgets/match_card.dart';
@@ -21,6 +22,7 @@ class LeagueDetailScreen extends ConsumerStatefulWidget {
   final String? leagueSlug;
   final String? leagueId;
   final String? seasonId;
+  final int? initialTabIndex;
 
   const LeagueDetailScreen({
     super.key,
@@ -29,6 +31,7 @@ class LeagueDetailScreen extends ConsumerStatefulWidget {
     this.leagueSlug,
     this.leagueId,
     this.seasonId,
+    this.initialTabIndex,
   });
 
   @override
@@ -39,10 +42,33 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
+  bool get _isSoccer => widget.sport == SportType.soccer;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    final tabCount = _isSoccer ? 4 : 3;
+    final initial = widget.initialTabIndex ?? 0;
+    _tabController = TabController(
+      length: tabCount,
+      vsync: this,
+      initialIndex: (initial >= 0 && initial < tabCount) ? initial : 0,
+    );
+  }
+
+  @override
+  void didUpdateWidget(LeagueDetailScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sport != widget.sport) {
+      final tabCount = _isSoccer ? 4 : 3;
+      final oldIndex = _tabController.index;
+      _tabController.dispose();
+      _tabController = TabController(
+        length: tabCount,
+        vsync: this,
+        initialIndex: oldIndex < tabCount ? oldIndex : 0,
+      );
+    }
   }
 
   @override
@@ -285,22 +311,36 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
                 unselectedLabelColor: AppColors.textMuted,
                 labelStyle:
                     const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-                tabs: const [
-                  Tab(text: 'Partidos'),
-                  Tab(text: 'Tabla'),
-                  Tab(text: 'Estadísticas'),
-                ],
+                tabs: _isSoccer
+                    ? const [
+                        Tab(text: 'Resumen'),
+                        Tab(text: 'Partidos'),
+                        Tab(text: 'Tabla'),
+                        Tab(text: 'Estadísticas'),
+                      ]
+                    : const [
+                        Tab(text: 'Partidos'),
+                        Tab(text: 'Tabla'),
+                        Tab(text: 'Estadísticas'),
+                      ],
               ),
             ),
           ];
         },
         body: TabBarView(
           controller: _tabController,
-          children: [
-            _buildMatchesTab(params),
-            _buildStandingsTab(params),
-            _buildStatsTab(params),
-          ],
+          children: _isSoccer
+              ? [
+                  _buildSummaryTab(params),
+                  _buildMatchesTab(params),
+                  _buildStandingsTab(params),
+                  _buildStatsTab(params),
+                ]
+              : [
+                  _buildMatchesTab(params),
+                  _buildStandingsTab(params),
+                  _buildStatsTab(params),
+                ],
         ),
       ),
     );
@@ -460,6 +500,500 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
     return eventLeague == targetLeague ||
         eventLeague.contains(targetLeague) ||
         targetLeague.contains(eventLeague);
+  }
+
+  String? _resolveActiveRound(List<EventModel> events) {
+    if (events.isEmpty) return null;
+
+    // 1. Si hay partido en vivo con round/fase, usar esa ronda
+    for (final e in events) {
+      if (e.isLive && e.roundOrPhase != null && e.roundOrPhase!.trim().isNotEmpty) {
+        return e.roundOrPhase!.trim();
+      }
+    }
+
+    // 2. Si hay partidos programados con round/fase
+    for (final e in events) {
+      if (e.status == EventStatus.scheduled &&
+          e.roundOrPhase != null &&
+          e.roundOrPhase!.trim().isNotEmpty) {
+        return e.roundOrPhase!.trim();
+      }
+    }
+
+    // 3. Si hay partidos finalizados con round/fase (el más reciente)
+    final finished = events
+        .where(
+          (e) =>
+              e.status == EventStatus.finished &&
+              e.roundOrPhase != null &&
+              e.roundOrPhase!.trim().isNotEmpty,
+        )
+        .toList();
+    if (finished.isNotEmpty) {
+      return finished.last.roundOrPhase!.trim();
+    }
+
+    // 4. Si cualquier partido tiene roundOrPhase
+    for (final e in events) {
+      if (e.roundOrPhase != null && e.roundOrPhase!.trim().isNotEmpty) {
+        return e.roundOrPhase!.trim();
+      }
+    }
+
+    return null;
+  }
+
+  Widget _buildSectionHeader(String title, {Widget? trailing}) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+              ),
+          ),
+          ?trailing,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildViewFullTableButton() {
+    return InkWell(
+      key: const ValueKey('btn_ver_tabla_completa'),
+      onTap: () {
+        // En fútbol, la pestaña Tabla completa es el índice 2
+        _tabController.animateTo(2);
+      },
+      borderRadius: const BorderRadius.vertical(bottom: Radius.circular(12)),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: const BoxDecoration(
+          border: Border(
+            top: BorderSide(color: AppColors.cardBorderDark),
+          ),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Ver tabla completa',
+              style: TextStyle(
+                color: widget.sport.color,
+                fontWeight: FontWeight.bold,
+                fontSize: 13,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Icon(
+              Icons.arrow_forward_rounded,
+              size: 16,
+              color: widget.sport.color,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSummaryTab(LeagueDetailParams params) {
+    final feedAsync = ref.watch(feedNotifierProvider);
+    final detailAsync = ref.watch(leagueDetailProvider(params));
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(feedNotifierProvider);
+        ref.invalidate(leagueDetailProvider(params));
+      },
+      color: widget.sport.color,
+      child: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        children: [
+          // 1. PARTIDOS DE LA JORNADA / FECHA INDICADA POR LA FUENTE
+          ...feedAsync.when(
+            data: (events) {
+              final leagueEvents = events
+                  .where((e) => _matchesLeagueAndSeason(e, params))
+                  .toList();
+
+              if (leagueEvents.isEmpty) {
+                return [
+                  _buildSectionHeader('PARTIDOS'),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceDark,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.cardBorderDark),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(
+                            Icons.event_busy_rounded,
+                            color: AppColors.textMuted,
+                            size: 24,
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Sin partidos disponibles',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ];
+              }
+
+              final activeRound = _resolveActiveRound(leagueEvents);
+              final List<EventModel> roundMatches;
+              final String headerTitle;
+
+              if (activeRound != null) {
+                final filtered = leagueEvents
+                    .where((e) => e.roundOrPhase == activeRound)
+                    .toList();
+                roundMatches = filtered.isNotEmpty ? filtered : leagueEvents;
+                headerTitle = activeRound.toUpperCase();
+              } else {
+                // Si el proveedor no entrega número/nombre de jornada, omitir esa etiqueta
+                // y mostrar los partidos con una agrupación neutral
+                roundMatches = leagueEvents;
+                headerTitle = 'PARTIDOS';
+              }
+
+              return [
+                _buildSectionHeader(
+                  headerTitle,
+                  trailing: leagueEvents.length > roundMatches.length
+                      ? GestureDetector(
+                          onTap: () => _tabController.animateTo(1),
+                          child: Text(
+                            'VER TODOS (${leagueEvents.length})',
+                            style: TextStyle(
+                              color: widget.sport.color,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      : null,
+                ),
+                ...roundMatches.map(
+                  (match) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6.0),
+                    child: MatchCard(event: match),
+                  ),
+                ),
+              ];
+            },
+            loading: () => [
+              _buildSectionHeader('PARTIDOS'),
+              const Padding(
+                padding: EdgeInsets.all(24.0),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ],
+            error: (e, _) => [
+              _buildSectionHeader('PARTIDOS'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceDark,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.cardBorderDark),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.error_outline_rounded,
+                        color: AppColors.textMuted,
+                        size: 24,
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Error al cargar partidos de la jornada',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // 2. PRIMEROS CINCO PUESTOS DE LA TABLA Y 3. BOTÓN VER TABLA COMPLETA
+          ...detailAsync.when(
+            data: (detail) {
+              if (!detail.hasStandingsCoverage ||
+                  detail.groups.isEmpty ||
+                  !detail.groups.any((g) => g.entries.isNotEmpty)) {
+                return [
+                  _buildSectionHeader('TABLA DE POSICIONES'),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceDark,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.cardBorderDark),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(
+                            Icons.table_chart_outlined,
+                            color: AppColors.textMuted,
+                            size: 24,
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Posiciones no disponibles',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ];
+              }
+
+              final widgets = <Widget>[
+                _buildSectionHeader('TABLA DE POSICIONES'),
+              ];
+
+              for (final group in detail.groups) {
+                if (detail.groups.length > 1 || group.name != 'General') {
+                  widgets.add(
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                      child: Text(
+                        group.name.toUpperCase(),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                final topEntries = group.entries.take(5).toList();
+
+                widgets.add(
+                  Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceDark,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.cardBorderDark),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildStandingsHeader(),
+                        ...topEntries.map((entry) => _buildStandingsRow(entry)),
+                        _buildViewFullTableButton(),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+              return widgets;
+            },
+            loading: () => [
+              _buildSectionHeader('TABLA DE POSICIONES'),
+              const Padding(
+                padding: EdgeInsets.all(24.0),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ],
+            error: (e, _) => [
+              _buildSectionHeader('TABLA DE POSICIONES'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceDark,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.cardBorderDark),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.error_outline_rounded,
+                        color: AppColors.textMuted,
+                        size: 24,
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Error al consultar posiciones',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 12),
+
+          // 4. PRIMEROS CINCO GOLEADORES DEL TORNEO
+          ...detailAsync.when(
+            data: (detail) {
+              if (!detail.hasLeadersCoverage || detail.topScorers.isEmpty) {
+                return [
+                  _buildSectionHeader('GOLEADORES'),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceDark,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppColors.cardBorderDark),
+                      ),
+                      child: const Row(
+                        children: [
+                          Icon(
+                            Icons.leaderboard_outlined,
+                            color: AppColors.textMuted,
+                            size: 24,
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Goleadores no disponibles',
+                              style: TextStyle(
+                                color: AppColors.textSecondary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ];
+              }
+
+              final topFiveScorers = detail.topScorers.take(5).toList();
+
+              return [
+                _buildSectionHeader(
+                  'GOLEADORES',
+                  trailing: detail.topScorers.length > 5
+                      ? GestureDetector(
+                          onTap: () => _tabController.animateTo(3),
+                          child: Text(
+                            'VER TODOS (${detail.topScorers.length})',
+                            style: TextStyle(
+                              color: widget.sport.color,
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        )
+                      : null,
+                ),
+                Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceDark,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.cardBorderDark),
+                  ),
+                  child: Column(
+                    children: topFiveScorers
+                        .map((scorer) => _buildScorerRow(scorer))
+                        .toList(),
+                  ),
+                ),
+              ];
+            },
+            loading: () => [
+              _buildSectionHeader('GOLEADORES'),
+              const Padding(
+                padding: EdgeInsets.all(24.0),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ],
+            error: (e, _) => [
+              _buildSectionHeader('GOLEADORES'),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceDark,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: AppColors.cardBorderDark),
+                  ),
+                  child: const Row(
+                    children: [
+                      Icon(
+                        Icons.error_outline_rounded,
+                        color: AppColors.textMuted,
+                        size: 24,
+                      ),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Error al consultar goleadores',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
   }
 
   Widget _buildMatchesTab(LeagueDetailParams params) {

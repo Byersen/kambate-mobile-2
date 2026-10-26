@@ -415,7 +415,10 @@ void main() {
 
       await pumpAndFlush(tester);
 
-      // Pestaña inicial es Partidos
+      // Cambiar a la pestaña "Partidos"
+      await tester.tap(find.text('Partidos'));
+      await pumpAndFlush(tester);
+
       expect(find.text('Barcelona Real'), findsOneWidget);
       expect(find.text('Real Madrid'), findsOneWidget);
 
