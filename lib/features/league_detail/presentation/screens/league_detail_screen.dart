@@ -309,6 +309,22 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
   String _getPrettyLeagueName(String league) {
     final l = league.toLowerCase();
 
+    if (l.contains('valorant champions') || (l.contains('champions') && (l.contains('val') || l.contains('vct')))) {
+      return 'Valorant Champions';
+    }
+    if (l.contains('valorant masters') || l.contains('vct masters') || (l.contains('masters') && (l.contains('val') || l.contains('vct')))) {
+      return 'Valorant Masters';
+    }
+    if (l.contains('ascension') && (l.contains('americas') || l.contains('val') || l.contains('vct'))) {
+      return 'VCT Ascension Americas';
+    }
+    if (l.contains('vct americas') || (l.contains('americas') && (l.contains('vct') || l.contains('val')))) {
+      return 'VCT Americas';
+    }
+    if (l.contains('vct emea') || (l.contains('emea') && (l.contains('vct') || l.contains('val')))) {
+      return 'VCT EMEA';
+    }
+
     if (l.contains('mex') || l.contains('mx')) return 'Liga MX';
     if (l.contains('usa') || l.contains('mls') || l.contains('major league')) {
       return 'MLS';
@@ -388,6 +404,33 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
     EventModel e,
     LeagueDetailParams params,
   ) {
+    // Si la pantalla es de Valorant o el evento es de Valorant, aplicar aislamiento estricto
+    if (widget.sport == SportType.valorant || e.sport == SportType.valorant) {
+      if (e.sport != widget.sport) return false;
+
+      final targetSlug = params.leagueSlug?.toLowerCase() ?? '';
+      final targetName = widget.leagueName.toLowerCase();
+      final eventSlug = e.leagueModel?.slug.toLowerCase() ?? '';
+      final eventLeague = _getPrettyLeagueName(e.league).toLowerCase();
+
+      if (targetSlug == 'valorant-champions' || targetName.contains('champions')) {
+        return eventSlug == 'valorant-champions' || eventLeague == 'valorant champions';
+      }
+      if (targetSlug == 'valorant-masters' || targetName.contains('masters')) {
+        return eventSlug == 'valorant-masters' || eventLeague == 'valorant masters';
+      }
+      if (targetSlug == 'vct-ascension-americas' || targetName.contains('ascension')) {
+        return eventSlug == 'vct-ascension-americas' || eventLeague == 'vct ascension americas';
+      }
+      if (targetSlug == 'vct-americas' || (targetName.contains('americas') && !targetName.contains('ascension'))) {
+        return eventSlug == 'vct-americas' || (eventLeague == 'vct americas' && !eventLeague.contains('ascension'));
+      }
+      if (targetSlug == 'vct-emea' || targetName.contains('emea')) {
+        return eventSlug == 'vct-emea' || eventLeague == 'vct emea';
+      }
+      return false;
+    }
+
     // 1. Filtro por temporada si está especificada
     if (params.seasonId != null && params.seasonId!.isNotEmpty) {
       if (e.seasonModel != null &&
@@ -429,31 +472,85 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
 
         if (leagueEvents.isEmpty) {
           return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.calendar_today_rounded,
-                  size: 48,
-                  color: AppColors.textMuted.withValues(alpha: 0.5),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'No hay partidos programados',
-                  style: TextStyle(color: AppColors.textMuted),
-                ),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.event_busy_rounded,
+                    size: 48,
+                    color: AppColors.textMuted.withValues(alpha: 0.5),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Sin cobertura disponible',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'No se registran partidos o ediciones de ${widget.leagueName} en la fuente oficial.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  ),
+                ],
+              ),
             ),
           );
         }
+
+        final hasEditions = leagueEvents.any(
+          (e) => e.seasonModel?.name != null && e.seasonModel!.name.isNotEmpty,
+        );
 
         return ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           itemCount: leagueEvents.length,
           itemBuilder: (context, index) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12.0),
-              child: MatchCard(event: leagueEvents[index]),
+            final event = leagueEvents[index];
+            final prevEvent = index > 0 ? leagueEvents[index - 1] : null;
+            final editionName = event.seasonModel?.name;
+            final showEditionHeader = hasEditions &&
+                editionName != null &&
+                editionName.isNotEmpty &&
+                (prevEvent == null || prevEvent.seasonModel?.name != editionName);
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (showEditionHeader) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0, bottom: 6.0),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.surfaceDark,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: widget.sport.color.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Text(
+                        editionName.toUpperCase(),
+                        style: TextStyle(
+                          color: widget.sport.color,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: MatchCard(event: event),
+                ),
+              ],
             );
           },
         );
@@ -464,6 +561,15 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
   }
 
   Widget _buildStandingsTab(LeagueDetailParams params) {
+    if (widget.sport == SportType.valorant) {
+      return _buildNoCoverageState(
+        icon: Icons.account_tree_outlined,
+        title: 'Formato de series y llaves',
+        subtitle:
+            'Los torneos de Valorant se estructuran en fases de grupos y llaves de eliminación directa. Consulta el fixture y resultados en la pestaña "Partidos".',
+      );
+    }
+
     final detailAsync = ref.watch(leagueDetailProvider(params));
 
     return detailAsync.when(
@@ -699,6 +805,15 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
   }
 
   Widget _buildStatsTab(LeagueDetailParams params) {
+    if (widget.sport == SportType.valorant) {
+      return _buildNoCoverageState(
+        icon: Icons.sports_esports_outlined,
+        title: 'Estadísticas por partida',
+        subtitle:
+            'Las estadísticas de jugadores, agentes, K/D y ACS se registran dentro de cada enfrentamiento y mapa individual.',
+      );
+    }
+
     final detailAsync = ref.watch(leagueDetailProvider(params));
 
     return detailAsync.when(

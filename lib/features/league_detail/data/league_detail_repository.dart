@@ -18,6 +18,22 @@ class LeagueDetailRepository {
   static String resolveLeagueSlug(String leagueName) {
     final l = leagueName.toLowerCase().trim();
 
+    if (l.contains('valorant champions') || (l.contains('champions') && (l.contains('val') || l.contains('vct')))) {
+      return 'valorant-champions';
+    }
+    if (l.contains('valorant masters') || (l.contains('masters') && (l.contains('val') || l.contains('vct')))) {
+      return 'valorant-masters';
+    }
+    if (l.contains('ascension') && (l.contains('americas') || l.contains('val') || l.contains('vct'))) {
+      return 'vct-ascension-americas';
+    }
+    if (l.contains('vct americas') || (l.contains('americas') && (l.contains('val') || l.contains('vct')))) {
+      return 'vct-americas';
+    }
+    if (l.contains('vct emea') || (l.contains('emea') && (l.contains('val') || l.contains('vct')))) {
+      return 'vct-emea';
+    }
+
     if (l.contains('mex') || l.contains('mx')) return 'mex.1';
     if (l.contains('usa') || l.contains('mls') || l.contains('major league')) {
       return 'usa.1';
