@@ -168,7 +168,12 @@ GoRouter createRouter({String initialLocation = '/feed'}) {
                           ? SportType.ufc
                           : (lowerName.contains('vct') ||
                                   lowerName.contains('valorant') ||
-                                  lowerSlug.contains('valorant'))
+                                  lowerSlug.contains('valorant') ||
+                                  lowerSlug.contains('vct') ||
+                                  lowerName == 'valorant champions' ||
+                                  lowerName == 'valorant masters' ||
+                                  lowerSlug == 'valorant-champions' ||
+                                  lowerSlug == 'valorant-masters')
                               ? SportType.valorant
                               : SportType.soccer);
           return LeagueDetailScreen(

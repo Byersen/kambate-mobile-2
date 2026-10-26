@@ -143,7 +143,7 @@ void main() {
       expect(LeagueDetailRepository.resolveLeagueSlug('NBA'), 'nba');
       expect(LeagueDetailRepository.resolveLeagueSlug('UFC'), 'ufc');
       expect(LeagueDetailRepository.resolveLeagueSlug('LCK'), 'lol');
-      expect(LeagueDetailRepository.resolveLeagueSlug('VCT Americas'), 'valorant');
+      expect(LeagueDetailRepository.resolveLeagueSlug('VCT Americas'), 'vct-americas');
     });
   });
 
@@ -211,9 +211,9 @@ void main() {
     );
 
     final mockNoCoverageDetail = LeagueDetailModel.empty(
-      leagueSlug: 'ufc',
-      leagueName: 'UFC',
-      leagueId: 'league-ufc',
+      leagueSlug: 'sin-cobertura',
+      leagueName: 'Liga Secundaria',
+      leagueId: 'league-sec',
     );
 
     Future<void> pumpAndFlush(WidgetTester tester) async {
@@ -321,10 +321,10 @@ void main() {
           container: container,
           child: const MaterialApp(
             home: LeagueDetailScreen(
-              leagueName: 'UFC',
-              sport: SportType.ufc,
-              leagueSlug: 'ufc',
-              leagueId: 'league-ufc',
+              leagueName: 'Liga Secundaria',
+              sport: SportType.soccer,
+              leagueSlug: 'sin-cobertura',
+              leagueId: 'league-sec',
             ),
           ),
         ),
