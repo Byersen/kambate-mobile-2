@@ -300,12 +300,16 @@ void main() {
       expect(find.byKey(const ValueKey('lol-worlds-stage-title')), findsOneWidget);
       expect(find.text('ETAPA SUIZA'), findsOneWidget);
       expect(find.text('EN CURSO'), findsOneWidget);
+      // Cambiar a la pestaña de Cuadro Suizo para verificar partidos
+      await tester.tap(find.text('Cuadro Suizo'));
+      await tester.pumpAndSettle();
+
       expect(find.text('T1'), findsWidgets);
       expect(find.text('Weibo Gaming'), findsOneWidget);
       expect(find.text('EN VIVO'), findsOneWidget);
 
-      // Cambiar a la pestaña de Tabla Suiza
-      await tester.tap(find.text('Tabla Suiza'));
+      // Cambiar a la pestaña de Tabla
+      await tester.tap(find.text('Tabla'));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const ValueKey('lol-standing-row-1')), findsOneWidget);
@@ -361,10 +365,14 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('PLAY-IN STAGE'), findsOneWidget);
+      // Ir a la pestaña de partidos para verificar
+      await tester.tap(find.text('Cuadro Suizo'));
+      await tester.pumpAndSettle();
+
       expect(find.text('PSG Talon'), findsOneWidget);
 
       // Ir a la pestaña de tabla
-      await tester.tap(find.text('Tabla Suiza'));
+      await tester.tap(find.text('Tabla'));
       await tester.pumpAndSettle();
 
       // No debe renderizar una tabla vacía simulando datos
@@ -590,6 +598,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // Cambiar a Cuadro Suizo
+      await tester.tap(find.text('Cuadro Suizo'));
+      await tester.pumpAndSettle();
+
       // Verificar caso programado: nombres, formato, sin marcadores
       expect(find.byKey(const ValueKey('lol-match-card-1711000')), findsOneWidget);
       expect(find.text('Team Liquid'), findsOneWidget);
@@ -606,8 +618,8 @@ void main() {
       expect(find.text('CTBC Flying Oyster'), findsOneWidget);
       expect(find.text('FINAL'), findsOneWidget);
 
-      // Verificar tabla suiza
-      await tester.tap(find.text('Tabla Suiza'));
+      // Verificar tabla
+      await tester.tap(find.text('Tabla'));
       await tester.pumpAndSettle();
 
       expect(find.byKey(const ValueKey('lol-standing-row-1')), findsOneWidget);
@@ -717,7 +729,7 @@ void main() {
 
       expect(find.text('PLAYOFFS'), findsOneWidget);
 
-      await tester.tap(find.text('Tabla Suiza'));
+      await tester.tap(find.text('Tabla'));
       await tester.pumpAndSettle();
 
       // Debe indicar que no hay posiciones sin inventar datos

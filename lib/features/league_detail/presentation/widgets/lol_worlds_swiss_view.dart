@@ -3,7 +3,10 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../models/lol_worlds_stage_model.dart';
 
 /// Vista especializada para la competición Worlds de League of Legends y su formato suizo.
-/// Renderiza dinámicamente la etapa activa, calendario, rondas, tabla suiza y avance.
+/// Presenta:
+/// 1. Pestaña "Tabla": Tabla de clasificación suiza con récord W-L, diferencia y estado de avance.
+/// 2. Pestaña "Cuadro Suizo": Diagrama horizontal interactivo con todas las rondas y cubos (R1 a R5 + Clasificados y Eliminados),
+///    utilizando la paleta de colores y tokens nativos de Kambate.
 class LolWorldsSwissView extends StatefulWidget {
   final LolWorldsStageModel stageData;
   final VoidCallback onRefresh;
@@ -19,32 +22,108 @@ class LolWorldsSwissView extends StatefulWidget {
 }
 
 class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _tabController;
-  int? _selectedRoundNumber;
+  late TransformationController _transformationController;
+  late AnimationController _panAnimationController;
+  Animation<double>? _xAnimation;
+
+  final ValueNotifier<double> _sliderProgressNotifier = ValueNotifier<double>(0.0);
+  final ValueNotifier<int> _currentColumnNotifier = ValueNotifier<int>(0);
+  double _maxScrollExtent = 1200.0;
+  double _currentScale = 0.75;
+  bool _isInteractingSlider = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    // Seleccionar por defecto la ronda activa si existe, o null (todas)
-    _selectedRoundNumber = widget.stageData.stage?.currentRoundNumber;
+    _transformationController = TransformationController();
+    _transformationController.addListener(_onTransformationChanged);
+
+    _panAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 320),
+    )..addListener(() {
+        if (_xAnimation != null) {
+          final x = _xAnimation!.value;
+          final currentY = _transformationController.value.storage[13];
+          _transformationController.value = Matrix4.identity()
+            ..setTranslationRaw(-x, currentY, 0.0);
+        }
+      });
   }
 
-  @override
-  void didUpdateWidget(covariant LolWorldsSwissView oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.stageData != widget.stageData) {
-      if (_selectedRoundNumber == null &&
-          widget.stageData.stage?.currentRoundNumber != null) {
-        _selectedRoundNumber = widget.stageData.stage?.currentRoundNumber;
-      }
+  void _onTransformationChanged() {
+    final matrix = _transformationController.value;
+    final currentX = -matrix.storage[12];
+    final colStep = 278.0 * _currentScale;
+    final approxCol = (colStep > 0 ? (currentX / colStep).round() : 0).clamp(0, 5);
+
+    _currentColumnNotifier.value = approxCol;
+    if (!_isInteractingSlider && _maxScrollExtent > 0) {
+      _sliderProgressNotifier.value = (currentX / _maxScrollExtent).clamp(0.0, 1.0);
     }
+  }
+
+  void _goToColumn(int colIndex, double maxScroll) {
+    _panAnimationController.stop();
+    final colStep = 278.0 * _currentScale;
+    final offsets = [
+      0.0,
+      colStep,
+      colStep * 2,
+      colStep * 3,
+      colStep * 4,
+      maxScroll,
+    ];
+    final targetX = offsets[colIndex.clamp(0, 5)].clamp(0.0, maxScroll);
+    _currentColumnNotifier.value = colIndex.clamp(0, 5);
+    _animateToX(targetX);
+  }
+
+  void _animateToX(double targetX) {
+    _panAnimationController.stop();
+    final currentX = -_transformationController.value.storage[12];
+
+    _xAnimation = Tween<double>(
+      begin: currentX,
+      end: targetX,
+    ).animate(CurvedAnimation(
+      parent: _panAnimationController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    _panAnimationController.reset();
+    _panAnimationController.forward();
+  }
+
+  void _onSliderChanged(double progress, double maxScroll) {
+    _isInteractingSlider = true;
+    _panAnimationController.stop();
+    final targetX = (progress * maxScroll).clamp(0.0, maxScroll);
+    final currentY = _transformationController.value.storage[13];
+    final colStep = 278.0 * _currentScale;
+
+    _sliderProgressNotifier.value = progress;
+    _currentColumnNotifier.value = colStep > 0
+        ? (targetX / colStep).round().clamp(0, 5)
+        : 0;
+
+    _transformationController.value = Matrix4.identity()
+      ..setTranslationRaw(-targetX, currentY, 0.0);
+
+    _isInteractingSlider = false;
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _transformationController.removeListener(_onTransformationChanged);
+    _transformationController.dispose();
+    _panAnimationController.dispose();
+    _sliderProgressNotifier.dispose();
+    _currentColumnNotifier.dispose();
     super.dispose();
   }
 
@@ -62,21 +141,21 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
         _buildStageHeaderBanner(data),
         TabBar(
           controller: _tabController,
-          indicatorColor: AppColors.lol,
-          labelColor: AppColors.lol,
+          indicatorColor: AppColors.primary,
+          labelColor: AppColors.primary,
           unselectedLabelColor: AppColors.textMuted,
           labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
           tabs: const [
-            Tab(text: 'Partidos y Rondas'),
-            Tab(text: 'Tabla Suiza'),
+            Tab(text: 'Tabla'),
+            Tab(text: 'Cuadro Suizo'),
           ],
         ),
         Expanded(
           child: TabBarView(
             controller: _tabController,
             children: [
-              _buildMatchesTab(data),
               _buildStandingsTab(data),
+              _buildMatchesTab(data),
             ],
           ),
         ),
@@ -103,12 +182,12 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: AppColors.lol.withValues(alpha: 0.15),
+              color: AppColors.primary.withValues(alpha: 0.12),
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(
               Icons.sports_esports_rounded,
-              color: AppColors.lol,
+              color: AppColors.primary,
               size: 20,
             ),
           ),
@@ -165,9 +244,9 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
+        color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.4)),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -197,113 +276,1184 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
     );
   }
 
+  // =========================================================================
+  // PESTAÑA 2: CUADRO SUIZO Y PARTIDOS
+  // =========================================================================
+
   Widget _buildMatchesTab(LolWorldsStageModel data) {
     final allMatches = data.matches;
-    final rounds = data.rounds;
 
-    final filteredMatches = List<LolWorldsMatchModel>.from(
-      _selectedRoundNumber == null
-          ? allMatches
-          : allMatches.where((m) => m.roundNumber == _selectedRoundNumber),
-    )..sort((a, b) {
-        int statusOrder(LolWorldsMatchModel m) {
-          if (m.isFinished) return 0;
-          if (m.isLive) return 1;
-          return 2;
-        }
-        final orderA = statusOrder(a);
-        final orderB = statusOrder(b);
-        if (orderA != orderB) return orderA.compareTo(orderB);
-        final cmp = a.startTime.compareTo(b.startTime);
-        if (cmp != 0) return cmp;
-        return a.id.compareTo(b.id);
-      });
+    if (allMatches.isEmpty) {
+      return _buildEmptyMatchesState();
+    }
 
-    return Column(
-      children: [
-        if (rounds.isNotEmpty) _buildRoundSelector(rounds),
-        Expanded(
-          child: filteredMatches.isEmpty
-              ? _buildEmptyMatchesState()
-              : RefreshIndicator(
-                  onRefresh: () async => widget.onRefresh(),
-                  color: AppColors.lol,
-                  child: ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
-                    itemCount: filteredMatches.length,
-                    itemBuilder: (context, index) {
-                      return _buildSwissMatchCard(filteredMatches[index]);
-                    },
-                  ),
-                ),
-        ),
-      ],
+    final isSwiss = data.stage?.isSwiss ?? true;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final viewportWidth = constraints.maxWidth;
+        // Altura disponible descontando la barra de navegación inferior
+        final availableHeight = constraints.maxHeight - (isSwiss ? 54.0 : 0.0);
+
+        // Dimensiones base del diagrama suizo
+        const baseContentHeight = 500.0;
+        const baseContentWidth = 1650.0;
+
+        // Escala calculada dinámicamente para que todo el cuadro entre en vertical
+        final scale = (availableHeight / baseContentHeight).clamp(0.65, 0.85);
+        _currentScale = scale;
+
+        final totalContentWidth = baseContentWidth * scale;
+        final totalContentHeight = baseContentHeight * scale;
+        final maxScroll = (totalContentWidth - viewportWidth).clamp(0.0, totalContentWidth);
+        _maxScrollExtent = maxScroll;
+
+        return Column(
+          children: [
+            Expanded(
+              child: _buildSwissBracketView(
+                data,
+                allMatches,
+                scale: scale,
+                contentWidth: totalContentWidth,
+                contentHeight: totalContentHeight,
+              ),
+            ),
+            if (isSwiss) _buildBottomNavigationBar(maxScroll),
+          ],
+        );
+      },
     );
   }
 
-  Widget _buildRoundSelector(List<LolWorldsRoundModel> rounds) {
-    return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8.0),
-            child: ChoiceChip(
-              key: const ValueKey('lol-round-chip-all'),
-              label: const Text('Todas'),
-              selected: _selectedRoundNumber == null,
-              onSelected: (_) {
-                setState(() => _selectedRoundNumber = null);
-              },
-              selectedColor: AppColors.lol.withValues(alpha: 0.2),
-              backgroundColor: AppColors.surfaceDark,
-              labelStyle: TextStyle(
-                color: _selectedRoundNumber == null
-                    ? AppColors.lol
-                    : AppColors.textMuted,
-                fontWeight: _selectedRoundNumber == null
-                    ? FontWeight.bold
-                    : FontWeight.normal,
-                fontSize: 12,
-              ),
-              side: BorderSide(
-                color: _selectedRoundNumber == null
-                    ? AppColors.lol
-                    : AppColors.cardBorderDark,
+  Widget _buildBottomNavigationBar(double maxScroll) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_currentColumnNotifier, _sliderProgressNotifier]),
+      builder: (context, _) {
+        final currentColumn = _currentColumnNotifier.value;
+        final sliderProgress = _sliderProgressNotifier.value;
+
+        return Container(
+          key: const ValueKey('lol-swiss-bottom-bar'),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: const BoxDecoration(
+            color: AppColors.surfaceDark,
+            border: Border(
+              top: BorderSide(color: AppColors.cardBorderDark, width: 1),
+            ),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Row(
+              children: [
+                // Botón Navegación Izquierda
+                IconButton(
+                  key: const ValueKey('lol-swiss-nav-left'),
+                  icon: const Icon(Icons.chevron_left_rounded, size: 24),
+                  color: currentColumn > 0
+                      ? AppColors.textPrimary
+                      : AppColors.textMuted.withValues(alpha: 0.3),
+                  onPressed: currentColumn > 0
+                      ? () => _goToColumn(currentColumn - 1, maxScroll)
+                      : null,
+                  tooltip: 'Ronda anterior',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+                const SizedBox(width: 4),
+                // Centro: Pills de rondas y Slider de desplazamiento
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: List.generate(6, (i) {
+                          final labels = ['R1', 'R2', 'R3', 'R4', 'R5', 'Final'];
+                          final isSelected = currentColumn == i;
+                          return InkWell(
+                            key: ValueKey('lol-swiss-nav-pill-$i'),
+                            onTap: () => _goToColumn(i, maxScroll),
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? AppColors.primary.withValues(alpha: 0.2)
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(8),
+                                border: isSelected
+                                    ? Border.all(color: AppColors.primary, width: 1)
+                                    : Border.all(color: Colors.transparent, width: 1),
+                              ),
+                              child: Text(
+                                labels[i],
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                  color: isSelected ? AppColors.primary : AppColors.textMuted,
+                                ),
+                              ),
+                            ),
+                          );
+                        }),
+                      ),
+                      const SizedBox(height: 2),
+                      SizedBox(
+                        height: 20,
+                        child: SliderTheme(
+                          data: SliderTheme.of(context).copyWith(
+                            trackHeight: 3,
+                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+                            activeTrackColor: AppColors.primary,
+                            inactiveTrackColor: AppColors.surfaceMuted,
+                            thumbColor: AppColors.primary,
+                          ),
+                          child: Slider(
+                            key: const ValueKey('lol-swiss-bottom-slider'),
+                            value: sliderProgress.clamp(0.0, 1.0),
+                            onChanged: maxScroll > 0
+                                ? (val) => _onSliderChanged(val, maxScroll)
+                                : null,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                // Botón Navegación Derecha
+                IconButton(
+                  key: const ValueKey('lol-swiss-nav-right'),
+                  icon: const Icon(Icons.chevron_right_rounded, size: 24),
+                  color: currentColumn < 5
+                      ? AppColors.textPrimary
+                      : AppColors.textMuted.withValues(alpha: 0.3),
+                  onPressed: currentColumn < 5
+                      ? () => _goToColumn(currentColumn + 1, maxScroll)
+                      : null,
+                  tooltip: 'Siguiente ronda',
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // =========================================================================
+  // CUADRO SUIZO (DIAGRAMA HORIZONTAL COMPLETO)
+  // =========================================================================
+
+  Widget _buildSwissBracketView(
+    LolWorldsStageModel data,
+    List<LolWorldsMatchModel> currentMatches, {
+    double scale = 0.75,
+    double contentWidth = 1237.5,
+    double contentHeight = 375.0,
+  }) {
+
+    final allMatches = data.matches;
+
+    // Ronda 1: (0-0)
+    final r1Matches = allMatches.where((m) => m.effectiveRoundNumber == 1).toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    // Si ningún partido tiene número de ronda suiza (e.g. Play-In o fase de grupos), mostrar vista de lista
+    if (r1Matches.isEmpty &&
+        allMatches.where((m) => (m.effectiveRoundNumber ?? 0) > 1).isEmpty &&
+        allMatches.isNotEmpty) {
+      return ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+        itemCount: allMatches.length,
+        itemBuilder: (context, index) => _buildSwissMatchCard(allMatches[index]),
+      );
+    }
+
+    // Identificar ganadores y perdedores de Ronda 1 para ordenar cubos de R2
+    final r1Winners = <String>{};
+    for (final m in r1Matches) {
+      if (m.isFinished && m.winnerTeamId != null) {
+        r1Winners.add(m.winnerTeamId!);
+      }
+    }
+
+    // Ronda 2: (1-0) y (0-1)
+    final r2Matches = allMatches.where((m) => m.effectiveRoundNumber == 2).toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    final r2High = <LolWorldsMatchModel>[];
+    final r2Low = <LolWorldsMatchModel>[];
+
+    for (final m in r2Matches) {
+      final name = m.roundName?.toLowerCase() ?? '';
+      final homeRec = m.homeTeam.record ?? '';
+      if (name.contains('1-0') || name.contains('high') || homeRec == '1-0') {
+        r2High.add(m);
+      } else if (name.contains('0-1') || name.contains('low') || homeRec == '0-1') {
+        r2Low.add(m);
+      } else if (r1Winners.isNotEmpty &&
+          (r1Winners.contains(m.homeTeam.id) || r1Winners.contains(m.awayTeam.id))) {
+        r2High.add(m);
+      } else if (r1Winners.isNotEmpty) {
+        r2Low.add(m);
+      }
+    }
+
+    final effectiveR2High = r2High.isNotEmpty
+        ? r2High
+        : (r2Matches.length > 4 ? r2Matches.sublist(0, 4) : r2Matches);
+    final effectiveR2Low = r2Low.isNotEmpty
+        ? r2Low
+        : (r2Matches.length > 4 ? r2Matches.sublist(4) : <LolWorldsMatchModel>[]);
+
+    // Ronda 3: (2-0 Bo3), (1-1 Bo1), (0-2 Bo3)
+    final r3Matches = allMatches.where((m) => m.effectiveRoundNumber == 3).toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    final r3High = <LolWorldsMatchModel>[];
+    final r3Mid = <LolWorldsMatchModel>[];
+    final r3Low = <LolWorldsMatchModel>[];
+
+    for (final m in r3Matches) {
+      final name = m.roundName?.toLowerCase() ?? '';
+      final format = m.format?.toLowerCase() ?? '';
+      final homeRec = m.homeTeam.record ?? '';
+
+      if (name.contains('2-0') || homeRec == '2-0') {
+        r3High.add(m);
+      } else if (name.contains('0-2') || homeRec == '0-2') {
+        r3Low.add(m);
+      } else if (format == 'bo1' || name.contains('1-1') || homeRec == '1-1') {
+        r3Mid.add(m);
+      } else if (format == 'bo3') {
+        // En R3, los Bo3 son 2-0 o 0-2
+        if (r3High.length < 2) {
+          r3High.add(m);
+        } else {
+          r3Low.add(m);
+        }
+      } else {
+        r3Mid.add(m);
+      }
+    }
+
+    // Ronda 4: (2-1 Bo3) y (1-2 Bo3)
+    final r4Matches = allMatches.where((m) => m.effectiveRoundNumber == 4).toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    final r4High = <LolWorldsMatchModel>[];
+    final r4Low = <LolWorldsMatchModel>[];
+
+    for (final m in r4Matches) {
+      final name = m.roundName?.toLowerCase() ?? '';
+      final homeRec = m.homeTeam.record ?? '';
+      if (name.contains('2-1') || homeRec == '2-1') {
+        r4High.add(m);
+      } else if (name.contains('1-2') || homeRec == '1-2') {
+        r4Low.add(m);
+      } else if (r4High.length < 3) {
+        r4High.add(m);
+      } else {
+        r4Low.add(m);
+      }
+    }
+
+    // Ronda 5: (2-2 Bo3)
+    final r5Matches = allMatches.where((m) => m.effectiveRoundNumber == 5).toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    // Equipos clasificados y eliminados
+    final advancesR3 = _resolveAdvancingTeams(
+      standings: data.swissStandings.where((s) => s.wins == 3 && s.losses == 0).toList(),
+      matches: r3High,
+      expected: 2,
+    );
+    final advancesR4 = _resolveAdvancingTeams(
+      standings: data.swissStandings.where((s) => s.wins == 3 && s.losses == 1).toList(),
+      matches: r4High,
+      expected: 3,
+    );
+    final advancesR5 = _resolveAdvancingTeams(
+      standings: data.swissStandings.where((s) => s.wins == 3 && s.losses == 2).toList(),
+      matches: r5Matches,
+      expected: 3,
+    );
+
+    final eliminatedR3 = _resolveEliminatedTeams(
+      standings: data.swissStandings.where((s) => s.wins == 0 && s.losses == 3).toList(),
+      matches: r3Low,
+      expected: 2,
+    );
+    final eliminatedR4 = _resolveEliminatedTeams(
+      standings: data.swissStandings.where((s) => s.wins == 1 && s.losses == 3).toList(),
+      matches: r4Low,
+      expected: 3,
+    );
+    final eliminatedR5 = _resolveEliminatedTeams(
+      standings: data.swissStandings.where((s) => s.wins == 2 && s.losses == 3).toList(),
+      matches: r5Matches,
+      expected: 3,
+    );
+
+    return RefreshIndicator(
+      onRefresh: () async => widget.onRefresh(),
+      color: AppColors.primary,
+      child: InteractiveViewer(
+        transformationController: _transformationController,
+        constrained: false,
+        scaleEnabled: false,
+        minScale: 1.0,
+        maxScale: 1.0,
+        boundaryMargin: EdgeInsets.zero,
+        child: SizedBox(
+          width: contentWidth,
+          height: contentHeight,
+          child: OverflowBox(
+            minWidth: 0.0,
+            maxWidth: double.infinity,
+            minHeight: 0.0,
+            maxHeight: double.infinity,
+            alignment: Alignment.topLeft,
+            child: Transform.scale(
+              scale: scale,
+              alignment: Alignment.topLeft,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: AppColors.backgroundDark,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ==========================================
+                    // COLUMNA 1: RONDA 1 (0-0)
+                    // ==========================================
+                    _buildColumnContainer(
+                      child: _buildBracketBucket(
+                        title: _formatRoundHeader(r1Matches, fallback: 'OCT. 23 - BO1'),
+                        recordBadge: null,
+                        matches: r1Matches,
+                        expectedCount: 8,
+                        defaultFormat: 'Bo1',
+                      ),
+                    ),
+
+                    _buildBracketConnector(height: 480),
+
+                    // ==========================================
+                    // COLUMNA 2: RONDA 2 (1-0 y 0-1)
+                    // ==========================================
+                    _buildColumnContainer(
+                      child: Column(
+                        children: [
+                          _buildBracketBucket(
+                            title: _formatRoundHeader(effectiveR2High, fallback: 'OCT. 24 - BO1'),
+                            recordBadge: '(1-0)',
+                            matches: effectiveR2High,
+                            expectedCount: 4,
+                            defaultFormat: 'Bo1',
+                          ),
+                          const SizedBox(height: 12),
+                          _buildBracketBucket(
+                            title: _formatRoundHeader(effectiveR2Low, fallback: 'OCT. 24 - BO1'),
+                            recordBadge: '(0-1)',
+                            matches: effectiveR2Low,
+                            expectedCount: 4,
+                            defaultFormat: 'Bo1',
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    _buildBracketConnector(height: 480),
+
+                    // ==========================================
+                    // COLUMNA 3: RONDA 3 (2-0, 1-1, 0-2)
+                    // ==========================================
+                    _buildColumnContainer(
+                      child: Column(
+                        children: [
+                          _buildBracketBucket(
+                            title: _formatRoundHeader(r3High, fallback: 'OCT. 25 - BO3'),
+                            recordBadge: '(2-0)',
+                            matches: r3High,
+                            expectedCount: 2,
+                            defaultFormat: 'Bo3',
+                          ),
+                          const SizedBox(height: 10),
+                          _buildBracketBucket(
+                            title: _formatRoundHeader(r3Mid, fallback: 'OCT. 25 & 26 - BO1'),
+                            recordBadge: '(1-1)',
+                            matches: r3Mid,
+                            expectedCount: 4,
+                            defaultFormat: 'Bo1',
+                          ),
+                          const SizedBox(height: 10),
+                          _buildBracketBucket(
+                            title: _formatRoundHeader(r3Low, fallback: 'OCT. 26 - BO3'),
+                            recordBadge: '(0-2)',
+                            matches: r3Low,
+                            expectedCount: 2,
+                            defaultFormat: 'Bo3',
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    _buildBracketConnector(height: 480),
+
+                    // ==========================================
+                    // COLUMNA 4: RONDA 4 (2-1 y 1-2) + Avances R3
+                    // ==========================================
+                    _buildColumnContainer(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildAdvancementBadgeCard(
+                            stageLabel: '1ST/2ND',
+                            teams: advancesR3,
+                            totalSlots: 2,
+                          ),
+                          const SizedBox(height: 10),
+                          _buildBracketBucket(
+                            title: _formatRoundHeader(r4High, fallback: 'OCT. 28-30 - BO3'),
+                            recordBadge: '(2-1)',
+                            matches: r4High,
+                            expectedCount: 3,
+                            defaultFormat: 'Bo3',
+                          ),
+                          const SizedBox(height: 10),
+                          _buildBracketBucket(
+                            title: _formatRoundHeader(r4Low, fallback: 'OCT. 28-30 - BO3'),
+                            recordBadge: '(1-2)',
+                            matches: r4Low,
+                            expectedCount: 3,
+                            defaultFormat: 'Bo3',
+                          ),
+                          const SizedBox(height: 10),
+                          _buildEliminatedBadgeCard(
+                            teams: eliminatedR3,
+                            totalSlots: 2,
+                            roundLabel: 'R3 (0-2)',
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    _buildBracketConnector(height: 480),
+
+                    // ==========================================
+                    // COLUMNA 5: RONDA 5 (2-2) + Avances R4
+                    // ==========================================
+                    _buildColumnContainer(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildAdvancementBadgeCard(
+                            stageLabel: '3RD/4TH/5TH',
+                            teams: advancesR4,
+                            totalSlots: 3,
+                          ),
+                          const SizedBox(height: 24),
+                          _buildBracketBucket(
+                            title: _formatRoundHeader(r5Matches, fallback: 'OCT. 31 - BO3'),
+                            recordBadge: '(2-2)',
+                            matches: r5Matches,
+                            expectedCount: 3,
+                            defaultFormat: 'Bo3',
+                          ),
+                          const SizedBox(height: 24),
+                          _buildEliminatedBadgeCard(
+                            teams: eliminatedR4,
+                            totalSlots: 3,
+                            roundLabel: 'R4 (1-2)',
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    _buildBracketConnector(height: 480),
+
+                    // ==========================================
+                    // COLUMNA 6: CLASIFICADOS Y ELIMINADOS FINALES
+                    // ==========================================
+                    _buildColumnContainer(
+                      width: 220,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildAdvancementBadgeCard(
+                            stageLabel: '6TH/7TH/8TH',
+                            teams: advancesR5,
+                            totalSlots: 3,
+                          ),
+                          const SizedBox(height: 70),
+                          _buildEliminatedBadgeCard(
+                            teams: eliminatedR5,
+                            totalSlots: 3,
+                            roundLabel: 'R5 (2-2)',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
-          ...rounds.map((round) {
-            final isSelected = _selectedRoundNumber == round.roundNumber;
-            return Padding(
-              padding: const EdgeInsets.only(right: 8.0),
-              child: ChoiceChip(
-                key: ValueKey('lol-round-chip-${round.roundNumber}'),
-                label: Text(round.name),
-                selected: isSelected,
-                onSelected: (_) {
-                  setState(() => _selectedRoundNumber = round.roundNumber);
-                },
-                selectedColor: AppColors.lol.withValues(alpha: 0.2),
-                backgroundColor: AppColors.surfaceDark,
-                labelStyle: TextStyle(
-                  color: isSelected ? AppColors.lol : AppColors.textMuted,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                  fontSize: 12,
-                ),
-                side: BorderSide(
-                  color: isSelected ? AppColors.lol : AppColors.cardBorderDark,
-                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildColumnContainer({required Widget child, double width = 250}) {
+    return SizedBox(
+      width: width,
+      child: child,
+    );
+  }
+
+  Widget _buildBracketConnector({required double height}) {
+    return Container(
+      width: 24,
+      height: height,
+      margin: const EdgeInsets.symmetric(horizontal: 2),
+      child: CustomPaint(
+        painter: _BracketConnectorPainter(),
+      ),
+    );
+  }
+
+  Widget _buildBracketBucket({
+    required String title,
+    required String? recordBadge,
+    required List<LolWorldsMatchModel> matches,
+    required int expectedCount,
+    required String defaultFormat,
+  }) {
+    final totalSlots = matches.length > expectedCount ? matches.length : expectedCount;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceDark,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.cardBorderDark),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: const BoxDecoration(
+              color: AppColors.surfaceMuted,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(7)),
+              border: Border(
+                bottom: BorderSide(color: AppColors.cardBorderDark),
               ),
-            );
-          }),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    title.toUpperCase(),
+                    style: const TextStyle(
+                      color: AppColors.textSecondary,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.5,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (recordBadge != null) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      recordBadge,
+                      style: const TextStyle(
+                        color: AppColors.primary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+            child: Column(
+              children: List.generate(
+                totalSlots,
+                (i) {
+                  final m = i < matches.length ? matches[i] : null;
+                  return _buildBracketMatchCard(m, defaultFormat: defaultFormat);
+                },
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
+
+  Widget _buildBracketMatchCard(LolWorldsMatchModel? match, {required String defaultFormat}) {
+    if (match == null) {
+      return Container(
+        height: 42,
+        margin: const EdgeInsets.symmetric(vertical: 2.5),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceMuted.withValues(alpha: 0.4),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppColors.cardBorderDark),
+        ),
+        child: const Center(
+          child: Text(
+            'VS',
+            style: TextStyle(
+              color: AppColors.textMuted,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.0,
+            ),
+          ),
+        ),
+      );
+    }
+
+    final isFinished = match.isFinished;
+    final isLive = match.isLive;
+    final home = match.homeTeam;
+    final away = match.awayTeam;
+    final homeWon = isFinished && match.winnerTeamId == home.id;
+    final awayWon = isFinished && match.winnerTeamId == away.id;
+
+    return InkWell(
+      onTap: () => _showMatchDetailsModal(context, match),
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        key: ValueKey('lol-match-card-${match.id}'),
+        margin: const EdgeInsets.symmetric(vertical: 2.5),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+        decoration: BoxDecoration(
+          color: isLive ? AppColors.error.withValues(alpha: 0.05) : AppColors.surfaceDark,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isLive ? AppColors.error : AppColors.cardBorderDark,
+            width: isLive ? 1.5 : 1.0,
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                if (match.format != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: Text(
+                      match.format!,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  )
+                else
+                  const SizedBox.shrink(),
+                if (isLive)
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 5,
+                        height: 5,
+                        decoration: const BoxDecoration(
+                          color: AppColors.error,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      const Text(
+                        'EN VIVO',
+                        style: TextStyle(
+                          color: AppColors.error,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  )
+                else if (isFinished)
+                  const Text(
+                    'FINAL',
+                    style: TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 8,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                else
+                  Text(
+                    _formatTime(match.startTime),
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 8,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Row(
+              children: [
+                // Equipo Local
+                Expanded(
+                  child: Row(
+                    children: [
+                      _buildTeamLogo(home.logoUrl, 16),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          home.name,
+                          style: TextStyle(
+                            color: homeWon
+                                ? AppColors.primary
+                                : (isFinished && !homeWon
+                                    ? AppColors.textMuted
+                                    : AppColors.textPrimary),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Marcador / VS
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: _buildMatchScoreBadge(match),
+                ),
+                // Equipo Visitante
+                Expanded(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          away.name,
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            color: awayWon
+                                ? AppColors.primary
+                                : (isFinished && !awayWon
+                                    ? AppColors.textMuted
+                                    : AppColors.textPrimary),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      _buildTeamLogo(away.logoUrl, 16),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMatchScoreBadge(LolWorldsMatchModel match) {
+    if (match.isLive) {
+      return Text(
+        '${match.homeTeam.score ?? 0} - ${match.awayTeam.score ?? 0}',
+        style: const TextStyle(
+          color: AppColors.error,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      );
+    }
+    if (match.isFinished) {
+      final s1 = match.homeTeam.score ?? 0;
+      final s2 = match.awayTeam.score ?? 0;
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+        decoration: BoxDecoration(
+          color: AppColors.surfaceMuted,
+          borderRadius: BorderRadius.circular(3),
+        ),
+        child: Text(
+          '$s1 - $s2',
+          style: const TextStyle(
+            color: AppColors.textPrimary,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      );
+    }
+    return const Text(
+      'VS',
+      style: TextStyle(
+        color: AppColors.textMuted,
+        fontSize: 10,
+        fontWeight: FontWeight.bold,
+        letterSpacing: 0.5,
+      ),
+    );
+  }
+
+  Widget _buildAdvancementBadgeCard({
+    required String stageLabel,
+    required List<String> teams,
+    required int totalSlots,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceDark,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.4), width: 1.2),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: const BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(5)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'ADVANCES',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                Text(
+                  stageLabel,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(totalSlots, (index) {
+                final hasTeam = index < teams.length;
+                final teamName = hasTeam ? teams[index] : null;
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (index > 0)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 5),
+                        child: Text(
+                          '/',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    Text(
+                      teamName ?? '—',
+                      style: TextStyle(
+                        color: teamName != null ? AppColors.textPrimary : AppColors.textMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEliminatedBadgeCard({
+    required List<String> teams,
+    required int totalSlots,
+    String? roundLabel,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surfaceDark,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.cardBorderDark, width: 1.0),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppColors.error.withValues(alpha: 0.1),
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(5)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'ELIMINATED',
+                  style: TextStyle(
+                    color: AppColors.error,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+                if (roundLabel != null)
+                  Text(
+                    roundLabel,
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 8,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(totalSlots, (index) {
+                final hasTeam = index < teams.length;
+                final teamName = hasTeam ? teams[index] : null;
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (index > 0)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 5),
+                        child: Text(
+                          '/',
+                          style: TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    Text(
+                      teamName ?? '—',
+                      style: TextStyle(
+                        color: AppColors.textMuted,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<String> _resolveAdvancingTeams({
+    required List<LolSwissStandingEntryModel> standings,
+    required List<LolWorldsMatchModel> matches,
+    required int expected,
+  }) {
+    final result = <String>[];
+    for (final s in standings) {
+      result.add(s.teamCode ?? s.teamName);
+    }
+    for (final m in matches) {
+      if (m.isFinished && m.winnerTeamId != null) {
+        final winner = m.winnerTeamId == m.homeTeam.id ? m.homeTeam : m.awayTeam;
+        final name = winner.code ?? winner.name;
+        if (!result.contains(name)) {
+          result.add(name);
+        }
+      }
+    }
+    return result;
+  }
+
+  List<String> _resolveEliminatedTeams({
+    required List<LolSwissStandingEntryModel> standings,
+    required List<LolWorldsMatchModel> matches,
+    required int expected,
+  }) {
+    final result = <String>[];
+    for (final s in standings) {
+      result.add(s.teamCode ?? s.teamName);
+    }
+    for (final m in matches) {
+      if (m.isFinished && m.winnerTeamId != null) {
+        final loser = m.winnerTeamId == m.homeTeam.id ? m.awayTeam : m.homeTeam;
+        final name = loser.code ?? loser.name;
+        if (!result.contains(name)) {
+          result.add(name);
+        }
+      }
+    }
+    return result;
+  }
+
+  Widget _buildTeamLogo(String? logoUrl, double size) {
+    if (logoUrl != null && logoUrl.trim().isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(3),
+        child: Image.network(
+          logoUrl,
+          width: size,
+          height: size,
+          errorBuilder: (context, error, stackTrace) => Icon(
+            Icons.shield_outlined,
+            size: size,
+            color: AppColors.textMuted,
+          ),
+        ),
+      );
+    }
+    return Icon(
+      Icons.shield_outlined,
+      size: size,
+      color: AppColors.textMuted,
+    );
+  }
+
+  String _formatRoundHeader(List<LolWorldsMatchModel> matches, {required String fallback}) {
+    if (matches.isEmpty) return fallback;
+    final first = matches.first;
+    final format = first.format ?? 'Bo1';
+    final date = first.startTime;
+    final month = _monthAbbr(date.month);
+    return '$month. ${date.day} - $format';
+  }
+
+  String _monthAbbr(int month) {
+    const months = [
+      'ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN',
+      'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'
+    ];
+    if (month >= 1 && month <= 12) return months[month - 1];
+    return 'OCT';
+  }
+
+  void _showMatchDetailsModal(BuildContext context, LolWorldsMatchModel match) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surfaceDark,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.cardBorderDark,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Text(
+                (match.roundName ?? 'Encuentro').toUpperCase(),
+                style: const TextStyle(
+                  color: AppColors.primary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Formato: ${match.format ?? "Bo1"}',
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  ),
+                  Text(
+                    match.isLive
+                        ? 'EN VIVO'
+                        : match.isFinished
+                            ? 'FINALIZADO'
+                            : _formatTime(match.startTime),
+                    style: TextStyle(
+                      color: match.isLive ? AppColors.error : AppColors.textMuted,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(color: AppColors.cardBorderDark, height: 24),
+              _buildTeamRow(
+                participant: match.homeTeam,
+                isWinner: match.isFinished && match.winnerTeamId == match.homeTeam.id,
+                score: match.homeTeam.score,
+              ),
+              const SizedBox(height: 10),
+              _buildTeamRow(
+                participant: match.awayTeam,
+                isWinner: match.isFinished && match.winnerTeamId == match.awayTeam.id,
+                score: match.awayTeam.score,
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // =========================================================================
+  // LISTA TRADICIONAL DE PARTIDOS (MODO VERTICAL)
+  // =========================================================================
 
   Widget _buildSwissMatchCard(LolWorldsMatchModel match) {
     final home = match.homeTeam;
@@ -325,7 +1475,6 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
       ),
       child: Column(
         children: [
-          // Sub-cabecera con número de ronda, formato y estado
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: const BoxDecoration(
@@ -344,9 +1493,9 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                ] else if (match.roundNumber != null) ...[
+                ] else if (match.effectiveRoundNumber != null) ...[
                   Text(
-                    'RONDA ${match.roundNumber}',
+                    'RONDA ${match.effectiveRoundNumber}',
                     style: const TextStyle(
                       color: AppColors.textMuted,
                       fontSize: 11,
@@ -357,8 +1506,7 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
                 const Spacer(),
                 if (match.format != null) ...[
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: AppColors.surfaceMuted,
                       borderRadius: BorderRadius.circular(4),
@@ -376,8 +1524,7 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
                 ],
                 if (isLive) ...[
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: AppColors.error.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(4),
@@ -412,7 +1559,6 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
               ],
             ),
           ),
-          // Filas de los equipos
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             child: Column(
@@ -474,7 +1620,7 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
                   participant.name,
                   style: TextStyle(
                     color: isWinner
-                        ? AppColors.textPrimary
+                        ? AppColors.primary
                         : AppColors.textSecondary,
                     fontWeight: isWinner ? FontWeight.bold : FontWeight.w500,
                     fontSize: 13,
@@ -497,8 +1643,7 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
               if (participant.record != null) ...[
                 const SizedBox(width: 8),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                   decoration: BoxDecoration(
                     color: AppColors.surfaceMuted,
                     borderRadius: BorderRadius.circular(4),
@@ -519,7 +1664,7 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
           Text(
             '$score',
             style: TextStyle(
-              color: isWinner ? AppColors.lol : AppColors.textPrimary,
+              color: isWinner ? AppColors.primary : AppColors.textPrimary,
               fontWeight: FontWeight.bold,
               fontSize: 14,
             ),
@@ -536,6 +1681,10 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
       ],
     );
   }
+
+  // =========================================================================
+  // PESTAÑA 1: TABLA SUIZA
+  // =========================================================================
 
   Widget _buildStandingsTab(LolWorldsStageModel data) {
     final standings = data.swissStandings;
@@ -575,7 +1724,7 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
 
     return RefreshIndicator(
       onRefresh: () async => widget.onRefresh(),
-      color: AppColors.lol,
+      color: AppColors.primary,
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         children: [
@@ -654,7 +1803,7 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
 
     Color? rowAccentColor;
     if (entry.isQualified) {
-      rowAccentColor = const Color(0xFF10B981); // Emerald
+      rowAccentColor = AppColors.success;
     } else if (entry.isEliminated) {
       rowAccentColor = AppColors.error;
     }
@@ -751,7 +1900,6 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
               ),
             ],
           ),
-          // Avance a la siguiente fase solo si la fuente lo entregó
           if (hasAdvancement) ...[
             Padding(
               padding: const EdgeInsets.only(left: 30, top: 4),
@@ -772,7 +1920,7 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
                 : 'En competencia');
 
     final color = entry.isQualified
-        ? const Color(0xFF10B981)
+        ? AppColors.success
         : entry.isEliminated
             ? AppColors.error
             : AppColors.primary;
@@ -881,13 +2029,13 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
             Container(
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: AppColors.lol.withValues(alpha: 0.1),
+                color: AppColors.primary.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 icon,
                 size: 44,
-                color: AppColors.lol,
+                color: AppColors.primary,
               ),
             ),
             const SizedBox(height: 18),
@@ -939,8 +2087,8 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
               icon: const Icon(Icons.refresh_rounded, size: 16),
               label: const Text('Comprobar disponibilidad'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.lol,
-                side: const BorderSide(color: AppColors.lol),
+                foregroundColor: AppColors.primary,
+                side: const BorderSide(color: AppColors.primary),
               ),
             ),
           ],
@@ -954,4 +2102,37 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
     final minute = date.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
   }
+}
+
+class _BracketConnectorPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paintLine = Paint()
+      ..color = AppColors.cardBorderDark
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+
+    final midX = size.width / 2;
+
+    void drawPath(Path path) {
+      canvas.drawPath(path, paintLine);
+    }
+
+    final pathTop = Path()
+      ..moveTo(0, size.height * 0.25)
+      ..lineTo(midX, size.height * 0.25)
+      ..lineTo(midX, size.height * 0.48)
+      ..lineTo(size.width, size.height * 0.48);
+    drawPath(pathTop);
+
+    final pathBottom = Path()
+      ..moveTo(0, size.height * 0.75)
+      ..lineTo(midX, size.height * 0.75)
+      ..lineTo(midX, size.height * 0.52)
+      ..lineTo(size.width, size.height * 0.52);
+    drawPath(pathBottom);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

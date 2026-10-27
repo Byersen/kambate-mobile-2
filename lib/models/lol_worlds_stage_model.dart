@@ -164,6 +164,7 @@ class LolWorldsParticipantModel {
   final String? logoUrl;
   final int? score;
   final String? record;
+  final String? seed;
 
   const LolWorldsParticipantModel({
     this.id,
@@ -172,6 +173,7 @@ class LolWorldsParticipantModel {
     this.logoUrl,
     this.score,
     this.record,
+    this.seed,
   });
 
   factory LolWorldsParticipantModel.fromJson(Map<String, dynamic> json) {
@@ -184,6 +186,7 @@ class LolWorldsParticipantModel {
           ? json['score'] as int
           : int.tryParse(json['score']?.toString() ?? ''),
       record: json['record']?.toString(),
+      seed: json['seed']?.toString(),
     );
   }
 
@@ -195,6 +198,7 @@ class LolWorldsParticipantModel {
       if (logoUrl != null) 'logoUrl': logoUrl,
       if (score != null) 'score': score,
       if (record != null) 'record': record,
+      if (seed != null) 'seed': seed,
     };
   }
 }
@@ -228,6 +232,18 @@ class LolWorldsMatchModel {
   bool get isLive => status.toUpperCase() == 'LIVE';
   bool get isScheduled => status.toUpperCase() == 'SCHEDULED';
 
+  int? get effectiveRoundNumber {
+    if (roundNumber != null) return roundNumber;
+    if (roundName != null) {
+      final match = RegExp(r'(?:round|ronda)\s*(\d+)', caseSensitive: false)
+          .firstMatch(roundName!);
+      if (match != null) {
+        return int.tryParse(match.group(1)!);
+      }
+    }
+    return null;
+  }
+
   factory LolWorldsMatchModel.fromJson(Map<String, dynamic> json) {
     DateTime parsedDate;
     try {
@@ -237,13 +253,23 @@ class LolWorldsMatchModel {
       parsedDate = DateTime.now();
     }
 
+    final rawRoundName = json['roundName']?.toString();
+    int? parsedRound = json['roundNumber'] is int
+        ? json['roundNumber'] as int
+        : int.tryParse(json['roundNumber']?.toString() ?? '');
+    if (parsedRound == null && rawRoundName != null) {
+      final regMatch = RegExp(r'(?:round|ronda)\s*(\d+)', caseSensitive: false)
+          .firstMatch(rawRoundName);
+      if (regMatch != null) {
+        parsedRound = int.tryParse(regMatch.group(1)!);
+      }
+    }
+
     return LolWorldsMatchModel(
       id: json['id']?.toString() ?? 'match-id',
       externalId: json['externalId']?.toString(),
-      roundNumber: json['roundNumber'] is int
-          ? json['roundNumber'] as int
-          : int.tryParse(json['roundNumber']?.toString() ?? ''),
-      roundName: json['roundName']?.toString(),
+      roundNumber: parsedRound,
+      roundName: rawRoundName,
       startTime: parsedDate,
       status: json['status']?.toString() ?? 'SCHEDULED',
       homeTeam: LolWorldsParticipantModel.fromJson(

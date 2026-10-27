@@ -154,23 +154,21 @@ void main() {
       expect(find.text('Worlds 2026 • Formato Suizo'), findsOneWidget);
       expect(find.text('EN CURSO'), findsOneWidget);
 
-      // Selector de rondas
-      expect(find.byKey(const ValueKey('lol-round-chip-all')), findsOneWidget);
-      expect(find.byKey(const ValueKey('lol-round-chip-1')), findsOneWidget);
-      expect(find.byKey(const ValueKey('lol-round-chip-2')), findsOneWidget);
+      // Cambiar a la pestaña "Cuadro Suizo"
+      await tester.tap(find.text('Cuadro Suizo'));
+      await tester.pumpAndSettle();
 
-      // Por defecto la ronda 2 está seleccionada (currentRoundNumber: 2)
+      // Barra inferior de navegación horizontal
+      expect(find.byKey(const ValueKey('lol-swiss-bottom-bar')), findsOneWidget);
+      expect(find.byKey(const ValueKey('lol-swiss-bottom-slider')), findsOneWidget);
+      expect(find.byKey(const ValueKey('lol-swiss-nav-pill-0')), findsOneWidget);
+
+      // Partidos renderizados en el cuadro suizo
       expect(find.byKey(const ValueKey('lol-match-card-match-2')), findsOneWidget);
       expect(find.text('Gen.G'), findsOneWidget);
       expect(find.text('Bo3'), findsOneWidget);
       expect(find.text('EN VIVO'), findsOneWidget);
-
-      // Cambiar a "Todas" las rondas
-      await tester.tap(find.byKey(const ValueKey('lol-round-chip-all')));
-      await tester.pumpAndSettle();
-
       expect(find.byKey(const ValueKey('lol-match-card-match-1')), findsOneWidget);
-      expect(find.byKey(const ValueKey('lol-match-card-match-2')), findsOneWidget);
       expect(find.text('FINAL'), findsOneWidget);
       expect(find.text('Bo1'), findsOneWidget);
     });
@@ -188,11 +186,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Cambiar a la pestaña "Tabla Suiza"
-      await tester.tap(find.text('Tabla Suiza'));
-      await tester.pumpAndSettle();
-
-      // Cabecera de tabla
+      // Pestaña "Tabla" (por defecto es la primera)
       expect(find.text('EQUIPO'), findsOneWidget);
       expect(find.text('RÉCORD'), findsOneWidget);
       expect(find.text('DIF'), findsOneWidget);
@@ -239,7 +233,7 @@ void main() {
 
       // No debe renderizar partidos ni tablas ficticias
       expect(find.text('ETAPA SUIZA'), findsNothing);
-      expect(find.text('Tabla Suiza'), findsNothing);
+      expect(find.text('Tabla'), findsNothing);
     });
 
     testWidgets('LeagueDetailScreen para Worlds renderiza LolWorldsSwissView con Riverpod provider', (tester) async {
@@ -265,6 +259,110 @@ void main() {
       expect(find.text('WORLDS'), findsOneWidget);
       expect(find.byType(LolWorldsSwissView), findsOneWidget);
       expect(find.text('ETAPA SUIZA'), findsOneWidget);
+    });
+
+    testWidgets('Renderiza formato broadcast suizo con columnas y badges de ADVANCES/ELIMINATED', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LolWorldsSwissView(
+              stageData: activeSwissStageData,
+              onRefresh: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Cambiar a la pestaña "Cuadro Suizo"
+      await tester.tap(find.text('Cuadro Suizo'));
+      await tester.pumpAndSettle();
+
+      // Barra inferior de navegación
+      expect(find.byKey(const ValueKey('lol-swiss-bottom-bar')), findsOneWidget);
+      expect(find.byKey(const ValueKey('lol-swiss-nav-left')), findsOneWidget);
+      expect(find.byKey(const ValueKey('lol-swiss-nav-right')), findsOneWidget);
+
+      // InteractiveViewer para el canvas panorámico
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+
+      // Badges oficiales de avance de Worlds (R3, R4, R5)
+      expect(find.text('ADVANCES'), findsWidgets);
+      expect(find.text('1ST/2ND'), findsOneWidget);
+      expect(find.text('3RD/4TH/5TH'), findsOneWidget);
+      expect(find.text('6TH/7TH/8TH'), findsOneWidget);
+
+      // T1 tiene 3-0 en standings, por lo que figura en ADVANCES 1ST/2ND
+      expect(find.text('T1'), findsWidgets);
+
+      // Badges oficiales de eliminación
+      expect(find.text('ELIMINATED'), findsWidgets);
+    });
+
+    testWidgets('Navega horizontalmente por el Cuadro Suizo usando la barra inferior (flechas, pills y slider)', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LolWorldsSwissView(
+              stageData: activeSwissStageData,
+              onRefresh: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Cambiar a la pestaña "Cuadro Suizo"
+      await tester.tap(find.text('Cuadro Suizo'));
+      await tester.pumpAndSettle();
+
+      // Verificar que la barra inferior existe y tiene los controles
+      expect(find.byKey(const ValueKey('lol-swiss-bottom-bar')), findsOneWidget);
+      expect(find.byKey(const ValueKey('lol-swiss-nav-left')), findsOneWidget);
+      expect(find.byKey(const ValueKey('lol-swiss-nav-right')), findsOneWidget);
+      expect(find.byKey(const ValueKey('lol-swiss-bottom-slider')), findsOneWidget);
+      expect(find.byKey(const ValueKey('lol-swiss-nav-pill-0')), findsOneWidget);
+      expect(find.byKey(const ValueKey('lol-swiss-nav-pill-1')), findsOneWidget);
+
+      // Pulsar la flecha derecha para avanzar de columna
+      await tester.tap(find.byKey(const ValueKey('lol-swiss-nav-right')));
+      await tester.pumpAndSettle();
+
+      // Pulsar en la pill de Ronda 3 (pill-2)
+      await tester.tap(find.byKey(const ValueKey('lol-swiss-nav-pill-2')));
+      await tester.pumpAndSettle();
+
+      // Muestra partidos del canvas panorámico
+      expect(find.byType(InteractiveViewer), findsOneWidget);
+      expect(find.byKey(const ValueKey('lol-match-card-match-2')), findsOneWidget);
+    });
+
+    testWidgets('Pulsar en una tarjeta de partido abre el modal con detalles del encuentro', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LolWorldsSwissView(
+              stageData: activeSwissStageData,
+              onRefresh: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Cambiar a la pestaña "Cuadro Suizo"
+      await tester.tap(find.text('Cuadro Suizo'));
+      await tester.pumpAndSettle();
+
+      // Pulsar la tarjeta de match-2
+      await tester.tap(find.byKey(const ValueKey('lol-match-card-match-2')));
+      await tester.pumpAndSettle();
+
+      // Modal bottom sheet abierto con información del partido
+      expect(find.text('Formato: Bo3'), findsOneWidget);
+      expect(find.text('RONDA 2 (1-0)'), findsOneWidget);
+      expect(find.text('Gen.G'), findsWidgets);
+      expect(find.text('Hanwha Life Esports'), findsWidgets);
     });
   });
 }
