@@ -1478,7 +1478,9 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
                 headerTitle = 'PARTIDOS';
               }
 
-              if (widget.sport == SportType.soccer || widget.sport == SportType.lol) {
+              if (widget.sport == SportType.soccer ||
+                  widget.sport == SportType.lol ||
+                  widget.sport == SportType.nba) {
                 roundMatches = List<EventModel>.from(roundMatches)
                   ..sort((a, b) {
                     int statusOrder(EventModel e) {
@@ -1859,6 +1861,30 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
         final hasEditions = leagueEvents.any(
           (e) => e.seasonModel?.name != null && e.seasonModel!.name.isNotEmpty,
         );
+
+        if (widget.sport == SportType.soccer ||
+            widget.sport == SportType.lol ||
+            widget.sport == SportType.nba) {
+          leagueEvents.sort((a, b) {
+            if (hasEditions) {
+              final edA = a.seasonModel?.name ?? '';
+              final edB = b.seasonModel?.name ?? '';
+              final edCmp = edB.compareTo(edA);
+              if (edCmp != 0) return edCmp;
+            }
+            int statusOrder(EventModel e) {
+              if (e.status == EventStatus.finished) return 0;
+              if (e.status == EventStatus.live) return 1;
+              return 2;
+            }
+            final orderA = statusOrder(a);
+            final orderB = statusOrder(b);
+            if (orderA != orderB) return orderA.compareTo(orderB);
+            final cmp = a.startTime.compareTo(b.startTime);
+            if (cmp != 0) return cmp;
+            return a.id.compareTo(b.id);
+          });
+        }
 
         return ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),

@@ -454,7 +454,9 @@ class FeedScreen extends ConsumerWidget {
       if (group.events.isEmpty) continue;
 
       group.events.sort((a, b) {
-        if (group.sport == SportType.soccer || group.sport == SportType.lol) {
+        if (group.sport == SportType.soccer ||
+            group.sport == SportType.lol ||
+            group.sport == SportType.nba) {
           int statusOrder(EventModel e) {
             if (e.status == EventStatus.finished) return 0;
             if (e.status == EventStatus.live) return 1;

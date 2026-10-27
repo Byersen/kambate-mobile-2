@@ -222,13 +222,16 @@ class FootballCompetitionPriority {
     }
 
     otherEvents.sort((a, b) {
-      if (a.sport == SportType.lol && b.sport == SportType.lol) {
-        final aIsWorlds = a.league.toLowerCase().contains('worlds') ||
-            (a.leagueModel?.slug.toLowerCase().contains('worlds') ?? false);
-        final bIsWorlds = b.league.toLowerCase().contains('worlds') ||
-            (b.leagueModel?.slug.toLowerCase().contains('worlds') ?? false);
-        if (aIsWorlds && !bIsWorlds) return -1;
-        if (!aIsWorlds && bIsWorlds) return 1;
+      if ((a.sport == SportType.lol && b.sport == SportType.lol) ||
+          (a.sport == SportType.nba && b.sport == SportType.nba)) {
+        if (a.sport == SportType.lol) {
+          final aIsWorlds = a.league.toLowerCase().contains('worlds') ||
+              (a.leagueModel?.slug.toLowerCase().contains('worlds') ?? false);
+          final bIsWorlds = b.league.toLowerCase().contains('worlds') ||
+              (b.leagueModel?.slug.toLowerCase().contains('worlds') ?? false);
+          if (aIsWorlds && !bIsWorlds) return -1;
+          if (!aIsWorlds && bIsWorlds) return 1;
+        }
 
         int statusOrder(EventModel e) {
           if (e.status == EventStatus.finished) return 0;

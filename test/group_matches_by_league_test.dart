@@ -453,5 +453,82 @@ void main() {
       expect(find.text('45+2′'), findsOneWidget);
       expect(find.byKey(const ValueKey('scoreboard_live_dot')), findsNothing);
     });
+
+    test('En la NBA los partidos se ordenan primero terminados, luego en vivo y luego los que van a jugar despues (iniciados antes primero)', () {
+      final nbaFinishedEarly = EventModel(
+        id: 'nba-fin-early',
+        sport: SportType.nba,
+        league: 'NBA',
+        leagueModel: const LeagueModel(id: 'nba', name: 'NBA', slug: 'nba'),
+        status: EventStatus.finished,
+        startTime: baseTime.subtract(const Duration(hours: 4)),
+        homeTeam: const TeamModel(id: 'lal', name: 'Lakers'),
+        awayTeam: const TeamModel(id: 'gsw', name: 'Warriors'),
+      );
+      final nbaFinishedLate = EventModel(
+        id: 'nba-fin-late',
+        sport: SportType.nba,
+        league: 'NBA',
+        leagueModel: const LeagueModel(id: 'nba', name: 'NBA', slug: 'nba'),
+        status: EventStatus.finished,
+        startTime: baseTime.subtract(const Duration(hours: 2)),
+        homeTeam: const TeamModel(id: 'bos', name: 'Celtics'),
+        awayTeam: const TeamModel(id: 'nyk', name: 'Knicks'),
+      );
+      final nbaLive = EventModel(
+        id: 'nba-live',
+        sport: SportType.nba,
+        league: 'NBA',
+        leagueModel: const LeagueModel(id: 'nba', name: 'NBA', slug: 'nba'),
+        status: EventStatus.live,
+        startTime: baseTime.subtract(const Duration(minutes: 30)),
+        homeTeam: const TeamModel(id: 'mia', name: 'Heat'),
+        awayTeam: const TeamModel(id: 'chi', name: 'Bulls'),
+      );
+      final nbaScheduledEarly = EventModel(
+        id: 'nba-sched-early',
+        sport: SportType.nba,
+        league: 'NBA',
+        leagueModel: const LeagueModel(id: 'nba', name: 'NBA', slug: 'nba'),
+        status: EventStatus.scheduled,
+        startTime: baseTime.add(const Duration(hours: 1)),
+        homeTeam: const TeamModel(id: 'den', name: 'Nuggets'),
+        awayTeam: const TeamModel(id: 'phx', name: 'Suns'),
+      );
+      final nbaScheduledLate = EventModel(
+        id: 'nba-sched-late',
+        sport: SportType.nba,
+        league: 'NBA',
+        leagueModel: const LeagueModel(id: 'nba', name: 'NBA', slug: 'nba'),
+        status: EventStatus.scheduled,
+        startTime: baseTime.add(const Duration(hours: 3)),
+        homeTeam: const TeamModel(id: 'dal', name: 'Mavericks'),
+        awayTeam: const TeamModel(id: 'lac', name: 'Clippers'),
+      );
+
+      // Desordenados deliberadamente
+      final mixedEvents = [
+        nbaScheduledLate,
+        nbaLive,
+        nbaFinishedLate,
+        nbaScheduledEarly,
+        nbaFinishedEarly,
+      ];
+
+      final groups = FeedScreen.groupEventsByCompetition(mixedEvents);
+      expect(groups, hasLength(1));
+      final sortedMatches = groups.first.events;
+
+      // 1. Primero terminados, ordenados por los que comenzaron antes
+      expect(sortedMatches[0].id, 'nba-fin-early');
+      expect(sortedMatches[1].id, 'nba-fin-late');
+
+      // 2. Luego en vivo
+      expect(sortedMatches[2].id, 'nba-live');
+
+      // 3. Luego los que van a jugar después, ordenados por los que comienzan antes
+      expect(sortedMatches[3].id, 'nba-sched-early');
+      expect(sortedMatches[4].id, 'nba-sched-late');
+    });
   });
 }
