@@ -15,6 +15,7 @@ import '../../providers/ufc_rankings_provider.dart';
 import '../widgets/lol_worlds_swiss_view.dart';
 import '../widgets/ufc_rankings_view.dart';
 import '../widgets/ufc_upcoming_cards_view.dart';
+import '../../../favorites/models/search_league_item.dart';
 
 class LeagueDetailScreen extends ConsumerStatefulWidget {
   final String leagueName;
@@ -36,6 +37,36 @@ class LeagueDetailScreen extends ConsumerStatefulWidget {
 
   @override
   ConsumerState<LeagueDetailScreen> createState() => _LeagueDetailScreenState();
+}
+
+class _LeaguePeriodInfo {
+  final String periodText;
+  final String statusText;
+  final Color statusColor;
+
+  const _LeaguePeriodInfo({
+    required this.periodText,
+    required this.statusText,
+    required this.statusColor,
+  });
+}
+
+class _ParticipatingTeamInfo {
+  final String id;
+  final String name;
+  final String? logoUrl;
+  final int? position;
+  final int? points;
+  final int? playedGames;
+
+  const _ParticipatingTeamInfo({
+    required this.id,
+    required this.name,
+    this.logoUrl,
+    this.position,
+    this.points,
+    this.playedGames,
+  });
 }
 
 class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
@@ -109,6 +140,538 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
     );
   }
 
+  static String _monthName(int month) {
+    const months = [
+      'Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun',
+      'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'
+    ];
+    if (month >= 1 && month <= 12) return months[month - 1];
+    return '';
+  }
+
+  _LeaguePeriodInfo _resolvePeriodInfo(
+    LeagueDetailParams params,
+    List<EventModel> leagueEvents,
+  ) {
+    DateTime? startDate;
+    DateTime? endDate;
+
+    for (final e in leagueEvents) {
+      if (e.seasonModel?.startDate != null) {
+        if (startDate == null || e.seasonModel!.startDate!.isBefore(startDate)) {
+          startDate = e.seasonModel!.startDate;
+        }
+      }
+      if (e.seasonModel?.endDate != null) {
+        if (endDate == null || e.seasonModel!.endDate!.isAfter(endDate)) {
+          endDate = e.seasonModel!.endDate;
+        }
+      }
+    }
+
+    if (startDate == null && leagueEvents.isNotEmpty) {
+      final sortedMatches = List<EventModel>.from(leagueEvents)
+        ..sort((a, b) => a.startTime.compareTo(b.startTime));
+      startDate = sortedMatches.first.startTime;
+      endDate = sortedMatches.last.startTime;
+    }
+
+    final now = DateTime.now();
+
+    if (startDate != null && endDate != null) {
+      final periodText = (startDate.year == endDate.year && startDate.month == endDate.month)
+          ? '${startDate.day} – ${endDate.day} ${_monthName(endDate.month)} ${endDate.year}'
+          : '${_monthName(startDate.month)} ${startDate.year} – ${_monthName(endDate.month)} ${endDate.year}';
+
+      final String statusText;
+      final Color statusColor;
+      if (now.isBefore(startDate)) {
+        statusText = 'Próximamente';
+        statusColor = AppColors.warning;
+      } else if (now.isAfter(endDate.add(const Duration(days: 15)))) {
+        statusText = 'Finalizada';
+        statusColor = AppColors.textMuted;
+      } else {
+        statusText = 'En curso';
+        statusColor = AppColors.success;
+      }
+
+      return _LeaguePeriodInfo(
+        periodText: periodText,
+        statusText: statusText,
+        statusColor: statusColor,
+      );
+    }
+
+    final slug = (params.leagueSlug ?? '').toLowerCase();
+    final name = widget.leagueName.toLowerCase();
+    final currentYear = now.year;
+    final nextYear = currentYear + 1;
+
+    if (slug.contains('nba') || name.contains('nba')) {
+      final isFinals = now.month >= 6 && now.month <= 9;
+      return _LeaguePeriodInfo(
+        periodText: 'Octubre $currentYear – Junio $nextYear',
+        statusText: isFinals ? 'Finales / Pretemporada' : 'En curso',
+        statusColor: isFinals ? AppColors.warning : AppColors.success,
+      );
+    }
+
+    if (slug.contains('ufc') || name.contains('ufc')) {
+      return _LeaguePeriodInfo(
+        periodText: 'Temporada continua $currentYear',
+        statusText: 'Activa',
+        statusColor: AppColors.success,
+      );
+    }
+
+    if (slug.contains('worlds') || name.contains('worlds')) {
+      final isWorldsMonth = now.month >= 9 && now.month <= 11;
+      return _LeaguePeriodInfo(
+        periodText: 'Octubre – Noviembre $currentYear',
+        statusText: isWorldsMonth ? 'En curso' : 'Próximamente',
+        statusColor: isWorldsMonth ? AppColors.success : AppColors.warning,
+      );
+    }
+
+    if (slug.contains('msi') || name.contains('msi')) {
+      return _LeaguePeriodInfo(
+        periodText: 'Mayo $currentYear',
+        statusText: now.month == 5 ? 'En curso' : 'Temporada anual',
+        statusColor: now.month == 5 ? AppColors.success : AppColors.primary,
+      );
+    }
+
+    if (slug.contains('champions') ||
+        slug.contains('masters') ||
+        slug.contains('ascension') ||
+        slug.contains('vct') ||
+        widget.sport == SportType.valorant) {
+      if (slug.contains('champions')) {
+        return _LeaguePeriodInfo(
+          periodText: 'Agosto – Septiembre $currentYear',
+          statusText: (now.month >= 8 && now.month <= 9) ? 'En curso' : 'Fase clasificatoria',
+          statusColor: (now.month >= 8 && now.month <= 9) ? AppColors.success : AppColors.primary,
+        );
+      }
+      return _LeaguePeriodInfo(
+        periodText: 'Febrero – Agosto $currentYear',
+        statusText: (now.month >= 2 && now.month <= 8) ? 'En curso' : 'Pretemporada',
+        statusColor: (now.month >= 2 && now.month <= 8) ? AppColors.success : AppColors.primary,
+      );
+    }
+
+    if (slug.contains('libertadores') ||
+        slug.contains('sudamericana') ||
+        slug.contains('bra.') ||
+        slug.contains('arg.') ||
+        slug.contains('chi.') ||
+        name.contains('libertadores') ||
+        name.contains('sudamericana') ||
+        name.contains('brasileir') ||
+        name.contains('primera división')) {
+      return _LeaguePeriodInfo(
+        periodText: 'Febrero – Diciembre $currentYear',
+        statusText: (now.month >= 2 && now.month <= 12) ? 'En curso' : 'Receso',
+        statusColor: (now.month >= 2 && now.month <= 12) ? AppColors.success : AppColors.textMuted,
+      );
+    }
+
+    if (slug.contains('mex.') || name.contains('liga mx')) {
+      final isClausura = now.month >= 1 && now.month <= 5;
+      return _LeaguePeriodInfo(
+        periodText: isClausura ? 'Clausura: Ene – May $currentYear' : 'Apertura: Jul – Dic $currentYear',
+        statusText: 'En curso',
+        statusColor: AppColors.success,
+      );
+    }
+
+    if (slug.contains('usa.') || name.contains('mls')) {
+      return _LeaguePeriodInfo(
+        periodText: 'Febrero – Diciembre $currentYear',
+        statusText: (now.month >= 2 && now.month <= 12) ? 'En curso' : 'Pretemporada',
+        statusColor: (now.month >= 2 && now.month <= 12) ? AppColors.success : AppColors.primary,
+      );
+    }
+
+    final isEuropeanSeason = (now.month >= 8 || now.month <= 5);
+    final seasonYears = now.month >= 7 ? '$currentYear–$nextYear' : '${currentYear - 1}–$currentYear';
+    return _LeaguePeriodInfo(
+      periodText: 'Agosto – Mayo ($seasonYears)',
+      statusText: isEuropeanSeason ? 'En curso' : 'Receso de verano',
+      statusColor: isEuropeanSeason ? AppColors.success : AppColors.warning,
+    );
+  }
+
+  String? _resolveLeagueLogo(
+    LeagueDetailParams params,
+    List<EventModel> events,
+  ) {
+    final targetSlug = (params.leagueSlug ?? '').toLowerCase();
+    final targetName = widget.leagueName.toLowerCase();
+
+    for (final cl in kCanonicalLeagues) {
+      if (cl.slug != null && cl.slug!.toLowerCase() == targetSlug) {
+        return cl.logoUrl;
+      }
+      final cName = cl.name.toLowerCase();
+      if (cName == targetName ||
+          targetName.contains(cName) ||
+          cName.contains(targetName)) {
+        return cl.logoUrl;
+      }
+    }
+
+    for (final e in events) {
+      if (_matchesLeagueAndSeason(e, params)) {
+        if (e.leagueModel?.logoUrl != null &&
+            e.leagueModel!.logoUrl!.isNotEmpty) {
+          return e.leagueModel!.logoUrl;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  List<_ParticipatingTeamInfo> _resolveParticipatingTeams({
+    required LeagueDetailParams params,
+    required List<EventModel> leagueEvents,
+    LeagueDetailModel? detail,
+  }) {
+    final Map<String, _ParticipatingTeamInfo> teams = {};
+
+    if (detail != null && detail.groups.isNotEmpty) {
+      for (final group in detail.groups) {
+        for (final entry in group.entries) {
+          final normName = entry.teamName.trim().toLowerCase();
+          if (normName.isEmpty) continue;
+          teams[normName] = _ParticipatingTeamInfo(
+            id: entry.teamId ?? entry.participantId ?? normName,
+            name: entry.teamName.trim(),
+            logoUrl: entry.teamLogo,
+            position: entry.position,
+            points: entry.points,
+            playedGames: entry.playedGames,
+          );
+        }
+      }
+    }
+
+    for (final event in leagueEvents) {
+      void addParticipant(String? name, String? logo, String? id) {
+        if (name == null || name.trim().isEmpty) return;
+        final norm = name.trim().toLowerCase();
+        if (teams.containsKey(norm)) {
+          final existing = teams[norm]!;
+          if ((existing.logoUrl == null || existing.logoUrl!.isEmpty) &&
+              logo != null &&
+              logo.isNotEmpty) {
+            teams[norm] = _ParticipatingTeamInfo(
+              id: existing.id,
+              name: existing.name,
+              logoUrl: logo,
+              position: existing.position,
+              points: existing.points,
+              playedGames: existing.playedGames,
+            );
+          }
+        } else {
+          teams[norm] = _ParticipatingTeamInfo(
+            id: id ?? norm,
+            name: name.trim(),
+            logoUrl: logo,
+          );
+        }
+      }
+
+      addParticipant(
+        event.homeTeam?.name,
+        event.homeTeam?.logoUrl,
+        event.homeTeam?.id,
+      );
+      addParticipant(
+        event.awayTeam?.name,
+        event.awayTeam?.logoUrl,
+        event.awayTeam?.id,
+      );
+      for (final p in event.participants) {
+        addParticipant(p.name, p.logoUrl, p.id);
+      }
+    }
+
+    final list = teams.values.toList();
+    list.sort((a, b) {
+      if (a.position != null && b.position != null) {
+        return a.position!.compareTo(b.position!);
+      }
+      if (a.position != null) return -1;
+      if (b.position != null) return 1;
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    return list;
+  }
+
+  Widget _buildParticipatingTeamsSection(List<_ParticipatingTeamInfo> teams) {
+    if (teams.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionHeader('EQUIPOS PARTICIPANTES (${teams.length})'),
+        SizedBox(
+          height: 104,
+          child: ListView.separated(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            scrollDirection: Axis.horizontal,
+            itemCount: teams.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (context, index) {
+              final team = teams[index];
+              return Container(
+                width: 96,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceDark,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.cardBorderDark),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.08),
+                        shape: BoxShape.circle,
+                      ),
+                      alignment: Alignment.center,
+                      child: team.logoUrl != null && team.logoUrl!.isNotEmpty
+                          ? Image.network(
+                              team.logoUrl!,
+                              width: 30,
+                              height: 30,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => Icon(
+                                widget.sport.icon,
+                                size: 20,
+                                color: widget.sport.color,
+                              ),
+                            )
+                          : Icon(
+                              widget.sport.icon,
+                              size: 20,
+                              color: widget.sport.color,
+                            ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      team.name,
+                      style: const TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      team.position != null
+                          ? '#${team.position} • ${team.points ?? 0} pts'
+                          : (team.points != null
+                              ? '${team.points} pts'
+                              : (team.playedGames != null
+                                  ? '${team.playedGames} PJ'
+                                  : widget.sport.displayName)),
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 9,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  void _showParticipatingTeamsModal(
+    BuildContext context,
+    List<_ParticipatingTeamInfo> teams,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppColors.surfaceDark,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return DraggableScrollableSheet(
+          expand: false,
+          initialChildSize: 0.65,
+          minChildSize: 0.4,
+          maxChildSize: 0.9,
+          builder: (_, scrollController) {
+            return Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppColors.cardBorderDark,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Equipos participantes',
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${teams.length} equipos confirmados • ${widget.leagueName}',
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded, color: AppColors.textSecondary),
+                        onPressed: () => Navigator.of(ctx).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                const Divider(height: 1, color: AppColors.cardBorderDark),
+                Expanded(
+                  child: teams.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No se registran equipos participantes aún.',
+                            style: TextStyle(color: AppColors.textSecondary),
+                          ),
+                        )
+                      : GridView.builder(
+                          controller: scrollController,
+                          padding: const EdgeInsets.all(16),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 2.2,
+                          ),
+                          itemCount: teams.length,
+                          itemBuilder: (context, idx) {
+                            final team = teams[idx];
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: AppColors.backgroundDark,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.cardBorderDark),
+                              ),
+                              child: Row(
+                                children: [
+                                  Container(
+                                    width: 38,
+                                    height: 38,
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withValues(alpha: 0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: team.logoUrl != null && team.logoUrl!.isNotEmpty
+                                        ? Image.network(
+                                            team.logoUrl!,
+                                            width: 26,
+                                            height: 26,
+                                            fit: BoxFit.contain,
+                                            errorBuilder: (_, __, ___) => Icon(
+                                              widget.sport.icon,
+                                              size: 18,
+                                              color: widget.sport.color,
+                                            ),
+                                          )
+                                        : Icon(
+                                            widget.sport.icon,
+                                            size: 18,
+                                            color: widget.sport.color,
+                                          ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          team.name,
+                                          style: const TextStyle(
+                                            color: AppColors.textPrimary,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          team.position != null
+                                              ? 'Puesto ${team.position} • ${team.points ?? 0} pts'
+                                              : (team.points != null
+                                                  ? '${team.points} pts'
+                                                  : (team.playedGames != null
+                                                      ? '${team.playedGames} PJ'
+                                                      : widget.sport.displayName)),
+                                          style: const TextStyle(
+                                            color: AppColors.textSecondary,
+                                            fontSize: 10,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final feedAsync = ref.watch(feedNotifierProvider);
@@ -117,6 +680,17 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
       orElse: () => const <EventModel>[],
     );
     final params = _resolveParams(events);
+    final detailAsync = ref.watch(leagueDetailProvider(params));
+    final leagueEvents = events
+        .where((e) => _matchesLeagueAndSeason(e, params))
+        .toList();
+    final officialLogo = _resolveLeagueLogo(params, events);
+    final periodInfo = _resolvePeriodInfo(params, leagueEvents);
+    final participatingTeams = _resolveParticipatingTeams(
+      params: params,
+      leagueEvents: leagueEvents,
+      detail: detailAsync.value,
+    );
 
     final isWorlds = widget.sport == SportType.lol &&
         (params.leagueSlug?.contains('worlds') == true ||
@@ -135,13 +709,39 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
             ),
             onPressed: () => context.pop(),
           ),
-          title: Text(
-            widget.leagueName.toUpperCase(),
-            style: const TextStyle(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-            ),
+          title: Row(
+            children: [
+              Container(
+                width: 28,
+                height: 28,
+                margin: const EdgeInsets.only(right: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                padding: const EdgeInsets.all(2),
+                child: Image.network(
+                  'https://cdn-api.pandascore.co/images/league/image/297/worlds-png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.sports_esports,
+                    size: 18,
+                    color: AppColors.lol,
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  widget.leagueName.toUpperCase(),
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
           actions: [
             IconButton(
@@ -191,13 +791,40 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
               ),
               onPressed: () => context.pop(),
             ),
-            title: Text(
-              widget.leagueName.toUpperCase(),
-              style: const TextStyle(
-                color: AppColors.textPrimary,
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+            title: Row(
+              children: [
+                Container(
+                  width: 28,
+                  height: 28,
+                  margin: const EdgeInsets.only(right: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.white24, width: 0.5),
+                  ),
+                  padding: const EdgeInsets.all(2),
+                  child: Image.network(
+                    'https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png',
+                    fit: BoxFit.contain,
+                    errorBuilder: (_, __, ___) => const Icon(
+                      Icons.sports_mma,
+                      size: 18,
+                      color: AppColors.ufcRed,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    widget.leagueName.toUpperCase(),
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
             ),
             actions: [
               IconButton(
@@ -256,7 +883,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
         headerSliverBuilder: (context, innerBoxIsScrolled) {
           return [
             SliverAppBar(
-              expandedHeight: 180,
+              expandedHeight: 200,
               pinned: true,
               backgroundColor: AppColors.surfaceDark,
               leading: IconButton(
@@ -266,6 +893,21 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
                 ),
                 onPressed: () => context.pop(),
               ),
+              actions: [
+                if (participatingTeams.isNotEmpty)
+                  IconButton(
+                    icon: const Icon(
+                      Icons.shield_outlined,
+                      color: AppColors.textPrimary,
+                      size: 20,
+                    ),
+                    tooltip: 'Ver equipos participantes',
+                    onPressed: () => _showParticipatingTeamsModal(
+                      context,
+                      participatingTeams,
+                    ),
+                  ),
+              ],
               flexibleSpace: FlexibleSpaceBar(
                 titlePadding:
                     const EdgeInsets.only(left: 48, bottom: 16, right: 16),
@@ -286,7 +928,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           colors: [
-                            widget.sport.color.withValues(alpha: 0.3),
+                            widget.sport.color.withValues(alpha: 0.35),
                             AppColors.surfaceDark,
                           ],
                         ),
@@ -294,11 +936,168 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
                     ),
                     Positioned(
                       right: -20,
-                      top: 40,
+                      top: 20,
                       child: Icon(
                         widget.sport.icon,
                         size: 150,
-                        color: widget.sport.color.withValues(alpha: 0.1),
+                        color: widget.sport.color.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    Positioned(
+                      top: 46,
+                      left: 48,
+                      right: 16,
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Container(
+                            width: 44,
+                            height: 44,
+                            decoration: BoxDecoration(
+                              color: (officialLogo != null && officialLogo.isNotEmpty)
+                                  ? Colors.white
+                                  : widget.sport.color.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: (officialLogo != null && officialLogo.isNotEmpty)
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.3),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            padding: (officialLogo != null && officialLogo.isNotEmpty)
+                                ? const EdgeInsets.all(3)
+                                : EdgeInsets.zero,
+                            alignment: Alignment.center,
+                            child: (officialLogo != null && officialLogo.isNotEmpty)
+                                ? Image.network(
+                                    officialLogo,
+                                    fit: BoxFit.contain,
+                                    errorBuilder: (_, __, ___) => Icon(
+                                      widget.sport.icon,
+                                      size: 24,
+                                      color: widget.sport.color,
+                                    ),
+                                  )
+                                : Icon(
+                                    widget.sport.icon,
+                                    size: 24,
+                                    color: widget.sport.color,
+                                  ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: periodInfo.statusColor.withValues(alpha: 0.2),
+                                        borderRadius: BorderRadius.circular(4),
+                                        border: Border.all(
+                                          color: periodInfo.statusColor.withValues(alpha: 0.4),
+                                          width: 0.8,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Container(
+                                            width: 5,
+                                            height: 5,
+                                            decoration: BoxDecoration(
+                                              color: periodInfo.statusColor,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            periodInfo.statusText.toUpperCase(),
+                                            style: TextStyle(
+                                              color: periodInfo.statusColor,
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    if (participatingTeams.isNotEmpty) ...[
+                                      const SizedBox(width: 6),
+                                      InkWell(
+                                        onTap: () => _showParticipatingTeamsModal(
+                                          context,
+                                          participatingTeams,
+                                        ),
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(4),
+                                            border: Border.all(
+                                              color: Colors.white.withValues(alpha: 0.25),
+                                              width: 0.8,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                '${participatingTeams.length} equipos',
+                                                style: const TextStyle(
+                                                  color: AppColors.textPrimary,
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 3),
+                                              const Icon(
+                                                Icons.chevron_right_rounded,
+                                                size: 11,
+                                                color: AppColors.textSecondary,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.calendar_today_rounded,
+                                      size: 11,
+                                      color: AppColors.textSecondary,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        periodInfo.periodText,
+                                        style: const TextStyle(
+                                          color: AppColors.textSecondary,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -331,7 +1130,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
           controller: _tabController,
           children: _isSoccer
               ? [
-                  _buildSummaryTab(params),
+                  _buildSummaryTab(params, participatingTeams),
                   _buildMatchesTab(params),
                   _buildStandingsTab(params),
                   _buildStatsTab(params),
@@ -603,7 +1402,10 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
     );
   }
 
-  Widget _buildSummaryTab(LeagueDetailParams params) {
+  Widget _buildSummaryTab(
+    LeagueDetailParams params,
+    List<_ParticipatingTeamInfo> participatingTeams,
+  ) {
     final feedAsync = ref.watch(feedNotifierProvider);
     final detailAsync = ref.watch(leagueDetailProvider(params));
 
