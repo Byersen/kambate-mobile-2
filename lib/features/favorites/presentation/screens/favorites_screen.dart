@@ -560,6 +560,8 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
               : event.sport.icon,
           color: event.sport.color,
           isCompetition: isComp,
+          slug: event.leagueModel?.slug,
+          logoUrl: event.leagueModel?.logoUrl,
         );
       }
     }

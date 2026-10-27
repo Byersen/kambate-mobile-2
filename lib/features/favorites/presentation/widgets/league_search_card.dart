@@ -21,6 +21,7 @@ class LeagueSearchCard extends ConsumerWidget {
     final isFavorite = followedLeagues.contains(league.name.toLowerCase());
     final effectiveColor = league.color ?? league.sport.color;
     final effectiveIcon = league.icon ?? league.sport.icon;
+    final hasLogo = league.logoUrl != null && league.logoUrl!.isNotEmpty;
 
     return Container(
       decoration: BoxDecoration(
@@ -34,8 +35,15 @@ class LeagueSearchCard extends ConsumerWidget {
           borderRadius: BorderRadius.circular(16),
           onTap: onTap ??
               () {
+                final queryParams = <String, String>{};
+                if (league.slug != null && league.slug!.isNotEmpty) {
+                  queryParams['slug'] = league.slug!;
+                }
+                final queryStr = queryParams.isNotEmpty
+                    ? '?${Uri(queryParameters: queryParams).query}'
+                    : '';
                 context.push(
-                  '/league/${Uri.encodeComponent(league.name)}',
+                  '/league/${Uri.encodeComponent(league.name)}$queryStr',
                   extra: league.sport,
                 );
               },
@@ -49,18 +57,38 @@ class LeagueSearchCard extends ConsumerWidget {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      width: 38,
-                      height: 38,
+                      width: 40,
+                      height: 40,
                       decoration: BoxDecoration(
-                        color: effectiveColor.withValues(alpha: 0.12),
+                        color: hasLogo ? Colors.white : effectiveColor.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
+                        boxShadow: hasLogo
+                            ? [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.15),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ]
+                            : null,
                       ),
+                      padding: hasLogo ? const EdgeInsets.all(4) : EdgeInsets.zero,
                       alignment: Alignment.center,
-                      child: Icon(
-                        effectiveIcon,
-                        size: 20,
-                        color: effectiveColor,
-                      ),
+                      child: hasLogo
+                          ? Image.network(
+                              league.logoUrl!,
+                              fit: BoxFit.contain,
+                              errorBuilder: (_, __, ___) => Icon(
+                                effectiveIcon,
+                                size: 20,
+                                color: effectiveColor,
+                              ),
+                            )
+                          : Icon(
+                              effectiveIcon,
+                              size: 20,
+                              color: effectiveColor,
+                            ),
                     ),
                     IconButton(
                       icon: Icon(
@@ -91,14 +119,38 @@ class LeagueSearchCard extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 3),
-                    Text(
-                      league.subtitle,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      children: [
+                        if (league.isCompetition) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                            margin: const EdgeInsets.only(right: 6),
+                            decoration: BoxDecoration(
+                              color: AppColors.warning.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: const Text(
+                              'TORNEO',
+                              style: TextStyle(
+                                color: AppColors.warning,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                        Expanded(
+                          child: Text(
+                            league.subtitle,
+                            style: const TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 12,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),

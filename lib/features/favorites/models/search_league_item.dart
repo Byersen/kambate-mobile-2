@@ -10,6 +10,8 @@ class SearchLeagueItem {
   final IconData? icon;
   final Color? color;
   final bool isCompetition;
+  final String? logoUrl;
+  final String? slug;
 
   const SearchLeagueItem({
     required this.name,
@@ -19,11 +21,13 @@ class SearchLeagueItem {
     this.icon,
     this.color,
     this.isCompetition = false,
+    this.logoUrl,
+    this.slug,
   });
 }
 
 /// Canonical leagues catalogue according to the official Kambate prototype (assets/images/vista-buscar.png)
-/// and the supported multipsort architecture.
+/// and the supported multisport architecture with official logo URLs and slugs.
 const List<SearchLeagueItem> kCanonicalLeagues = [
   SearchLeagueItem(
     name: 'Champions League',
@@ -33,6 +37,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     icon: Icons.sports_soccer,
     color: AppColors.soccer,
     isCompetition: true,
+    slug: 'uefa.champions',
+    logoUrl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2.png',
   ),
   SearchLeagueItem(
     name: 'NBA',
@@ -41,6 +47,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Norteamérica',
     icon: Icons.sports_basketball,
     color: AppColors.basketball,
+    slug: 'nba',
+    logoUrl: 'https://a.espncdn.com/i/teamlogos/leagues/500/nba.png',
   ),
   SearchLeagueItem(
     name: 'UFC',
@@ -49,6 +57,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Internacional',
     icon: Icons.sports_mma,
     color: AppColors.ufc,
+    slug: 'ufc',
+    logoUrl: 'https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png',
   ),
   SearchLeagueItem(
     name: 'Worlds',
@@ -58,6 +68,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     icon: Icons.sports_esports,
     color: AppColors.lol,
     isCompetition: true,
+    slug: 'worlds',
+    logoUrl: 'https://cdn-api.pandascore.co/images/league/image/297/worlds-png',
   ),
   SearchLeagueItem(
     name: 'LCK',
@@ -66,6 +78,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Internacional',
     icon: Icons.sports_esports,
     color: AppColors.lol,
+    slug: 'lck',
+    logoUrl: 'https://cdn-api.pandascore.co/images/league/image/293/lck.png',
   ),
   SearchLeagueItem(
     name: 'VCT Americas',
@@ -75,6 +89,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     icon: Icons.track_changes,
     color: AppColors.valorant,
     isCompetition: false,
+    slug: 'vct-americas',
+    logoUrl: 'https://owcdn.net/img/63c784918f6f8.png',
   ),
   SearchLeagueItem(
     name: 'Europa League',
@@ -84,6 +100,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     icon: Icons.sports_soccer,
     color: AppColors.soccer,
     isCompetition: true,
+    slug: 'uefa.europa',
+    logoUrl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/2310.png',
   ),
   SearchLeagueItem(
     name: 'MSI',
@@ -93,6 +111,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     icon: Icons.emoji_events,
     color: AppColors.lol,
     isCompetition: true,
+    slug: 'msi',
+    logoUrl: 'https://cdn-api.pandascore.co/images/league/image/381/msi.png',
   ),
   SearchLeagueItem(
     name: 'Valorant Champions',
@@ -102,6 +122,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     icon: Icons.emoji_events,
     color: AppColors.valorant,
     isCompetition: true,
+    slug: 'valorant-champions',
+    logoUrl: 'https://owcdn.net/img/63068fba24300.png',
   ),
   SearchLeagueItem(
     name: 'Valorant Masters',
@@ -111,6 +133,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     icon: Icons.military_tech,
     color: AppColors.valorant,
     isCompetition: true,
+    slug: 'valorant-masters',
+    logoUrl: 'https://owcdn.net/img/605b0ad98ba96.png',
   ),
   SearchLeagueItem(
     name: 'Premier League',
@@ -119,6 +143,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Europa',
     icon: Icons.sports_soccer,
     color: AppColors.soccer,
+    slug: 'eng.1',
+    logoUrl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/23.png',
   ),
   SearchLeagueItem(
     name: 'LaLiga',
@@ -127,6 +153,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Europa',
     icon: Icons.sports_soccer,
     color: AppColors.soccer,
+    slug: 'esp.1',
+    logoUrl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/15.png',
   ),
   SearchLeagueItem(
     name: 'Serie A',
@@ -135,6 +163,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Europa',
     icon: Icons.sports_soccer,
     color: AppColors.soccer,
+    slug: 'ita.1',
+    logoUrl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/12.png',
   ),
   SearchLeagueItem(
     name: 'Bundesliga',
@@ -143,6 +173,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Europa',
     icon: Icons.sports_soccer,
     color: AppColors.soccer,
+    slug: 'ger.1',
+    logoUrl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/10.png',
   ),
   SearchLeagueItem(
     name: 'Ligue 1',
@@ -151,6 +183,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Europa',
     icon: Icons.sports_soccer,
     color: AppColors.soccer,
+    slug: 'fra.1',
+    logoUrl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/9.png',
   ),
   SearchLeagueItem(
     name: 'Conference League',
@@ -159,6 +193,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Europa',
     icon: Icons.sports_soccer,
     color: AppColors.soccer,
+    slug: 'uefa.europa.conf',
+    logoUrl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/20296.png',
   ),
   SearchLeagueItem(
     name: 'Copa Libertadores',
@@ -167,6 +203,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Sudamérica',
     icon: Icons.sports_soccer,
     color: AppColors.soccer,
+    slug: 'conmebol.libertadores',
+    logoUrl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/58.png',
   ),
   SearchLeagueItem(
     name: 'Copa Sudamericana',
@@ -175,6 +213,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Sudamérica',
     icon: Icons.sports_soccer,
     color: AppColors.soccer,
+    slug: 'conmebol.sudamericana',
+    logoUrl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/1208.png',
   ),
   SearchLeagueItem(
     name: 'Primera División',
@@ -183,6 +223,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Sudamérica',
     icon: Icons.sports_soccer,
     color: AppColors.soccer,
+    slug: 'chi.1',
+    logoUrl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/86.png',
   ),
   SearchLeagueItem(
     name: 'Liga Profesional',
@@ -191,6 +233,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Sudamérica',
     icon: Icons.sports_soccer,
     color: AppColors.soccer,
+    slug: 'arg.1',
+    logoUrl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/1.png',
   ),
   SearchLeagueItem(
     name: 'Brasileirão',
@@ -199,6 +243,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Sudamérica',
     icon: Icons.sports_soccer,
     color: AppColors.soccer,
+    slug: 'bra.1',
+    logoUrl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/85.png',
   ),
   SearchLeagueItem(
     name: 'MLS',
@@ -207,6 +253,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Norteamérica',
     icon: Icons.sports_soccer,
     color: AppColors.soccer,
+    slug: 'usa.1',
+    logoUrl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/19.png',
   ),
   SearchLeagueItem(
     name: 'Liga MX',
@@ -215,6 +263,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Norteamérica',
     icon: Icons.sports_soccer,
     color: AppColors.soccer,
+    slug: 'mex.1',
+    logoUrl: 'https://a.espncdn.com/i/leaguelogos/soccer/500/22.png',
   ),
   SearchLeagueItem(
     name: 'LEC',
@@ -223,6 +273,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Europa',
     icon: Icons.sports_esports,
     color: AppColors.lol,
+    slug: 'lec',
+    logoUrl: 'https://cdn-api.pandascore.co/images/league/image/4197/lec.png',
   ),
   SearchLeagueItem(
     name: 'LCS',
@@ -231,6 +283,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Norteamérica',
     icon: Icons.sports_esports,
     color: AppColors.lol,
+    slug: 'lcs',
+    logoUrl: 'https://cdn-api.pandascore.co/images/league/image/4198/lcs.png',
   ),
   SearchLeagueItem(
     name: 'VCT EMEA',
@@ -239,6 +293,8 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Europa',
     icon: Icons.track_changes,
     color: AppColors.valorant,
+    slug: 'vct-emea',
+    logoUrl: 'https://owcdn.net/img/63c784bc21e64.png',
   ),
   SearchLeagueItem(
     name: 'VCT Ascension Americas',
@@ -247,5 +303,7 @@ const List<SearchLeagueItem> kCanonicalLeagues = [
     region: 'Norteamérica',
     icon: Icons.track_changes,
     color: AppColors.valorant,
+    slug: 'vct-ascension-americas',
+    logoUrl: 'https://owcdn.net/img/63c784918f6f8.png',
   ),
 ];
