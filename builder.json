@@ -1,0 +1,22 @@
+{
+  "project": "kambate-mobile",
+  "platform": "ios",
+  "github": {
+    "owner": "Byersen",
+    "repo": "kambate-mobile"
+  },
+  "provider": "github",
+  "codemagic": {},
+  "bitrise": {},
+  "ios": {
+    "path": "ios",
+    "bundleId": "com.kambate.kambateMobile"
+  },
+  "flutter": {
+    "version": "3.44.8",
+    "watch": {}
+  },
+  "reactNative": {},
+  "kmp": {},
+  "mobai": {}
+}
