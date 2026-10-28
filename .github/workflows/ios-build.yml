@@ -1074,6 +1074,9 @@ jobs:
 
           if [ "$PROJECT_TYPE" = "flutter" ]; then
             cd "$GITHUB_WORKSPACE"
+            if [ ! -f ".env" ] && [ -f ".env.example" ]; then
+              cp ".env.example" ".env"
+            fi
             apply_build_number
             FLUTTER_VERSION_FLAGS=""
             if [ -n "$build_number" ]; then

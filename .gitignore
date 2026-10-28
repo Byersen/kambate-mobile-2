@@ -45,6 +45,7 @@ migrate_working_dir/
 .env
 .env.*
 *.env
+!.env.example
 *.keystore
 *.jks
 key.properties
