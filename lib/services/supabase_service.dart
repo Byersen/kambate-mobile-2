@@ -12,8 +12,14 @@ class SupabaseService {
     return Supabase.instance.client;
   }
 
+  static const String _defaultRailwayUrl =
+      'https://kambate-backend-production.up.railway.app';
+
   static String get apiUrl {
-    final configured = dotenv.env['API_URL'] ?? 'http://localhost:4000';
+    final configured = dotenv.env['API_URL'] ?? _defaultRailwayUrl;
+    if (!kIsWeb && configured.contains('localhost')) {
+      return _defaultRailwayUrl;
+    }
     if (kIsWeb && configured.contains('localhost')) {
       final host = Uri.base.host;
       if (host.isNotEmpty && host != 'localhost' && host != '127.0.0.1') {

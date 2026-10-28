@@ -868,6 +868,9 @@ jobs:
           CONFIGURATION: ${{ steps.params.outputs.configuration }}
           BUILD_NUMBER: ${{ steps.params.outputs.build_number }}
           DISTRIBUTION: ${{ steps.params.outputs.distribution }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          API_URL: ${{ secrets.API_URL }}
         run: |
           set -e
           fail() { echo "::error::$*" >&2; exit 1; }
@@ -1074,7 +1077,13 @@ jobs:
 
           if [ "$PROJECT_TYPE" = "flutter" ]; then
             cd "$GITHUB_WORKSPACE"
-            if [ ! -f ".env" ] && [ -f ".env.example" ]; then
+            if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_ANON_KEY:-}" ]; then
+              {
+                echo "SUPABASE_URL=$SUPABASE_URL"
+                echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY"
+                echo "API_URL=${API_URL:-https://kambate-backend-production.up.railway.app}"
+              } > ".env"
+            elif [ ! -f ".env" ] && [ -f ".env.example" ]; then
               cp ".env.example" ".env"
             fi
             apply_build_number

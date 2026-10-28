@@ -10,7 +10,8 @@
   "bitrise": {},
   "ios": {
     "path": "ios",
-    "bundleId": "com.kambate.kambateMobile"
+    "bundleId": "com.kambate.kambateMobile",
+    "configuration": "Release"
   },
   "flutter": {
     "version": "3.44.8",
