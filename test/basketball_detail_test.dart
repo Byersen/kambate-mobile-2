@@ -326,33 +326,29 @@ void main() {
       },
     );
 
-    testWidgets('Pestaña Jugadas renderiza cronología y filtro', (
-      tester,
-    ) async {
-      final event = buildBasketballSample();
-      final repository = MutableBasketballRepository(event);
+    testWidgets(
+      'Pestaña Jugadas eliminada: solo muestra Resumen y Jugadores',
+      (tester) async {
+        final event = buildBasketballSample();
+        final repository = MutableBasketballRepository(event);
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [feedRepositoryProvider.overrideWithValue(repository)],
-          child: MaterialApp(
-            theme: AppTheme.lightTheme,
-            home: MatchDetailScreen(event: event),
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [feedRepositoryProvider.overrideWithValue(repository)],
+            child: MaterialApp(
+              theme: AppTheme.lightTheme,
+              home: MatchDetailScreen(event: event),
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      // Cambiar a pestaña Jugadas (índice 2)
-      final jugadasTab = find.byKey(const ValueKey('basketball-tab-2'));
-      expect(jugadasTab, findsOneWidget);
-      await tester.tap(jugadasTab);
-      await tester.pumpAndSettle();
-
-      expect(find.text('Jugadas del partido'), findsOneWidget);
-      expect(find.text('Triple anotado por Jugador 23'), findsOneWidget);
-      expect(find.text('Marcador: 84 - 79'), findsOneWidget);
-    });
+        expect(find.byKey(const ValueKey('basketball-tab-0')), findsOneWidget);
+        expect(find.byKey(const ValueKey('basketball-tab-1')), findsOneWidget);
+        expect(find.byKey(const ValueKey('basketball-tab-2')), findsNothing);
+        expect(find.text('Jugadas'), findsNothing);
+      },
+    );
 
     testWidgets(
       'Sin datos de detalle no muestra cuartos ficticios ni cálculos inventados',
@@ -531,14 +527,8 @@ void main() {
           findsOneWidget,
         );
 
-        // Pestaña Jugadas muestra estado no disponible sin crashear
-        final playsTab = find.byKey(const ValueKey('basketball-tab-2'));
-        await tester.tap(playsTab);
-        await tester.pumpAndSettle();
-        expect(
-          find.text('No hay jugadas registradas para este encuentro.'),
-          findsOneWidget,
-        );
+        // Pestaña Jugadas ya no existe
+        expect(find.byKey(const ValueKey('basketball-tab-2')), findsNothing);
       },
     );
 
