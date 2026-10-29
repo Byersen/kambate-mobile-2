@@ -123,17 +123,35 @@ class _FootballDetailViewState extends State<FootballDetailView> {
     final halftimeScore = _computeHalftimeScore(incidents);
     final startTimeText = AppDateFormatter.formatEventTime(event.startTime);
 
+    final sorted = List<FootballIncident>.from(incidents)
+      ..sort((a, b) {
+        final mA = _parseBaseMinute(a.minute) ?? 0;
+        final mB = _parseBaseMinute(b.minute) ?? 0;
+        return mA.compareTo(mB);
+      });
+
+    final firstHalf = <FootballIncident>[];
+    final secondHalf = <FootballIncident>[];
+    for (final item in sorted) {
+      final m = _parseBaseMinute(item.minute);
+      if (m != null && m > 45) {
+        secondHalf.add(item);
+      } else {
+        firstHalf.add(item);
+      }
+    }
+
+    final showHalftime = secondHalf.isNotEmpty ||
+        (event.status == EventStatus.finished && firstHalf.isNotEmpty);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _title('Momentos del partido'),
         const SizedBox(height: 12),
-        for (var i = 0; i < incidents.length; i++) ...[
-          if (i > 0 &&
-              _isHalfTransition(incidents[i - 1].minute, incidents[i].minute))
-            _timelineDivider('Medio tiempo $halftimeScore'),
-          _timelineItem(incidents[i]),
-        ],
+        for (final item in secondHalf.reversed) _timelineItem(item),
+        if (showHalftime) _timelineDivider('Medio tiempo $halftimeScore'),
+        for (final item in firstHalf.reversed) _timelineItem(item),
         const SizedBox(height: 4),
         _timelineDivider('Empieza el partido $startTimeText'),
       ],
@@ -146,14 +164,6 @@ class _FootballDetailViewState extends State<FootballDetailView> {
     if (match == null) return null;
     return int.tryParse(match.group(1)!);
   }
-
-  bool _isHalfTransition(String? prevMinute, String? currMinute) {
-    final prev = _parseBaseMinute(prevMinute);
-    final curr = _parseBaseMinute(currMinute);
-    if (prev == null || curr == null) return false;
-    return (prev <= 45 && curr > 45) || (prev > 45 && curr <= 45);
-  }
-
   String _computeHalftimeScore(List<FootballIncident> incidents) {
     var homeGoals = 0;
     var awayGoals = 0;
