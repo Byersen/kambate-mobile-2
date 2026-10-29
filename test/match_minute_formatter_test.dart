@@ -6,12 +6,13 @@ import 'package:kambate_mobile/models/sport_type.dart';
 import 'package:kambate_mobile/models/stats_models.dart';
 
 void main() {
-  group('MatchMinuteFormatter (Tarea 27: Minuto real en vivo)', () {
+  group('MatchMinuteFormatter (Fútbol y NBA en vivo)', () {
     EventModel makeEvent({
       required SportType sport,
       required EventStatus status,
       String? currentPeriod,
       FootballStatsModel? footballStats,
+      NbaStatsModel? nbaStats,
     }) {
       return EventModel(
         id: 'test-event-1',
@@ -21,6 +22,7 @@ void main() {
         startTime: DateTime.now(),
         currentPeriod: currentPeriod,
         footballStats: footballStats,
+        nbaStats: nbaStats,
       );
     }
 
@@ -74,32 +76,29 @@ void main() {
       expect(MatchMinuteFormatter.format(evFallback), '34′');
     });
 
-    test(
-      'usa el reloj real aunque currentPeriod sea un estado no numérico',
-      () {
-        final ev = makeEvent(
-          sport: SportType.soccer,
-          status: EventStatus.live,
-          currentPeriod: 'En vivo',
-          footballStats: const FootballStatsModel(
-            id: 'fs-clock',
-            extraStats: {'clock': "42'"},
-          ),
-        );
-        expect(MatchMinuteFormatter.format(ev), '42′');
+    test('usa el reloj real aunque currentPeriod sea un estado no numérico', () {
+      final ev = makeEvent(
+        sport: SportType.soccer,
+        status: EventStatus.live,
+        currentPeriod: 'En vivo',
+        footballStats: const FootballStatsModel(
+          id: 'fs-clock',
+          extraStats: {'clock': "42'"},
+        ),
+      );
+      expect(MatchMinuteFormatter.format(ev), '42′');
 
-        final fromDetail = makeEvent(
-          sport: SportType.soccer,
-          status: EventStatus.live,
-          currentPeriod: 'En vivo',
-          footballStats: const FootballStatsModel(
-            id: 'fs-detail',
-            extraStats: {'statusDetail': "45+2'"},
-          ),
-        );
-        expect(MatchMinuteFormatter.format(fromDetail), '45+2′');
-      },
-    );
+      final fromDetail = makeEvent(
+        sport: SportType.soccer,
+        status: EventStatus.live,
+        currentPeriod: 'En vivo',
+        footballStats: const FootballStatsModel(
+          id: 'fs-detail',
+          extraStats: {'statusDetail': "45+2'"},
+        ),
+      );
+      expect(MatchMinuteFormatter.format(fromDetail), '45+2′');
+    });
 
     test('lee el descuento ESPN en el payload real de Supabase', () {
       final event = EventModel.fromJson({
@@ -140,7 +139,48 @@ void main() {
       expect(MatchMinuteFormatter.format(ev105Plus1), '105+1′');
     });
 
-    test('Minuto ausente o estados de descanso (HT, Entretiempo, etc.) retornan null', () {
+    test('Fútbol en entretiempo (HT, Entretiempo, Descanso, Halftime) muestra "ET"', () {
+      final evHt = makeEvent(
+        sport: SportType.soccer,
+        status: EventStatus.live,
+        currentPeriod: 'HT',
+      );
+      expect(MatchMinuteFormatter.format(evHt), 'ET');
+
+      final evEntretiempo = makeEvent(
+        sport: SportType.soccer,
+        status: EventStatus.live,
+        currentPeriod: 'Entretiempo',
+      );
+      expect(MatchMinuteFormatter.format(evEntretiempo), 'ET');
+
+      final evDescanso = makeEvent(
+        sport: SportType.soccer,
+        status: EventStatus.live,
+        currentPeriod: 'Descanso',
+      );
+      expect(MatchMinuteFormatter.format(evDescanso), 'ET');
+
+      final evHalftime = makeEvent(
+        sport: SportType.soccer,
+        status: EventStatus.live,
+        currentPeriod: 'Halftime',
+      );
+      expect(MatchMinuteFormatter.format(evHalftime), 'ET');
+
+      final evFromStats = makeEvent(
+        sport: SportType.soccer,
+        status: EventStatus.live,
+        currentPeriod: null,
+        footballStats: const FootballStatsModel(
+          id: 'fs-ht',
+          extraStats: {'statusDetail': 'HT'},
+        ),
+      );
+      expect(MatchMinuteFormatter.format(evFromStats), 'ET');
+    });
+
+    test('Minuto ausente sin indicación de entretiempo retorna null', () {
       final evNull = makeEvent(
         sport: SportType.soccer,
         status: EventStatus.live,
@@ -154,46 +194,134 @@ void main() {
         currentPeriod: '   ',
       );
       expect(MatchMinuteFormatter.format(evEmpty), isNull);
-
-      final evHt = makeEvent(
-        sport: SportType.soccer,
-        status: EventStatus.live,
-        currentPeriod: 'HT',
-      );
-      expect(MatchMinuteFormatter.format(evHt), isNull);
-
-      final evEntretiempo = makeEvent(
-        sport: SportType.soccer,
-        status: EventStatus.live,
-        currentPeriod: 'Entretiempo',
-      );
-      expect(MatchMinuteFormatter.format(evEntretiempo), isNull);
-
-      final evDescanso = makeEvent(
-        sport: SportType.soccer,
-        status: EventStatus.live,
-        currentPeriod: 'Descanso',
-      );
-      expect(MatchMinuteFormatter.format(evDescanso), isNull);
     });
 
-    test('Valores de otros deportes con semántica no equivalente no se convierten a minutos de fútbol', () {
-      // NBA: el reloj es cuenta regresiva de cuarto (e.g. 08:34), no minuto transcurrido
-      final nbaLive = makeEvent(
-        sport: SportType.nba,
-        status: EventStatus.live,
-        currentPeriod: '3.er cuarto · 02:34',
-      );
-      expect(MatchMinuteFormatter.format(nbaLive), isNull);
+    group('NBA en vivo (cuarto y reloj)', () {
+      test('Formatea cuarto y minuto exacto como "C1 - 3:20" y "C4 - 12:24"', () {
+        // Caso de ejemplo 1 del usuario: "C1 - 3:20"
+        final c1Sample = makeEvent(
+          sport: SportType.nba,
+          status: EventStatus.live,
+          currentPeriod: 'C1 - 3:20',
+        );
+        expect(MatchMinuteFormatter.format(c1Sample), 'C1 - 3:20');
 
-      final nbaClockOnly = makeEvent(
-        sport: SportType.nba,
-        status: EventStatus.live,
-        currentPeriod: '08:34',
-      );
-      expect(MatchMinuteFormatter.format(nbaClockOnly), isNull);
+        final c1FromStats = makeEvent(
+          sport: SportType.nba,
+          status: EventStatus.live,
+          nbaStats: const NbaStatsModel(
+            id: 'nba-1',
+            quarter: '1',
+            extraStats: {'clock': '3:20'},
+          ),
+        );
+        expect(MatchMinuteFormatter.format(c1FromStats), 'C1 - 3:20');
 
-      // UFC: reloj de asalto (e.g. 03:14 en round 2)
+        // Caso con minutos de dos dígitos: "C4 - 12:24"
+        final c4Sample = makeEvent(
+          sport: SportType.nba,
+          status: EventStatus.live,
+          currentPeriod: 'C4 - 12:24',
+        );
+        expect(MatchMinuteFormatter.format(c4Sample), 'C4 - 12:24');
+
+        final c4FromStats = makeEvent(
+          sport: SportType.nba,
+          status: EventStatus.live,
+          nbaStats: const NbaStatsModel(
+            id: 'nba-4',
+            quarter: '4',
+            extraStats: {'clock': '12:24'},
+          ),
+        );
+        expect(MatchMinuteFormatter.format(c4FromStats), 'C4 - 12:24');
+      });
+
+      test('Remueve ceros no significativos de minutos (ej. 03:20 -> 3:20, 04:12 -> 4:12)', () {
+        final evLeadingZero = makeEvent(
+          sport: SportType.nba,
+          status: EventStatus.live,
+          nbaStats: const NbaStatsModel(
+            id: 'nba-lz',
+            quarter: '1st Qtr',
+            extraStats: {'clock': '03:20'},
+          ),
+        );
+        expect(MatchMinuteFormatter.format(evLeadingZero), 'C1 - 3:20');
+
+        final evQ3 = makeEvent(
+          sport: SportType.nba,
+          status: EventStatus.live,
+          currentPeriod: 'Q3 04:12',
+        );
+        expect(MatchMinuteFormatter.format(evQ3), 'C3 - 4:12');
+
+        final evSpanishPeriod = makeEvent(
+          sport: SportType.nba,
+          status: EventStatus.live,
+          currentPeriod: '3.er cuarto · 02:34',
+        );
+        expect(MatchMinuteFormatter.format(evSpanishPeriod), 'C3 - 2:34');
+      });
+
+      test('Soporta prórroga (OT, OT2)', () {
+        final otMatch = makeEvent(
+          sport: SportType.nba,
+          status: EventStatus.live,
+          nbaStats: const NbaStatsModel(
+            id: 'nba-ot',
+            quarter: 'OT',
+            extraStats: {'clock': '2:15'},
+          ),
+        );
+        expect(MatchMinuteFormatter.format(otMatch), 'OT - 2:15');
+
+        final ot2Match = makeEvent(
+          sport: SportType.nba,
+          status: EventStatus.live,
+          nbaStats: const NbaStatsModel(
+            id: 'nba-ot2',
+            quarter: 'OT2',
+            extraStats: {'clock': '0:45'},
+          ),
+        );
+        expect(MatchMinuteFormatter.format(ot2Match), 'OT2 - 0:45');
+      });
+
+      test('NBA en entretiempo (Halftime / HT) retorna "ET"', () {
+        final nbaHalftime = makeEvent(
+          sport: SportType.nba,
+          status: EventStatus.live,
+          currentPeriod: 'Halftime',
+        );
+        expect(MatchMinuteFormatter.format(nbaHalftime), 'ET');
+
+        final nbaHtStats = makeEvent(
+          sport: SportType.nba,
+          status: EventStatus.live,
+          nbaStats: const NbaStatsModel(
+            id: 'nba-ht',
+            quarter: 'HT',
+          ),
+        );
+        expect(MatchMinuteFormatter.format(nbaHtStats), 'ET');
+      });
+
+      test('Solo cuarto sin reloj muestra "C{n}"', () {
+        final evQuarterOnly = makeEvent(
+          sport: SportType.nba,
+          status: EventStatus.live,
+          nbaStats: const NbaStatsModel(
+            id: 'nba-q2',
+            quarter: '2',
+          ),
+        );
+        expect(MatchMinuteFormatter.format(evQuarterOnly), 'C2');
+      });
+    });
+
+    test('Valores de otros deportes (UFC, Esports) no inventan minuto y retornan null', () {
+      // UFC: reloj de asalto
       final ufcLive = makeEvent(
         sport: SportType.ufc,
         status: EventStatus.live,
@@ -224,6 +352,13 @@ void main() {
         currentPeriod: "23'",
       );
       expect(MatchMinuteFormatter.format(scheduled), isNull);
+
+      final scheduledNba = makeEvent(
+        sport: SportType.nba,
+        status: EventStatus.scheduled,
+        currentPeriod: 'C1 - 3:20',
+      );
+      expect(MatchMinuteFormatter.format(scheduledNba), isNull);
 
       final finished = makeEvent(
         sport: SportType.soccer,
