@@ -59,16 +59,39 @@ class FeedRepository {
     }
   }
 
+  /// Consulta por defecto únicamente la ventana [ayer 00:00, mañana 23:59:59] en UTC.
   @visibleForTesting
-  Future<List<EventModel>> fetchRemoteEvents() async {
+  Future<List<EventModel>> fetchRemoteEvents({
+    DateTime? start,
+    DateTime? end,
+  }) async {
     final client = SupabaseService.client;
     if (client == null) throw StateError('Conexión de datos no disponible');
+
+    final nowLocal = DateTime.now();
+    final rangeStart = (start ??
+            DateTime(nowLocal.year, nowLocal.month, nowLocal.day - 1, 0, 0, 0))
+        .toUtc();
+    final rangeEnd = (end ??
+            DateTime(
+              nowLocal.year,
+              nowLocal.month,
+              nowLocal.day + 1,
+              23,
+              59,
+              59,
+              999,
+            ))
+        .toUtc();
+
     final events = <EventModel>[];
     const pageSize = 1000;
     for (var offset = 0; ; offset += pageSize) {
       final data = await client
           .from('Event')
           .select(_eventSelect)
+          .gte('startDate', rangeStart.toIso8601String())
+          .lte('startDate', rangeEnd.toIso8601String())
           .order('startDate')
           .order('id')
           .range(offset, offset + pageSize - 1);
@@ -76,6 +99,89 @@ class FeedRepository {
       if (data.length < pageSize) break;
     }
     return events;
+  }
+
+  /// Pulso ligero de alta prioridad:
+  /// a) Eventos con status = 'LIVE'
+  /// b) Eventos cuyos IDs estén en [trackedLiveIds] (transición LIVE -> FINISHED)
+  /// c) Eventos de hoy con status = 'SCHEDULED' y startDate <= DateTime.now().toUtc() (transición SCHEDULED -> LIVE)
+  Future<List<EventModel>> fetchLiveAndDueEvents(
+    List<String> trackedLiveIds,
+  ) async {
+    final client = SupabaseService.client;
+    if (client == null) throw StateError('Conexión de datos no disponible');
+
+    final nowLocal = DateTime.now();
+    final nowUtcIso = nowLocal.toUtc().toIso8601String();
+    final todayStartIso = DateTime(
+      nowLocal.year,
+      nowLocal.month,
+      nowLocal.day,
+      0,
+      0,
+      0,
+    ).toUtc().toIso8601String();
+
+    final cleanTrackedIds = trackedLiveIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+
+    final orFilters = <String>[
+      'status.eq.LIVE',
+      'and(status.eq.SCHEDULED,startDate.gte.$todayStartIso,startDate.lte.$nowUtcIso)',
+      if (cleanTrackedIds.isNotEmpty)
+        'id.in.(${cleanTrackedIds.map((id) => '"$id"').join(',')})',
+    ];
+
+    final data = await client
+        .from('Event')
+        .select(_eventSelect)
+        .or(orFilters.join(','))
+        .order('startDate')
+        .order('id');
+
+    final seenIds = <String>{};
+    final result = <EventModel>[];
+    for (final row in data) {
+      final event = EventModel.fromJson(row);
+      if (seenIds.add(event.id)) {
+        result.add(event);
+      }
+    }
+    return result;
+  }
+
+  /// Carga bajo demanda para un rango de fechas (carrusel o calendario).
+  Future<List<EventModel>> fetchEventsForDateRange(
+    DateTime start,
+    DateTime end,
+  ) async {
+    final normalizedStart = start.isUtc
+        ? start
+        : DateTime(
+            start.year,
+            start.month,
+            start.day,
+            start.hour,
+            start.minute,
+            start.second,
+            start.millisecond,
+          ).toUtc();
+
+    final isEndMidnight =
+        end.hour == 0 &&
+        end.minute == 0 &&
+        end.second == 0 &&
+        end.millisecond == 0;
+    final normalizedEnd = isEndMidnight
+        ? (end.isUtc
+            ? DateTime.utc(end.year, end.month, end.day, 23, 59, 59, 999)
+            : DateTime(end.year, end.month, end.day, 23, 59, 59, 999).toUtc())
+        : end.toUtc();
+
+    return fetchRemoteEvents(start: normalizedStart, end: normalizedEnd);
   }
 
   List<EventModel> _filter(
