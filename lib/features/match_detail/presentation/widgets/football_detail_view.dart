@@ -1,9 +1,10 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/date_formatter.dart';
 import '../../../../models/event_model.dart';
 import '../../../../models/event_status.dart';
 import '../../../../models/football_detail_model.dart';
-import '../../../../models/team_model.dart';
 
 class FootballDetailView extends StatefulWidget {
   final EventModel event;
@@ -126,330 +127,240 @@ class _FootballDetailViewState extends State<FootballDetailView> {
       );
     }
 
+    final halftimeScore = _computeHalftimeScore(incidents);
+    final startTimeText = AppDateFormatter.formatEventTime(event.startTime);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _title('Momentos del partido'),
-        const SizedBox(height: 14),
-        _timelineTeamsHeader(event),
-        const Padding(
-          padding: EdgeInsets.symmetric(vertical: 12),
-          child: Divider(height: 1, color: AppColors.border),
-        ),
-        for (var i = 0; i < incidents.length; i++)
-          _timelineItem(
-            incidents[i],
-            isFirst: i == 0,
-            isLast: i == incidents.length - 1,
-          ),
+        const SizedBox(height: 12),
+        for (var i = 0; i < incidents.length; i++) ...[
+          if (i > 0 &&
+              _isHalfTransition(incidents[i - 1].minute, incidents[i].minute))
+            _timelineDivider('Medio tiempo $halftimeScore'),
+          _timelineItem(incidents[i]),
+        ],
+        const SizedBox(height: 4),
+        _timelineDivider('Empieza el partido $startTimeText'),
       ],
     );
   }
 
-  Widget _timelineTeamsHeader(EventModel event) {
-    return Row(
-      children: [
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              Flexible(
-                child: Text(
-                  event.participant1Name,
-                  textAlign: TextAlign.end,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              _smallTeamLogo(event.homeTeam),
-            ],
-          ),
-        ),
-        const SizedBox(width: 28),
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              _smallTeamLogo(event.awayTeam),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  event.participant2Name,
-                  textAlign: TextAlign.start,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 13.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textPrimary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
+  int? _parseBaseMinute(String? raw) {
+    if (raw == null) return null;
+    final match = RegExp(r'(\d+)').firstMatch(raw);
+    if (match == null) return null;
+    return int.tryParse(match.group(1)!);
   }
 
-  Widget _smallTeamLogo(TeamModel? team) {
-    const fallback = Icon(
-      Icons.shield_outlined,
-      size: 20,
-      color: AppColors.textMuted,
-    );
-    final url = team?.logoUrl;
-    if (url == null || url.isEmpty) return fallback;
-    return SizedBox(
-      width: 24,
-      height: 24,
-      child: Image.network(
-        url,
-        fit: BoxFit.contain,
-        errorBuilder: (_, _, _) => fallback,
-      ),
-    );
+  bool _isHalfTransition(String? prevMinute, String? currMinute) {
+    final prev = _parseBaseMinute(prevMinute);
+    final curr = _parseBaseMinute(currMinute);
+    if (prev == null || curr == null) return false;
+    return (prev <= 45 && curr > 45) || (prev > 45 && curr <= 45);
   }
 
-  Widget _timelineItem(
-    FootballIncident item, {
-    required bool isFirst,
-    required bool isLast,
-  }) {
-    final isHome = item.side == 'home';
+  String _computeHalftimeScore(List<FootballIncident> incidents) {
+    var homeGoals = 0;
+    var awayGoals = 0;
+    for (final item in incidents) {
+      if (item.kind != 'goal') continue;
+      final minute = _parseBaseMinute(item.minute);
+      if (minute != null && minute <= 45) {
+        if (item.side == 'home') {
+          homeGoals++;
+        } else {
+          awayGoals++;
+        }
+      }
+    }
+    return '$homeGoals-$awayGoals';
+  }
 
-    return IntrinsicHeight(
+  Widget _timelineDivider(String label) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Expanded(
+          const Expanded(child: Divider(color: AppColors.border, thickness: 1)),
+          Flexible(
+            flex: 2,
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: isHome
-                  ? _buildIncidentDetails(item, isHome: true)
-                  : _buildMinuteText(item.minute, alignRight: true),
-            ),
-          ),
-          SizedBox(
-            width: 48,
-            child: Column(
-              children: [
-                Expanded(
-                  child: Container(
-                    width: 1.5,
-                    color: isFirst ? Colors.transparent : AppColors.border,
-                  ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textSecondary,
                 ),
-                _incidentBadge(item.kind),
-                Expanded(
-                  child: Container(
-                    width: 1.5,
-                    color: isLast ? Colors.transparent : AppColors.border,
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: isHome
-                  ? _buildMinuteText(item.minute, alignRight: false)
-                  : _buildIncidentDetails(item, isHome: false),
-            ),
-          ),
+          const Expanded(child: Divider(color: AppColors.border, thickness: 1)),
         ],
       ),
     );
   }
 
-  Widget _buildMinuteText(String? minute, {required bool alignRight}) {
-    return Text(
-      minute ?? '—',
-      textAlign: alignRight ? TextAlign.end : TextAlign.start,
-      style: const TextStyle(
-        fontWeight: FontWeight.w700,
-        fontSize: 13,
-        color: AppColors.textSecondary,
+  Widget _timelineItem(FootballIncident item) {
+    final isHome = item.side == 'home';
+    final minuteText = item.minute ?? '—';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: isHome
+            ? [
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 38),
+                  child: Text(
+                    minuteText,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                _incidentIcon(item.kind),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildIncidentText(item, alignRight: false),
+                ),
+              ]
+            : [
+                Expanded(
+                  child: _buildIncidentText(item, alignRight: true),
+                ),
+                const SizedBox(width: 12),
+                _incidentIcon(item.kind),
+                const SizedBox(width: 10),
+                ConstrainedBox(
+                  constraints: const BoxConstraints(minWidth: 38),
+                  child: Text(
+                    minuteText,
+                    textAlign: TextAlign.end,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+              ],
       ),
     );
   }
 
-  Widget _buildIncidentDetails(FootballIncident item, {required bool isHome}) {
+  Widget _buildIncidentText(FootballIncident item, {required bool alignRight}) {
     final alignment =
-        isHome ? CrossAxisAlignment.end : CrossAxisAlignment.start;
-    final textAlign = isHome ? TextAlign.end : TextAlign.start;
+        alignRight ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final textAlign = alignRight ? TextAlign.end : TextAlign.start;
 
-    switch (item.kind) {
-      case 'goal':
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: alignment,
-          children: [
-            Text(
-              item.player ?? 'Gol',
-              textAlign: textAlign,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 13.5,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            if (item.secondaryPlayer != null &&
-                item.secondaryPlayer!.isNotEmpty) ...[
-              const SizedBox(height: 2),
-              Text(
-                'Asista: ${item.secondaryPlayer}',
-                textAlign: textAlign,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ],
-        );
-
-      case 'yellowCard':
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: alignment,
-          children: [
-            Text(
-              item.player ?? 'Tarjeta amarilla',
-              textAlign: textAlign,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 13.5,
-                color: AppColors.warning,
-              ),
-            ),
-          ],
-        );
-
-      case 'redCard':
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: alignment,
-          children: [
-            Text(
-              item.player ?? 'Tarjeta roja',
-              textAlign: textAlign,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 13.5,
-                color: AppColors.liveRed,
-              ),
-            ),
-          ],
-        );
-
-      default:
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: alignment,
-          children: [
-            if (item.player != null)
-              Text(
-                '↑ ${item.player}',
-                textAlign: textAlign,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w700,
-                  fontSize: 13,
-                  color: AppColors.soccer,
-                ),
-              ),
-            if (item.secondaryPlayer != null) ...[
-              const SizedBox(height: 2),
-              Text(
-                '↓ ${item.secondaryPlayer}',
-                textAlign: textAlign,
-                style: const TextStyle(
-                  color: AppColors.liveRed,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ],
-        );
-    }
-  }
-
-  Widget _incidentBadge(String kind) {
-    final (Color bgColor, Color borderColor, Widget icon) = switch (kind) {
-      'goal' => (
-        AppColors.primary.withValues(alpha: 0.12),
-        AppColors.primary.withValues(alpha: 0.35),
-        const Icon(
-          Icons.sports_soccer,
-          size: 17,
-          color: AppColors.primary,
-        ),
-      ),
-      'yellowCard' => (
-        const Color(0xFFF59E0B).withValues(alpha: 0.14),
-        const Color(0xFFF59E0B).withValues(alpha: 0.45),
-        Container(
-          width: 11,
-          height: 15,
-          decoration: BoxDecoration(
-            color: const Color(0xFFF59E0B),
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-      ),
-      'redCard' => (
-        AppColors.liveRed.withValues(alpha: 0.12),
-        AppColors.liveRed.withValues(alpha: 0.4),
-        Container(
-          width: 11,
-          height: 15,
-          decoration: BoxDecoration(
-            color: AppColors.liveRed,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-      ),
-      _ => (
-        AppColors.surfaceMuted,
-        AppColors.border,
-        const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.arrow_downward_rounded,
-              size: 12,
-              color: AppColors.liveRed,
-            ),
-            Icon(
-              Icons.arrow_upward_rounded,
-              size: 12,
-              color: AppColors.soccer,
-            ),
-          ],
-        ),
-      ),
+    final primaryLabel = switch (item.kind) {
+      'goal' => item.player ?? 'Gol',
+      'yellowCard' => item.player ?? 'Tarjeta amarilla',
+      'redCard' => item.player ?? 'Tarjeta roja',
+      _ => item.player ?? 'Cambio',
     };
 
-    return Container(
-      width: 34,
-      height: 34,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: bgColor,
-        border: Border.all(color: borderColor, width: 1.2),
-      ),
-      alignment: Alignment.center,
-      child: icon,
+    final secondaryLabel = switch (item.kind) {
+      'goal'
+          when item.secondaryPlayer != null &&
+              item.secondaryPlayer!.isNotEmpty =>
+        'Asista: ${item.secondaryPlayer}',
+      'substitution'
+          when item.secondaryPlayer != null &&
+              item.secondaryPlayer!.isNotEmpty =>
+        'para ${item.secondaryPlayer}',
+      _ => null,
+    };
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: alignment,
+      children: [
+        Text(
+          primaryLabel,
+          textAlign: textAlign,
+          style: const TextStyle(
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        if (secondaryLabel != null) ...[
+          const SizedBox(height: 2),
+          Text(
+            secondaryLabel,
+            textAlign: textAlign,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ],
     );
+  }
+
+  Widget _incidentIcon(String kind) {
+    switch (kind) {
+      case 'goal':
+        return const SizedBox(
+          width: 22,
+          height: 22,
+          child: Icon(
+            Icons.sports_soccer,
+            size: 20,
+            color: AppColors.primary,
+          ),
+        );
+      case 'yellowCard':
+        return SizedBox(
+          width: 22,
+          height: 22,
+          child: Center(
+            child: Container(
+              width: 13,
+              height: 18,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFACC15),
+                borderRadius: BorderRadius.circular(2.5),
+              ),
+            ),
+          ),
+        );
+      case 'redCard':
+        return SizedBox(
+          width: 22,
+          height: 22,
+          child: Center(
+            child: Container(
+              width: 13,
+              height: 18,
+              decoration: BoxDecoration(
+                color: AppColors.liveRed,
+                borderRadius: BorderRadius.circular(2.5),
+              ),
+            ),
+          ),
+        );
+      default:
+        return const SizedBox(
+          width: 22,
+          height: 22,
+          child: CustomPaint(
+            painter: _SubstitutionCyclePainter(),
+          ),
+        );
+    }
   }
 
   List<FootballStatistic> _extractKeyStats(List<FootballStatistic> all) {
@@ -739,4 +650,83 @@ class _FootballDetailViewState extends State<FootballDetailView> {
       ],
     ),
   );
+}
+
+class _SubstitutionCyclePainter extends CustomPainter {
+  const _SubstitutionCyclePainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width * 0.36;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    final greenPaint = Paint()
+      ..color = AppColors.soccer
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round;
+
+    final redPaint = Paint()
+      ..color = AppColors.liveRed
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round;
+
+    // Arco superior verde (entra)
+    const startGreen = -math.pi * 0.85;
+    const sweepGreen = math.pi * 0.7;
+    canvas.drawArc(rect, startGreen, sweepGreen, false, greenPaint);
+    _drawArrowHead(
+      canvas,
+      center: center,
+      radius: radius,
+      endAngle: startGreen + sweepGreen,
+      clockwise: true,
+      paint: greenPaint,
+    );
+
+    // Arco inferior rojo (sale)
+    const startRed = math.pi * 0.15;
+    const sweepRed = math.pi * 0.7;
+    canvas.drawArc(rect, startRed, sweepRed, false, redPaint);
+    _drawArrowHead(
+      canvas,
+      center: center,
+      radius: radius,
+      endAngle: startRed + sweepRed,
+      clockwise: true,
+      paint: redPaint,
+    );
+  }
+
+  void _drawArrowHead(
+    Canvas canvas, {
+    required Offset center,
+    required double radius,
+    required double endAngle,
+    required bool clockwise,
+    required Paint paint,
+  }) {
+    final tip = Offset(
+      center.dx + radius * math.cos(endAngle),
+      center.dy + radius * math.sin(endAngle),
+    );
+    final tangentAngle = endAngle + (clockwise ? math.pi / 2 : -math.pi / 2);
+    const headLen = 3.8;
+    const spread = 0.6;
+    final p1 = Offset(
+      tip.dx - headLen * math.cos(tangentAngle - spread),
+      tip.dy - headLen * math.sin(tangentAngle - spread),
+    );
+    final p2 = Offset(
+      tip.dx - headLen * math.cos(tangentAngle + spread),
+      tip.dy - headLen * math.sin(tangentAngle + spread),
+    );
+    canvas.drawLine(tip, p1, paint);
+    canvas.drawLine(tip, p2, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

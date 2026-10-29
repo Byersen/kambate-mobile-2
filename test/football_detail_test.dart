@@ -243,8 +243,10 @@ void main() {
       expect(find.text('Jugador de prueba'), findsOneWidget);
       expect(find.text('Asista: Asistente de prueba'), findsOneWidget);
       expect(find.text('Defensa de prueba'), findsOneWidget);
-      expect(find.text('↑ Entra de prueba'), findsOneWidget);
-      expect(find.text('↓ Sale de prueba'), findsOneWidget);
+      expect(find.text('Entra de prueba'), findsOneWidget);
+      expect(find.text('para Sale de prueba'), findsOneWidget);
+      expect(find.text('Medio tiempo 1-0'), findsOneWidget);
+      expect(find.textContaining('Empieza el partido'), findsOneWidget);
       await capturePreview(
         tester,
         app.preview.currentContext!.findRenderObject() as RenderRepaintBoundary,
