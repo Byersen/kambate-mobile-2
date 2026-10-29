@@ -229,9 +229,11 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
         const FavoritesSportChips(),
         const SizedBox(height: 8),
 
-        // Selector de región (Todos, Europa, Sudamérica, Norteamérica, Internacional) según vista-buscar.png
-        const FavoritesRegionTabs(),
-        const SizedBox(height: 6),
+        // Selector de región: solo se muestra cuando el deporte es Fútbol y no hay búsqueda textual activa
+        if (selectedSport == SportType.soccer && !isSearching) ...[
+          const FavoritesRegionTabs(),
+          const SizedBox(height: 6),
+        ],
 
         // Área de contenido según estado: Cargando, Error, Vacío o Vista Completa
         Expanded(
@@ -322,12 +324,15 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
 
     // Filtrar ligas según deporte, región y consulta
     final filteredLeagues = allLeagues.where((league) {
-      // Filtro de deporte
-      if (selectedSport != SportType.all && league.sport != selectedSport) {
+      // Filtro de deporte: en exploración aplica el deporte seleccionado. En búsqueda textual busca en todos los deportes.
+      if (query.isEmpty &&
+          selectedSport != SportType.all &&
+          league.sport != selectedSport) {
         return false;
       }
-      // Filtro de región
-      if (selectedRegion != 'Todos' &&
+      // Filtro de región (solo aplica a Fútbol)
+      if (selectedSport == SportType.soccer &&
+          selectedRegion != 'Todos' &&
           league.region.toLowerCase() != selectedRegion.toLowerCase()) {
         return false;
       }
@@ -410,15 +415,17 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
                 style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
               ),
               if (query.isNotEmpty ||
-                  selectedSport != SportType.all ||
+                  selectedSport != SportType.soccer ||
                   selectedRegion != 'Todos') ...[
                 const SizedBox(height: 20),
                 OutlinedButton.icon(
                   onPressed: () {
                     _searchController.clear();
                     ref.read(favoritesSearchQueryProvider.notifier).state = '';
-                    ref.read(favoritesSportFilterProvider.notifier).state = SportType.all;
-                    ref.read(favoritesRegionFilterProvider.notifier).state = 'Todos';
+                    ref.read(favoritesSportFilterProvider.notifier).state =
+                        SportType.soccer;
+                    ref.read(favoritesRegionFilterProvider.notifier).state =
+                        'Todos';
                   },
                   icon: const Icon(Icons.clear_all_rounded, size: 16),
                   label: const Text('Restablecer filtros'),

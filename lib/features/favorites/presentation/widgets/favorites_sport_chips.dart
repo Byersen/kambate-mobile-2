@@ -16,9 +16,8 @@ class FavoritesSportChips extends ConsumerWidget {
     final sports = SportType.values
         .where(
           (s) =>
-              s == SportType.all ||
-              allowedSports.isEmpty ||
-              allowedSports.contains(s),
+              s != SportType.all &&
+              (allowedSports.isEmpty || allowedSports.contains(s)),
         )
         .toList();
 
@@ -37,12 +36,7 @@ class FavoritesSportChips extends ConsumerWidget {
             sport: sport,
             isSelected: isSelected,
             onTap: () {
-              final notifier = ref.read(favoritesSportFilterProvider.notifier);
-              if (notifier.state == sport && sport != SportType.all) {
-                notifier.state = SportType.all;
-              } else {
-                notifier.state = sport;
-              }
+              ref.read(favoritesSportFilterProvider.notifier).state = sport;
             },
           );
         },

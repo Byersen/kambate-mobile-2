@@ -9,7 +9,7 @@ import '../../../services/cache_service.dart';
 final favoritesSearchQueryProvider = StateProvider<String>((ref) => '');
 
 /// Tag / Sport filter for favorites screen
-final favoritesSportFilterProvider = StateProvider<SportType>((ref) => SportType.all);
+final favoritesSportFilterProvider = StateProvider<SportType>((ref) => SportType.soccer);
 
 /// Region filter for explore / search screen (Todos, Europa, Sudamérica, Norteamérica, Internacional)
 final favoritesRegionFilterProvider = StateProvider<String>((ref) => 'Todos');
@@ -198,7 +198,9 @@ final filteredTeamsProvider = Provider<List<SearchableTeamItem>>((ref) {
   final sportFilter = ref.watch(favoritesSportFilterProvider);
 
   return allTeams.where((team) {
-    if (sportFilter != SportType.all && team.sport != sportFilter) return false;
+    if (query.isEmpty && sportFilter != SportType.all && team.sport != sportFilter) {
+      return false;
+    }
     if (query.isEmpty) return true;
 
     final nameMatch = team.name.toLowerCase().contains(query);
