@@ -11,9 +11,16 @@ class TestRepository extends FeedRepository {
     : super(subscribeToRealtime: false);
   final List<EventModel> events;
   final bool fail;
+  DateTime? lastRequestedStart;
+  DateTime? lastRequestedEnd;
 
   @override
-  Future<List<EventModel>> fetchRemoteEvents() async {
+  Future<List<EventModel>> fetchRemoteEvents({
+    DateTime? start,
+    DateTime? end,
+  }) async {
+    lastRequestedStart = start;
+    lastRequestedEnd = end;
     if (fail) throw StateError('Sin conexión');
     return events;
   }
@@ -176,6 +183,28 @@ void main() {
       expect(
         cached!.map((e) => e.id).toList(),
         equals(['yesterday-event', 'real-event', 'tomorrow-event']),
+      );
+    },
+  );
+
+  test(
+    'fetchEventsForDateRange normaliza el rango en UTC y consulta bajo demanda',
+    () async {
+      final repository = TestRepository(events: [event]);
+      final targetDay = DateTime(2026, 11, 15);
+      final result = await repository.fetchEventsForDateRange(
+        targetDay,
+        targetDay,
+      );
+
+      expect(result.single.id, 'real-event');
+      expect(
+        repository.lastRequestedStart,
+        DateTime(2026, 11, 15, 0, 0, 0).toUtc(),
+      );
+      expect(
+        repository.lastRequestedEnd,
+        DateTime(2026, 11, 15, 23, 59, 59, 999).toUtc(),
       );
     },
   );
