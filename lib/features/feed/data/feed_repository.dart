@@ -61,7 +61,11 @@ class FeedRepository {
 
   /// Consulta por defecto únicamente la ventana [ayer 00:00, mañana 23:59:59] en UTC.
   @visibleForTesting
-  Future<List<EventModel>> fetchRemoteEvents({
+  Future<List<EventModel>> fetchRemoteEvents() async {
+    return _fetchRemoteEventsInWindow();
+  }
+
+  Future<List<EventModel>> _fetchRemoteEventsInWindow({
     DateTime? start,
     DateTime? end,
   }) async {
@@ -109,7 +113,9 @@ class FeedRepository {
     List<String> trackedLiveIds,
   ) async {
     final client = SupabaseService.client;
-    if (client == null) throw StateError('Conexión de datos no disponible');
+    if (client == null) {
+      return getEvents(forceRefresh: true);
+    }
 
     final nowLocal = DateTime.now();
     final nowUtcIso = nowLocal.toUtc().toIso8601String();
@@ -181,7 +187,18 @@ class FeedRepository {
             : DateTime(end.year, end.month, end.day, 23, 59, 59, 999).toUtc())
         : end.toUtc();
 
-    return fetchRemoteEvents(start: normalizedStart, end: normalizedEnd);
+    if (SupabaseService.client == null) {
+      final all = await fetchRemoteEvents();
+      return all.where((event) {
+        final t = event.startTime.toUtc();
+        return !t.isBefore(normalizedStart) && !t.isAfter(normalizedEnd);
+      }).toList();
+    }
+
+    return _fetchRemoteEventsInWindow(
+      start: normalizedStart,
+      end: normalizedEnd,
+    );
   }
 
   List<EventModel> _filter(
