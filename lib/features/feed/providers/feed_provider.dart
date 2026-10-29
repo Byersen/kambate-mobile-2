@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../models/event_model.dart';
 import '../../../models/event_status.dart';
 import '../../../models/sport_type.dart';
@@ -99,6 +100,9 @@ final selectedLeagueTierProvider = StateProvider<int?>((ref) {
 });
 
 /// Selected date filter for the main feed carousel (defaults to today)
+/// Notifica si los partidos de una fecha seleccionada se están cargando bajo demanda
+final isDateLoadingProvider = StateProvider<bool>((ref) => false);
+
 final selectedFeedDateProvider = StateProvider<DateTime>((ref) {
   final now = DateTime.now();
   return DateTime(now.year, now.month, now.day);
@@ -465,6 +469,7 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
         _ref.read(connectionStatusProvider.notifier).setConnected();
       }
       state = AsyncValue.data(events);
+      _preloadUpcomingDays();
     } catch (e, st) {
       if (mounted) {
         _ref.read(connectionStatusProvider.notifier).setOffline();
@@ -474,6 +479,92 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
       _isLoading = false;
       _currentLoadFuture = null;
     }
+  }
+
+
+  void _preloadUpcomingDays() {
+    unawaited(Future.microtask(() async {
+      try {
+        final nowLocal = DateTime.now();
+        final start = DateTime(nowLocal.year, nowLocal.month, nowLocal.day + 1, 0, 0, 0);
+        final end = DateTime(nowLocal.year, nowLocal.month, nowLocal.day + 6, 23, 59, 59, 999);
+        final upcoming = await _repository.fetchEventsForDateRange(start, end);
+        if (!mounted || upcoming.isEmpty) return;
+
+        final favoriteIds = await CacheService.getFavoriteIds();
+        final current = state.asData?.value ?? [];
+        final merged = _mergeEvents(current, upcoming, favoriteIds);
+        state = AsyncValue.data(merged);
+        await CacheService.saveEvents(merged);
+      } catch (e) {
+        debugPrint('FeedNotifier: Preload upcoming days silent error: $e');
+      }
+    }));
+  }
+
+  final Set<String> _loadingDates = {};
+
+  /// Carga bajo demanda los partidos y resultados de un día seleccionado
+  Future<void> loadEventsForDate(DateTime date, {bool forceRefresh = false}) async {
+    final dateKey = '--';
+    if (_loadingDates.contains(dateKey)) return;
+    _loadingDates.add(dateKey);
+
+    final currentEvents = state.asData?.value ?? <EventModel>[];
+    final hasEventsForDate = currentEvents.any(
+      (e) => AppDateFormatter.isSameDay(e.startTime, date),
+    );
+
+    if (!hasEventsForDate) {
+      _ref.read(isDateLoadingProvider.notifier).state = true;
+    }
+
+    try {
+      final startLocal = DateTime(date.year, date.month, date.day, 0, 0, 0);
+      final endLocal = DateTime(date.year, date.month, date.day, 23, 59, 59, 999);
+      final incoming = await _repository.fetchEventsForDateRange(startLocal, endLocal);
+
+      final favoriteIds = await CacheService.getFavoriteIds();
+      final latestEvents = List<EventModel>.from(state.asData?.value ?? currentEvents);
+      final merged = _mergeEvents(latestEvents, incoming, favoriteIds);
+
+      state = AsyncValue.data(merged);
+      await CacheService.saveEvents(merged);
+      _ref.read(connectionStatusProvider.notifier).setConnected();
+    } catch (e) {
+      debugPrint('FeedNotifier.loadEventsForDate error for $dateKey: $e');
+    } finally {
+      _loadingDates.remove(dateKey);
+      if (mounted) {
+        _ref.read(isDateLoadingProvider.notifier).state = false;
+      }
+    }
+  }
+
+  static List<EventModel> _mergeEvents(
+    List<EventModel> current,
+    List<EventModel> incoming,
+    Set<String> favoriteIds,
+  ) {
+    final result = List<EventModel>.from(current);
+    final indexById = <String, int>{
+      for (var i = 0; i < result.length; i++) result[i].id: i,
+    };
+
+    for (final inc in incoming) {
+      final idx = indexById[inc.id] ??
+          result.indexWhere((e) => e.externalId != null && e.externalId == inc.externalId);
+      final isFav = favoriteIds.contains(inc.id) || (idx != -1 && result[idx].isFavorite);
+      final item = inc.copyWith(isFavorite: isFav);
+
+      if (idx != -1) {
+        result[idx] = item;
+      } else {
+        result.add(item);
+        indexById[item.id] = result.length - 1;
+      }
+    }
+    return result;
   }
 
   void toggleFavorite(String eventId) async {

@@ -202,4 +202,30 @@ void main() {
       expect(result.map((e) => e.id).toList(), equals(['target-day-event']));
     },
   );
+
+  test(
+    'getEventsForDate obtiene los partidos del día especificado respetando hora local',
+    () async {
+      final requestedDate = DateTime(2026, 11, 20);
+      final matchEvent = event.copyWith(
+        id: 'date-match-event',
+        status: EventStatus.finished,
+        homeScore: 3,
+        awayScore: 0,
+        startTime: DateTime(2026, 11, 20, 15, 0).toUtc(),
+      );
+      final nextDayEvent = event.copyWith(
+        id: 'next-day-match-event',
+        startTime: DateTime(2026, 11, 21, 15, 0).toUtc(),
+      );
+
+      final repository = TestRepository(events: [matchEvent, nextDayEvent]);
+      final result = await repository.getEventsForDate(requestedDate);
+
+      expect(result.length, 1);
+      expect(result.single.id, 'date-match-event');
+      expect(result.single.homeScore, 3);
+      expect(result.single.status, EventStatus.finished);
+    },
+  );
 }

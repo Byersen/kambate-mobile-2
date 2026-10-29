@@ -42,6 +42,13 @@ class FeedScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final date = ref.watch(selectedFeedDateProvider);
+    final isDateLoading = ref.watch(isDateLoadingProvider);
+
+    ref.listen<DateTime>(selectedFeedDateProvider, (previous, next) {
+      if (previous == null || !AppDateFormatter.isSameDay(previous, next)) {
+        ref.read(feedNotifierProvider.notifier).loadEventsForDate(next);
+      }
+    });
     final selectedSports = ref.watch(selectedSportsProvider);
     final rawSport = ref.watch(selectedSportFilterProvider);
     final sport =
@@ -207,6 +214,8 @@ class FeedScreen extends ConsumerWidget {
                       ('En vivo', EventStatus.live),
                       ('Próximos', EventStatus.scheduled),
                       ('Resultados', EventStatus.finished),
+                      ('Aplazados', EventStatus.postponed),
+                      ('Cancelados', EventStatus.canceled),
                     ])
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
@@ -234,7 +243,7 @@ class FeedScreen extends ConsumerWidget {
               ),
             ),
 
-            if (feed.isLoading)
+            if (feed.isLoading || (isDateLoading && events.isEmpty))
               const SliverToBoxAdapter(
                 child: Padding(
                   padding: EdgeInsets.all(48),
@@ -633,13 +642,79 @@ class _CompetitionHeader extends ConsumerWidget {
   }
 }
 
-class _DateSelector extends StatelessWidget {
+class _DateSelector extends StatefulWidget {
   const _DateSelector({required this.date, required this.onChanged});
   final DateTime date;
   final ValueChanged<DateTime> onChanged;
 
   @override
+  State<_DateSelector> createState() => _DateSelectorState();
+}
+
+class _DateSelectorState extends State<_DateSelector> {
+  late final ScrollController _scrollController;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollToSelectedDate());
+  }
+
+  @override
+  void didUpdateWidget(covariant _DateSelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!AppDateFormatter.isSameDay(oldWidget.date, widget.date)) {
+      _scrollToSelectedDate();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollToSelectedDate() {
+    if (!_scrollController.hasClients) return;
+    final dates = _buildDatesList();
+    final index = dates.indexWhere((d) => AppDateFormatter.isSameDay(d, widget.date));
+    if (index != -1) {
+      const itemWidth = 70.0;
+      final target = (index * itemWidth) - 70;
+      final clamped = target.clamp(0.0, _scrollController.position.maxScrollExtent);
+      _scrollController.animateTo(
+        clamped,
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+      );
+    }
+  }
+
+  List<DateTime> _buildDatesList() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dates = <DateTime>[];
+
+    final selectedDay = DateTime(widget.date.year, widget.date.month, widget.date.day);
+    final yesterday = today.subtract(const Duration(days: 1));
+    var startDay = selectedDay.isBefore(yesterday) ? selectedDay : yesterday;
+
+    var cur = startDay;
+    final endDay = today.add(const Duration(days: 6));
+    final finalDay = selectedDay.isAfter(endDay) ? selectedDay : endDay;
+
+    while (!cur.isAfter(finalDay)) {
+      dates.add(cur);
+      cur = cur.add(const Duration(days: 1));
+    }
+    return dates;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final dates = _buildDatesList();
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
       child: Row(
@@ -650,24 +725,37 @@ class _DateSelector extends StatelessWidget {
             constraints: const BoxConstraints(minWidth: 28, minHeight: 36),
             tooltip: 'Día anterior',
             icon: const Icon(Icons.chevron_left, size: 20),
-            onPressed: () =>
-                onChanged(DateTime(date.year, date.month, date.day - 1)),
+            onPressed: () => widget.onChanged(
+              DateTime(widget.date.year, widget.date.month, widget.date.day - 1),
+            ),
           ),
-          for (final offset in [-1, 0, 1])
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 2),
-                child: _day(DateTime(date.year, date.month, date.day + offset)),
+          Expanded(
+            child: SizedBox(
+              height: (48.0 * MediaQuery.textScalerOf(context).scale(1.0).clamp(1.0, 1.5)).clamp(48.0, 68.0),
+              child: ListView.builder(
+                controller: _scrollController,
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                itemCount: dates.length,
+                itemBuilder: (context, index) {
+                  final dayDate = dates[index];
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    child: _day(dayDate),
+                  );
+                },
               ),
             ),
+          ),
           IconButton(
             visualDensity: VisualDensity.compact,
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(minWidth: 28, minHeight: 36),
             tooltip: 'Día siguiente',
             icon: const Icon(Icons.chevron_right, size: 20),
-            onPressed: () =>
-                onChanged(DateTime(date.year, date.month, date.day + 1)),
+            onPressed: () => widget.onChanged(
+              DateTime(widget.date.year, widget.date.month, widget.date.day + 1),
+            ),
           ),
           IconButton(
             visualDensity: VisualDensity.compact,
@@ -678,7 +766,7 @@ class _DateSelector extends StatelessWidget {
             onPressed: () async {
               final picked = await showDatePicker(
                 context: context,
-                initialDate: date,
+                initialDate: widget.date,
                 firstDate: DateTime(2024, 1, 1),
                 lastDate: DateTime(2030, 12, 31),
                 helpText: 'SELECCIONAR FECHA',
@@ -686,7 +774,7 @@ class _DateSelector extends StatelessWidget {
                 confirmText: 'SELECCIONAR',
               );
               if (picked != null) {
-                onChanged(DateTime(picked.year, picked.month, picked.day));
+                widget.onChanged(DateTime(picked.year, picked.month, picked.day));
               }
             },
           ),
@@ -696,32 +784,44 @@ class _DateSelector extends StatelessWidget {
   }
 
   Widget _day(DateTime value) {
-    final selected = AppDateFormatter.isSameDay(date, value);
+    final selected = AppDateFormatter.isSameDay(widget.date, value);
     return TextButton(
       style: TextButton.styleFrom(
-        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        minimumSize: const Size(64, 40),
         visualDensity: VisualDensity.compact,
         foregroundColor: selected ? AppColors.onPrimary : AppColors.textPrimary,
         backgroundColor: selected ? AppColors.primary : AppColors.surfaceMuted,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
-      onPressed: () => onChanged(value),
+      onPressed: () => widget.onChanged(value),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              AppDateFormatter.getRelativeDayName(value),
-              style: const TextStyle(fontSize: 12),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                AppDateFormatter.getRelativeDayName(value),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.w600,
+                ),
+              ),
             ),
           ),
           const SizedBox(height: 2),
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(
-              AppDateFormatter.formatShortDayMonth(value),
-              style: const TextStyle(fontSize: 10),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                AppDateFormatter.formatShortDayMonth(value),
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
             ),
           ),
         ],

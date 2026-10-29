@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+﻿import 'package:flutter/foundation.dart';
 import '../../../models/event_model.dart';
 import '../../../models/sport_type.dart';
 import '../../../services/cache_service.dart';
@@ -300,6 +300,18 @@ class FeedRepository {
       end: normalizedEnd,
     );
   }
+  /// Obtiene los eventos de un día específico (resultados para fechas pasadas y partidos para fechas futuras).
+  Future<List<EventModel>> getEventsForDate(
+    DateTime date, {
+    SportType? sport,
+    int? leagueTier,
+  }) async {
+    final startLocal = DateTime(date.year, date.month, date.day, 0, 0, 0);
+    final endLocal = DateTime(date.year, date.month, date.day, 23, 59, 59, 999);
+    final effectiveSelectedSports = await CacheService.getSelectedSportTypes();
+    final events = await fetchEventsForDateRange(startLocal, endLocal);
+    return _filter(events, sport, leagueTier, effectiveSelectedSports);
+  }
 
   List<EventModel> _filterBySelectedSports(
     Iterable<EventModel> events,
@@ -364,3 +376,4 @@ class FeedRepository {
     return null;
   }
 }
+
