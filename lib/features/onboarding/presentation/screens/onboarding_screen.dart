@@ -25,14 +25,6 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   late final Set<SportType> _selectedSports;
   bool _isSaving = false;
 
-  final Map<SportType, String> _sportDescriptions = const {
-    SportType.soccer: 'Champions League, Premier, LaLiga, Libertadores',
-    SportType.nba: 'Temporada Regular, Playoffs, Conferencia Este y Oeste',
-    SportType.lol: 'Worlds, MSI, LCK, LEC, LLA Esports',
-    SportType.valorant: 'VCT Champions Tour, Masters, VCT Americas',
-    SportType.ufc: 'UFC PPV Numerados, Carteleras y Fight Nights',
-  };
-
   @override
   void initState() {
     super.initState();
@@ -114,7 +106,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
               child: Column(
                 children: [
                   Row(
@@ -158,12 +150,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 18),
                   const Text(
-                    '¡Bienvenido a Kambate!',
+                    'Selecciona tus deportes favoritos',
                     style: TextStyle(
                       color: AppColors.textPrimary,
-                      fontSize: 24,
+                      fontSize: 22,
                       fontWeight: FontWeight.w900,
                       letterSpacing: -0.5,
                     ),
@@ -171,7 +163,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    '¿Qué deportes te apasionan?\nSelecciona tus disciplinas favoritas para personalizar tus marcadores.',
+                    'Elige las disciplinas que quieres seguir para personalizar tus marcadores.',
                     style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 13,
@@ -179,39 +171,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.surfaceMuted,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: const Row(
-                      children: [
-                        Icon(
-                          Icons.bolt_rounded,
-                          size: 16,
-                          color: AppColors.primary,
-                        ),
-                        SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Solo cargamos partidos de tus deportes elegidos para ahorrar datos y espacio.',
-                            style: TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -246,23 +206,29 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             ),
 
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                itemCount: _allSports.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  final sport = _allSports[index];
-                  final isSelected = _selectedSports.contains(sport);
-                  final desc = _sportDescriptions[sport] ?? '';
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
+                child: GridView.builder(
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: _allSports.length,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 1.28,
+                  ),
+                  itemBuilder: (context, index) {
+                    final sport = _allSports[index];
+                    final isSelected = _selectedSports.contains(sport);
 
-                  return _SportSelectionCard(
-                    key: ValueKey('onboarding_sport_card_${sport.id}'),
-                    sport: sport,
-                    description: desc,
-                    isSelected: isSelected,
-                    onTap: () => _toggleSport(sport),
-                  );
-                },
+                    return _SportSelectionCard(
+                      key: ValueKey('onboarding_sport_card_${sport.id}'),
+                      sport: sport,
+                      isSelected: isSelected,
+                      onTap: () => _toggleSport(sport),
+                    );
+                  },
+                ),
               ),
             ),
 
@@ -276,7 +242,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: AppColors.onPrimary,
-                    elevation: 4,
+                    elevation: 3,
                     shadowColor: AppColors.primary.withValues(alpha: 0.35),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -321,14 +287,12 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
 class _SportSelectionCard extends StatelessWidget {
   final SportType sport;
-  final String description;
   final bool isSelected;
   final VoidCallback onTap;
 
   const _SportSelectionCard({
     super.key,
     required this.sport,
-    required this.description,
     required this.isSelected,
     required this.onTap,
   });
@@ -339,127 +303,81 @@ class _SportSelectionCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected
-              ? AppColors.primary.withValues(alpha: 0.08)
-              : AppColors.surface,
+          color: AppColors.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
             color: isSelected ? AppColors.primary : AppColors.border,
             width: isSelected ? 2.0 : 1.0,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: AppColors.primary.withValues(alpha: 0.12),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : [],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: isSelected ? 0.06 : 0.02),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.primary.withValues(alpha: 0.14)
-                    : AppColors.surfaceMuted,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: isSelected ? AppColors.primary : AppColors.border,
-                  width: 1.2,
-                ),
-              ),
-              child: Icon(
-                sport.icon,
-                color: isSelected ? AppColors.primary : AppColors.textSecondary,
-                size: 22,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
-                          sport.displayName,
-                          style: TextStyle(
-                            color: isSelected
-                                ? AppColors.textPrimary
-                                : AppColors.textSecondary,
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 1.5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppColors.primary.withValues(alpha: 0.14)
-                              : AppColors.surfaceMuted,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          sport.name.toUpperCase(),
-                          style: TextStyle(
-                            color: isSelected
-                                ? AppColors.primaryDark
-                                : AppColors.textMuted,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    description,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 11,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.surfaceMuted,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: isSelected ? AppColors.primary : AppColors.border,
+                      width: 1.0,
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              width: 26,
-              height: 26,
-              decoration: BoxDecoration(
-                color: isSelected ? AppColors.primary : AppColors.surfaceMuted,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: isSelected ? AppColors.primary : AppColors.border,
-                  width: 2.0,
+                  child: Icon(
+                    sport.icon,
+                    color: isSelected ? AppColors.primary : AppColors.textSecondary,
+                    size: 20,
+                  ),
                 ),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 180),
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: isSelected ? AppColors.primary : Colors.transparent,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: isSelected ? AppColors.primary : AppColors.border,
+                      width: 1.8,
+                    ),
+                  ),
+                  child: isSelected
+                      ? const Icon(
+                          Icons.check,
+                          size: 14,
+                          color: AppColors.onPrimary,
+                        )
+                      : null,
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              sport.displayName,
+              style: TextStyle(
+                color: isSelected
+                    ? AppColors.textPrimary
+                    : AppColors.textSecondary,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
               ),
-              child: isSelected
-                  ? const Icon(
-                      Icons.check,
-                      size: 16,
-                      color: AppColors.onPrimary,
-                    )
-                  : null,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ],
         ),

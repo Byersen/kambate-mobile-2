@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -130,11 +130,8 @@ void main() {
 
         final scaffold = tester.widget<Scaffold>(find.byType(Scaffold).first);
         expect(scaffold.backgroundColor, equals(AppColors.background));
-        expect(find.text('¡Bienvenido a Kambate!'), findsOneWidget);
-        expect(
-          find.textContaining('Solo cargamos partidos de tus deportes elegidos'),
-          findsOneWidget,
-        );
+        expect(find.text('Selecciona tus deportes favoritos'), findsOneWidget);
+        expect(find.textContaining('Solo cargamos partidos de tus deportes elegidos'), findsNothing);
         expect(find.text('5 de 5 seleccionados'), findsOneWidget);
 
         // Deseleccionar UFC, Valorant y LoL dejando solo Fútbol y NBA
@@ -324,3 +321,5 @@ void main() {
     );
   });
 }
+
+
