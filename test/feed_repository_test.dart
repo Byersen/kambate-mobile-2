@@ -11,16 +11,9 @@ class TestRepository extends FeedRepository {
     : super(subscribeToRealtime: false);
   final List<EventModel> events;
   final bool fail;
-  DateTime? lastRequestedStart;
-  DateTime? lastRequestedEnd;
 
   @override
-  Future<List<EventModel>> fetchRemoteEvents({
-    DateTime? start,
-    DateTime? end,
-  }) async {
-    lastRequestedStart = start;
-    lastRequestedEnd = end;
+  Future<List<EventModel>> fetchRemoteEvents() async {
     if (fail) throw StateError('Sin conexión');
     return events;
   }
@@ -188,24 +181,25 @@ void main() {
   );
 
   test(
-    'fetchEventsForDateRange normaliza el rango en UTC y consulta bajo demanda',
+    'fetchEventsForDateRange filtra el rango solicitado en UTC bajo demanda',
     () async {
-      final repository = TestRepository(events: [event]);
       final targetDay = DateTime(2026, 11, 15);
+      final targetEvent = event.copyWith(
+        id: 'target-day-event',
+        startTime: DateTime(2026, 11, 15, 18, 30).toUtc(),
+      );
+      final otherDayEvent = event.copyWith(
+        id: 'other-day-event',
+        startTime: DateTime(2026, 11, 18, 18, 30).toUtc(),
+      );
+
+      final repository = TestRepository(events: [targetEvent, otherDayEvent]);
       final result = await repository.fetchEventsForDateRange(
         targetDay,
         targetDay,
       );
 
-      expect(result.single.id, 'real-event');
-      expect(
-        repository.lastRequestedStart,
-        DateTime(2026, 11, 15, 0, 0, 0).toUtc(),
-      );
-      expect(
-        repository.lastRequestedEnd,
-        DateTime(2026, 11, 15, 23, 59, 59, 999).toUtc(),
-      );
+      expect(result.map((e) => e.id).toList(), equals(['target-day-event']));
     },
   );
 }

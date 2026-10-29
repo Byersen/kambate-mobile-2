@@ -43,6 +43,7 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
   bool _liveRefreshEnabled = false;
   DateTime? _lastRefreshTime;
   bool _isLoading = false;
+  bool _isPulsing = false;
 
   FeedNotifier(this._repository, this._ref)
     : super(const AsyncValue.loading()) {
@@ -63,14 +64,99 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
     _liveRefreshTimer?.cancel();
   }
 
+  bool _shouldRunLivePulse(List<EventModel> events) {
+    final nowLocal = DateTime.now();
+    final pulseHorizonUtc = nowLocal.toUtc().add(const Duration(minutes: 5));
+
+    for (final event in events) {
+      if (event.isLive) return true;
+      if (event.status == EventStatus.scheduled) {
+        final localStart = event.startTime.toLocal();
+        final isToday =
+            localStart.year == nowLocal.year &&
+            localStart.month == nowLocal.month &&
+            localStart.day == nowLocal.day;
+        if (isToday && !event.startTime.toUtc().isAfter(pulseHorizonUtc)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   void _startLiveRefresh() {
     _liveRefreshTimer?.cancel();
     _liveRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       final events = state.asData?.value;
-      if (mounted && !_isLoading && (events?.any((e) => e.isLive) ?? false)) {
-        unawaited(loadEvents(forceRefresh: true));
+      if (mounted &&
+          !_isLoading &&
+          !_isPulsing &&
+          events != null &&
+          _shouldRunLivePulse(events)) {
+        unawaited(refreshLivePulse());
       }
     });
+  }
+
+  /// Pulso ligero de sincronización reactiva sin spinner de carga completa ni bloqueo de UI.
+  Future<void> refreshLivePulse() async {
+    if (_isLoading || _isPulsing) return;
+    final currentEvents = state.asData?.value;
+    if (currentEvents == null || !_shouldRunLivePulse(currentEvents)) return;
+
+    _isPulsing = true;
+    try {
+      final trackedLiveIds = currentEvents
+          .where((e) => e.isLive)
+          .map((e) => e.id)
+          .toList();
+
+      final updatedBatch = await _repository.fetchLiveAndDueEvents(
+        trackedLiveIds,
+      );
+      if (!mounted || updatedBatch.isEmpty) return;
+
+      final favoriteIds = await CacheService.getFavoriteIds();
+      if (!mounted) return;
+
+      final latestEvents = List<EventModel>.from(
+        state.asData?.value ?? currentEvents,
+      );
+      final indexById = <String, int>{
+        for (var i = 0; i < latestEvents.length; i++) latestEvents[i].id: i,
+      };
+
+      for (final incoming in updatedBatch) {
+        final existingIndex =
+            indexById[incoming.id] ??
+            latestEvents.indexWhere(
+              (e) =>
+                  e.externalId != null && e.externalId == incoming.externalId,
+            );
+        if (existingIndex != -1) {
+          final prev = latestEvents[existingIndex];
+          latestEvents[existingIndex] = incoming.copyWith(
+            isFavorite: prev.isFavorite || favoriteIds.contains(incoming.id),
+          );
+        } else {
+          latestEvents.add(
+            incoming.copyWith(isFavorite: favoriteIds.contains(incoming.id)),
+          );
+          indexById[incoming.id] = latestEvents.length - 1;
+        }
+      }
+
+      final now = DateTime.now();
+      _lastRefreshTime = now;
+      _ref.read(feedLastUpdatedProvider.notifier).state = now;
+      _ref.read(connectionStatusProvider.notifier).setConnected();
+      state = AsyncValue.data(latestEvents);
+      await CacheService.saveEvents(latestEvents);
+    } catch (e) {
+      debugPrint('FeedNotifier.refreshLivePulse error: $e');
+    } finally {
+      _isPulsing = false;
+    }
   }
 
   /// Listen to Supabase Realtime PostgreSQL updates
