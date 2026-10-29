@@ -345,7 +345,7 @@ class _NbaDetailViewState extends State<NbaDetailView> {
     return match != null ? int.tryParse(match.group(1)!) : null;
   }
 
-  // --- 2. COMPARATIVA DE EQUIPOS ---
+  // --- 2. ESTADÍSTICAS POR EQUIPO ---
   Widget _buildTeamComparisonCard(EventModel event, BasketballDetailModel? detail) {
     final stats = detail?.statistics ?? [];
 
@@ -355,16 +355,7 @@ class _NbaDetailViewState extends State<NbaDetailView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Comparativa de equipos',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Header con ambos equipos
+            // Header con ambos equipos (sin título de sección)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [

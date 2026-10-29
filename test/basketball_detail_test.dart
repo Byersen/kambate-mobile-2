@@ -275,8 +275,8 @@ void main() {
         // Cero real en periodo 4 de Celtics
         expect(find.text('0'), findsWidgets);
 
-        // Comparativa de equipos
-        expect(find.text('Comparativa de equipos'), findsOneWidget);
+        // Estadísticas por equipo sin título de sección
+        expect(find.text('Comparativa de equipos'), findsNothing);
         expect(find.text('Tiros de campo'), findsOneWidget);
         expect(find.text('Rebotes'), findsOneWidget);
         expect(find.text('Asistencias'), findsOneWidget);

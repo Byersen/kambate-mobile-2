@@ -73,14 +73,7 @@ class _FootballDetailViewState extends State<FootballDetailView> {
           _ => Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _lineup(event.participant1Name, detail?.homeLineup),
-                    const Divider(height: 32),
-                    _lineup(event.participant2Name, detail?.awayLineup),
-                  ],
-                ),
+                child: _lineups(event, detail),
               ),
             ),
         },
@@ -314,11 +307,12 @@ class _FootballDetailViewState extends State<FootballDetailView> {
     switch (kind) {
       case 'goal':
         return const SizedBox(
-          width: 22,
-          height: 22,
+          key: ValueKey('goal-incident-icon'),
+          width: 30,
+          height: 30,
           child: Icon(
             Icons.sports_soccer,
-            size: 20,
+            size: 28,
             color: AppColors.primary,
           ),
         );
@@ -494,8 +488,6 @@ class _FootballDetailViewState extends State<FootballDetailView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _title('Comparativa de equipos'),
-        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
@@ -516,11 +508,6 @@ class _FootballDetailViewState extends State<FootballDetailView> {
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          '— Dato no disponible',
-          style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
         ),
         for (final stat in stats) ...[
           const SizedBox(height: 20),
@@ -552,78 +539,187 @@ class _FootballDetailViewState extends State<FootballDetailView> {
     );
   }
 
-  Widget _lineup(String team, FootballLineup? lineup) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      _title(team),
-      const SizedBox(height: 8),
-      if (lineup?.formation != null)
-        Text(
-          'Formación ${lineup!.formation}',
-          style: const TextStyle(
-            color: AppColors.primary,
-            fontWeight: FontWeight.w600,
-          ),
+  /// Alineaciones en dos columnas simultáneas: equipo local a la izquierda y
+  /// visitante a la derecha, con titulares y suplentes alineados por sección.
+  Widget _lineups(EventModel event, FootballDetailModel? detail) {
+    final home = detail?.homeLineup;
+    final away = detail?.awayLineup;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _twoColumns(
+          _lineupHeader(event.participant1Name, home, alignEnd: false),
+          _lineupHeader(event.participant2Name, away, alignEnd: true),
+          key: const ValueKey('lineup-headers'),
         ),
-      if (lineup == null)
-        const Text(
-          'Alineación no disponible',
-          style: TextStyle(color: AppColors.textSecondary),
-        )
-      else ...[
-        _players('Titulares', lineup.starters),
-        _players('Suplentes', lineup.substitutes),
+        if (home != null || away != null) ...[
+          _sectionLabel('Titulares'),
+          _twoColumns(
+            _players(home?.starters, available: home != null, alignEnd: false),
+            _players(away?.starters, available: away != null, alignEnd: true),
+            key: const ValueKey('lineup-starters'),
+          ),
+          _sectionLabel('Suplentes'),
+          _twoColumns(
+            _players(
+              home?.substitutes,
+              available: home != null,
+              alignEnd: false,
+            ),
+            _players(
+              away?.substitutes,
+              available: away != null,
+              alignEnd: true,
+            ),
+            key: const ValueKey('lineup-substitutes'),
+          ),
+        ],
       ],
+    );
+  }
+
+  Widget _twoColumns(Widget left, Widget right, {Key? key}) => Row(
+    key: key,
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Expanded(child: left),
+      const SizedBox(width: 12),
+      Expanded(child: right),
     ],
   );
 
-  Widget _players(String title, List<FootballPlayer>? players) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      const SizedBox(height: 14),
-      Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
-      if (players == null || players.isEmpty)
-        const Text(
-          'Información no disponible',
-          style: TextStyle(color: AppColors.textSecondary),
-        )
-      else
-        for (final player in players)
-          Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 40,
-                  child: Text(
-                    player.number ?? '—',
-                    style: const TextStyle(
-                      color: AppColors.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(player.name),
-                      if (player.position != null)
-                        Text(
-                          player.position!,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-              ],
+  Widget _sectionLabel(String text) => Padding(
+    padding: const EdgeInsets.only(top: 18, bottom: 6),
+    child: Center(
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          fontSize: 13,
+          color: AppColors.textSecondary,
+        ),
+      ),
+    ),
+  );
+
+  Widget _lineupHeader(
+    String team,
+    FootballLineup? lineup, {
+    required bool alignEnd,
+  }) {
+    final textAlign = alignEnd ? TextAlign.end : TextAlign.start;
+    return Column(
+      crossAxisAlignment:
+          alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        Text(
+          team,
+          textAlign: textAlign,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 4),
+        if (lineup?.formation != null)
+          Text(
+            'Formación ${lineup!.formation}',
+            textAlign: textAlign,
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+              fontSize: 12.5,
             ),
           ),
-    ],
-  );
+        if (lineup == null)
+          Text(
+            'Alineación no disponible',
+            textAlign: textAlign,
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontSize: 12.5,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _players(
+    List<FootballPlayer>? players, {
+    required bool available,
+    required bool alignEnd,
+  }) {
+    if (!available) return const SizedBox.shrink();
+    if (players == null || players.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: Text(
+          'Información no disponible',
+          textAlign: alignEnd ? TextAlign.end : TextAlign.start,
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12.5),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final player in players)
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: _playerRow(player, alignEnd: alignEnd),
+          ),
+      ],
+    );
+  }
+
+  Widget _playerRow(FootballPlayer player, {required bool alignEnd}) {
+    final number = ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 20),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: alignEnd ? Alignment.centerRight : Alignment.centerLeft,
+        child: Text(
+          player.number ?? '—',
+          textAlign: alignEnd ? TextAlign.end : TextAlign.start,
+          style: const TextStyle(
+            color: AppColors.primary,
+            fontWeight: FontWeight.w600,
+            fontSize: 13,
+          ),
+        ),
+      ),
+    );
+    final info = Expanded(
+      child: Column(
+        crossAxisAlignment:
+            alignEnd ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+        children: [
+          Text(
+            player.name,
+            textAlign: alignEnd ? TextAlign.end : TextAlign.start,
+            style: const TextStyle(fontSize: 13),
+          ),
+          if (player.position != null)
+            Text(
+              player.position!,
+              textAlign: alignEnd ? TextAlign.end : TextAlign.start,
+              style: const TextStyle(
+                fontSize: 11.5,
+                color: AppColors.textSecondary,
+              ),
+            ),
+        ],
+      ),
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: alignEnd
+          ? [info, const SizedBox(width: 4), number]
+          : [number, const SizedBox(width: 4), info],
+    );
+  }
 
   Widget _title(String text) => Text(
     text,
