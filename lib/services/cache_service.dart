@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/event_model.dart';
+import '../models/sport_type.dart';
 
 class CacheService {
   // v1 podía contener partidos de demostración guardados como datos reales.
@@ -42,14 +43,31 @@ class CacheService {
     }
   }
 
-  /// Save events list to offline cache (only active window: [yesterday, today, tomorrow])
+  static Set<SportType> parseSelectedSportTypes(Iterable<String> slugs) {
+    final parsed = <SportType>{};
+    for (final slug in slugs) {
+      final sport = SportType.fromString(slug);
+      if (sport != SportType.all) {
+        parsed.add(sport);
+      }
+    }
+    return parsed;
+  }
+
+  /// Save events list to offline cache (only active window: [yesterday, today, tomorrow] and selected sports)
   static Future<void> saveEvents(List<EventModel> events) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now();
       final todayStr = _formatLocalDate(now);
+      final selectedSlugs = prefs.getStringList(_kSelectedSportsKey) ?? [];
+      final allowedSports = parseSelectedSportTypes(selectedSlugs);
       final activeEvents = events
-          .where((e) => _isInActiveWindow(e.startTime, now))
+          .where(
+            (e) =>
+                _isInActiveWindow(e.startTime, now) &&
+                (allowedSports.isEmpty || allowedSports.contains(e.sport)),
+          )
           .toList();
       final jsonList = activeEvents.map((e) => e.toJson()).toList();
       final encoded = jsonEncode(jsonList);
@@ -72,11 +90,18 @@ class CacheService {
         return null;
       }
 
+      final selectedSlugs = prefs.getStringList(_kSelectedSportsKey) ?? [];
+      final allowedSports = parseSelectedSportTypes(selectedSlugs);
+
       final raw = prefs.getString(_kEventsKey);
       if (raw != null && raw.isNotEmpty) {
         final List<dynamic> decoded = jsonDecode(raw) as List<dynamic>;
         return decoded
             .map((item) => EventModel.fromJson(item as Map<String, dynamic>))
+            .where(
+              (event) =>
+                  allowedSports.isEmpty || allowedSports.contains(event.sport),
+            )
             .toList();
       }
     } catch (e) {
@@ -140,10 +165,36 @@ class CacheService {
   }
 
   /// Save user's preferred sports slugs (e.g. ['soccer', 'nba', 'lol'])
+  /// and prune cached events of unselected sports to save local storage.
   static Future<void> saveSelectedSports(List<String> sports) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setStringList(_kSelectedSportsKey, sports);
+      final previousSlugs = prefs.getStringList(_kSelectedSportsKey) ?? [];
+      final previousSports = parseSelectedSportTypes(previousSlugs);
+      final nextSports = parseSelectedSportTypes(sports);
+
+      await prefs.setStringList(
+        _kSelectedSportsKey,
+        nextSports.map((s) => s.id).toList(),
+      );
+
+      final addedNewSport =
+          previousSports.isNotEmpty &&
+          nextSports.any((s) => !previousSports.contains(s));
+      if (addedNewSport) {
+        await prefs.remove(_kLastSyncKey);
+      }
+
+      final rawEvents = prefs.getString(_kEventsKey);
+      if (rawEvents != null && rawEvents.isNotEmpty && nextSports.isNotEmpty) {
+        final List<dynamic> decoded = jsonDecode(rawEvents) as List<dynamic>;
+        final filteredJson = decoded
+            .map((item) => EventModel.fromJson(item as Map<String, dynamic>))
+            .where((event) => nextSports.contains(event.sport))
+            .map((event) => event.toJson())
+            .toList();
+        await prefs.setString(_kEventsKey, jsonEncode(filteredJson));
+      }
     } catch (e) {
       debugPrint('CacheService.saveSelectedSports error: $e');
     }
@@ -157,6 +208,12 @@ class CacheService {
     } catch (_) {
       return [];
     }
+  }
+
+  /// Get user's preferred sports as a typed `Set<SportType>`
+  static Future<Set<SportType>> getSelectedSportTypes() async {
+    final slugs = await getSelectedSports();
+    return parseSelectedSportTypes(slugs);
   }
 
   /// Save followed teams/athletes IDs

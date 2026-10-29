@@ -315,7 +315,10 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
 
     // Extraer y combinar ligas canónicas con las disponibles en eventos
     final events = feedState.value ?? [];
-    final allLeagues = _getAllLeagues(events);
+    final allowedSports = ref.watch(selectedSportsProvider);
+    final allLeagues = _getAllLeagues(events).where((league) {
+      return allowedSports.isEmpty || allowedSports.contains(league.sport);
+    }).toList();
 
     // Filtrar ligas según deporte, región y consulta
     final filteredLeagues = allLeagues.where((league) {
