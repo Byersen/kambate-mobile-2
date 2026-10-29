@@ -7,29 +7,71 @@ class CacheService {
   // v1 podía contener partidos de demostración guardados como datos reales.
   static const String _kEventsKey = 'kambate_cached_events_v2';
   static const String _kLastSyncKey = 'kambate_last_sync_timestamp';
+  static const String _kCacheDateKey = 'kambate_cached_events_date';
   static const String _kFavoritesKey = 'kambate_favorites_set';
   static const String _kOnboardingKey = 'kambate_onboarding_completed_v1';
   static const String _kSelectedSportsKey = 'kambate_selected_sports_v1';
   static const String _kFollowedTeamsKey = 'kambate_followed_teams_set';
   static const String _kFollowedLeaguesKey = 'kambate_followed_leagues_set';
 
-  /// Save events list to offline cache
+  static String _formatLocalDate(DateTime date) {
+    final local = date.toLocal();
+    final y = local.year.toString().padLeft(4, '0');
+    final m = local.month.toString().padLeft(2, '0');
+    final d = local.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
+  }
+
+  static bool _isInActiveWindow(DateTime startTime, DateTime nowLocal) {
+    final local = startTime.toLocal();
+    final eventDay = DateTime(local.year, local.month, local.day);
+    final yesterday = DateTime(nowLocal.year, nowLocal.month, nowLocal.day - 1);
+    final tomorrow = DateTime(nowLocal.year, nowLocal.month, nowLocal.day + 1);
+    return !eventDay.isBefore(yesterday) && !eventDay.isAfter(tomorrow);
+  }
+
+  /// Clear expired daily events cache keys (`_kEventsKey`, `_kLastSyncKey`, `_kCacheDateKey`)
+  static Future<void> clearExpiredDailyCache([SharedPreferences? prefs]) async {
+    try {
+      final store = prefs ?? await SharedPreferences.getInstance();
+      await store.remove(_kEventsKey);
+      await store.remove(_kLastSyncKey);
+      await store.remove(_kCacheDateKey);
+    } catch (e) {
+      debugPrint('CacheService.clearExpiredDailyCache error: $e');
+    }
+  }
+
+  /// Save events list to offline cache (only active window: [yesterday, today, tomorrow])
   static Future<void> saveEvents(List<EventModel> events) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final jsonList = events.map((e) => e.toJson()).toList();
+      final now = DateTime.now();
+      final todayStr = _formatLocalDate(now);
+      final activeEvents = events
+          .where((e) => _isInActiveWindow(e.startTime, now))
+          .toList();
+      final jsonList = activeEvents.map((e) => e.toJson()).toList();
       final encoded = jsonEncode(jsonList);
       await prefs.setString(_kEventsKey, encoded);
-      await prefs.setString(_kLastSyncKey, DateTime.now().toIso8601String());
+      await prefs.setString(_kLastSyncKey, now.toIso8601String());
+      await prefs.setString(_kCacheDateKey, todayStr);
     } catch (e) {
       debugPrint('CacheService.saveEvents error: $e');
     }
   }
 
-  /// Retrieve cached events list if available
+  /// Retrieve cached events list if available and valid for the current local day
   static Future<List<EventModel>?> getCachedEvents() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      final todayStr = _formatLocalDate(DateTime.now());
+      final cachedDate = prefs.getString(_kCacheDateKey);
+      if (cachedDate != todayStr) {
+        await clearExpiredDailyCache(prefs);
+        return null;
+      }
+
       final raw = prefs.getString(_kEventsKey);
       if (raw != null && raw.isNotEmpty) {
         final List<dynamic> decoded = jsonDecode(raw) as List<dynamic>;
@@ -165,6 +207,7 @@ class CacheService {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_kEventsKey);
       await prefs.remove(_kLastSyncKey);
+      await prefs.remove(_kCacheDateKey);
       await prefs.remove(_kFavoritesKey);
       await prefs.remove(_kOnboardingKey);
       await prefs.remove(_kSelectedSportsKey);

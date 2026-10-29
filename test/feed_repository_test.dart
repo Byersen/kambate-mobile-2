@@ -23,12 +23,20 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  final nowLocal = DateTime.now();
+  final todayNoonUtc = DateTime(
+    nowLocal.year,
+    nowLocal.month,
+    nowLocal.day,
+    12,
+  ).toUtc();
+
   final event = EventModel(
     id: 'real-event',
     sport: SportType.soccer,
     league: 'Primera División',
     status: EventStatus.live,
-    startTime: DateTime.utc(2026, 10, 4, 21),
+    startTime: todayNoonUtc,
     homeScore: 2,
     awayScore: 1,
   );
@@ -96,6 +104,79 @@ void main() {
         'kambate_cached_events_v1': '[]',
       });
       expect(await CacheService.getCachedEvents(), isNull);
+    },
+  );
+
+  test(
+    'Autolimpieza diaria invalida la caché cuando cambia la fecha local',
+    () async {
+      await CacheService.saveEvents([event]);
+      expect(await CacheService.getCachedEvents(), isNotNull);
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('kambate_cached_events_date', '2000-01-01');
+
+      expect(await CacheService.getCachedEvents(), isNull);
+      expect(prefs.getString('kambate_cached_events_v2'), isNull);
+      expect(prefs.getString('kambate_last_sync_timestamp'), isNull);
+      expect(prefs.getString('kambate_cached_events_date'), isNull);
+    },
+  );
+
+  test(
+    'saveEvents guarda únicamente eventos dentro de la ventana activa [ayer, hoy, mañana]',
+    () async {
+      final yesterdayEvent = event.copyWith(
+        id: 'yesterday-event',
+        startTime: DateTime(
+          nowLocal.year,
+          nowLocal.month,
+          nowLocal.day - 1,
+          15,
+        ),
+      );
+      final tomorrowEvent = event.copyWith(
+        id: 'tomorrow-event',
+        startTime: DateTime(
+          nowLocal.year,
+          nowLocal.month,
+          nowLocal.day + 1,
+          18,
+        ),
+      );
+      final oldHistoricalEvent = event.copyWith(
+        id: 'historical-event',
+        startTime: DateTime(
+          nowLocal.year,
+          nowLocal.month,
+          nowLocal.day - 5,
+          12,
+        ),
+      );
+      final farFutureEvent = event.copyWith(
+        id: 'future-event',
+        startTime: DateTime(
+          nowLocal.year,
+          nowLocal.month,
+          nowLocal.day + 4,
+          12,
+        ),
+      );
+
+      await CacheService.saveEvents([
+        oldHistoricalEvent,
+        yesterdayEvent,
+        event,
+        tomorrowEvent,
+        farFutureEvent,
+      ]);
+
+      final cached = await CacheService.getCachedEvents();
+      expect(cached, isNotNull);
+      expect(
+        cached!.map((e) => e.id).toList(),
+        equals(['yesterday-event', 'real-event', 'tomorrow-event']),
+      );
     },
   );
 }
