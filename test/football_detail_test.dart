@@ -32,6 +32,7 @@ Map<String, dynamic> details() => {
       'side': 'home',
       'minute': '12′',
       'player': 'Jugador de prueba',
+      'secondaryPlayer': 'Asistente de prueba',
     },
     {
       'kind': 'yellowCard',
@@ -240,8 +241,10 @@ void main() {
       expect(find.text('Estadísticas clave'), findsOneWidget);
       expect(find.text('Ver todas las estadísticas'), findsOneWidget);
       expect(find.text('Jugador de prueba'), findsOneWidget);
-      expect(find.text('Tarjeta amarilla'), findsOneWidget);
-      expect(find.text('Entra: Entra de prueba'), findsOneWidget);
+      expect(find.text('Asista: Asistente de prueba'), findsOneWidget);
+      expect(find.text('Defensa de prueba'), findsOneWidget);
+      expect(find.text('↑ Entra de prueba'), findsOneWidget);
+      expect(find.text('↓ Sale de prueba'), findsOneWidget);
       await capturePreview(
         tester,
         app.preview.currentContext!.findRenderObject() as RenderRepaintBoundary,

@@ -3,6 +3,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../models/event_model.dart';
 import '../../../../models/event_status.dart';
 import '../../../../models/football_detail_model.dart';
+import '../../../../models/team_model.dart';
 
 class FootballDetailView extends StatefulWidget {
   final EventModel event;
@@ -126,112 +127,141 @@ class _FootballDetailViewState extends State<FootballDetailView> {
     }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _title('Momentos del partido'),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
+        _timelineTeamsHeader(event),
+        const Padding(
+          padding: EdgeInsets.symmetric(vertical: 12),
+          child: Divider(height: 1, color: AppColors.border),
+        ),
         for (var i = 0; i < incidents.length; i++)
-          _timelineItem(event, incidents[i], isLast: i == incidents.length - 1),
+          _timelineItem(
+            incidents[i],
+            isFirst: i == 0,
+            isLast: i == incidents.length - 1,
+          ),
       ],
     );
   }
 
+  Widget _timelineTeamsHeader(EventModel event) {
+    return Row(
+      children: [
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Flexible(
+                child: Text(
+                  event.participant1Name,
+                  textAlign: TextAlign.end,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              _smallTeamLogo(event.homeTeam),
+            ],
+          ),
+        ),
+        const SizedBox(width: 28),
+        Expanded(
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              _smallTeamLogo(event.awayTeam),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  event.participant2Name,
+                  textAlign: TextAlign.start,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _smallTeamLogo(TeamModel? team) {
+    const fallback = Icon(
+      Icons.shield_outlined,
+      size: 20,
+      color: AppColors.textMuted,
+    );
+    final url = team?.logoUrl;
+    if (url == null || url.isEmpty) return fallback;
+    return SizedBox(
+      width: 24,
+      height: 24,
+      child: Image.network(
+        url,
+        fit: BoxFit.contain,
+        errorBuilder: (_, _, _) => fallback,
+      ),
+    );
+  }
+
   Widget _timelineItem(
-    EventModel event,
     FootballIncident item, {
+    required bool isFirst,
     required bool isLast,
   }) {
-    final label = switch (item.kind) {
-      'goal' => 'Gol',
-      'yellowCard' => 'Tarjeta amarilla',
-      'redCard' => 'Tarjeta roja',
-      _ => 'Cambio',
-    };
-
-    final teamName =
-        item.side == 'home' ? event.participant1Name : event.participant2Name;
+    final isHome = item.side == 'home';
 
     return IntrinsicHeight(
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(
-            width: 44,
-            child: Text(
-              item.minute ?? '—',
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-                color: AppColors.textSecondary,
-              ),
-            ),
-          ),
-          Column(
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppColors.surfaceMuted,
-                ),
-                alignment: Alignment.center,
-                child: _incidentIcon(item.kind),
-              ),
-              if (!isLast)
-                Expanded(
-                  child: Container(
-                    width: 2,
-                    color: AppColors.border,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 14),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: isHome
+                  ? _buildIncidentDetails(item, isHome: true)
+                  : _buildMinuteText(item.minute, alignRight: true),
+            ),
+          ),
+          SizedBox(
+            width: 48,
+            child: Column(
+              children: [
+                Expanded(
+                  child: Container(
+                    width: 1.5,
+                    color: isFirst ? Colors.transparent : AppColors.border,
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    teamName,
-                    style: const TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                    ),
+                ),
+                _incidentBadge(item.kind),
+                Expanded(
+                  child: Container(
+                    width: 1.5,
+                    color: isLast ? Colors.transparent : AppColors.border,
                   ),
-                  if (item.player != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      '${item.kind == 'substitution' ? 'Entra: ' : ''}${item.player}',
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ],
-                  if (item.secondaryPlayer != null) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      '${item.kind == 'substitution' ? 'Sale' : 'Asistencia'}: ${item.secondaryPlayer}',
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                  if (!isLast) ...[
-                    const SizedBox(height: 12),
-                    const Divider(height: 1, color: AppColors.surfaceMuted),
-                  ],
-                ],
-              ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: isHome
+                  ? _buildMinuteText(item.minute, alignRight: false)
+                  : _buildIncidentDetails(item, isHome: false),
             ),
           ),
         ],
@@ -239,39 +269,187 @@ class _FootballDetailViewState extends State<FootballDetailView> {
     );
   }
 
-  Widget _incidentIcon(String kind) {
-    switch (kind) {
+  Widget _buildMinuteText(String? minute, {required bool alignRight}) {
+    return Text(
+      minute ?? '—',
+      textAlign: alignRight ? TextAlign.end : TextAlign.start,
+      style: const TextStyle(
+        fontWeight: FontWeight.w700,
+        fontSize: 13,
+        color: AppColors.textSecondary,
+      ),
+    );
+  }
+
+  Widget _buildIncidentDetails(FootballIncident item, {required bool isHome}) {
+    final alignment =
+        isHome ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    final textAlign = isHome ? TextAlign.end : TextAlign.start;
+
+    switch (item.kind) {
       case 'goal':
-        return const Icon(
-          Icons.sports_soccer,
-          size: 18,
-          color: AppColors.textPrimary,
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: alignment,
+          children: [
+            Text(
+              item.player ?? 'Gol',
+              textAlign: textAlign,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13.5,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            if (item.secondaryPlayer != null &&
+                item.secondaryPlayer!.isNotEmpty) ...[
+              const SizedBox(height: 2),
+              Text(
+                'Asista: ${item.secondaryPlayer}',
+                textAlign: textAlign,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ],
         );
+
       case 'yellowCard':
-        return Container(
-          width: 12,
-          height: 16,
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: alignment,
+          children: [
+            Text(
+              item.player ?? 'Tarjeta amarilla',
+              textAlign: textAlign,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13.5,
+                color: AppColors.warning,
+              ),
+            ),
+          ],
+        );
+
+      case 'redCard':
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: alignment,
+          children: [
+            Text(
+              item.player ?? 'Tarjeta roja',
+              textAlign: textAlign,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13.5,
+                color: AppColors.liveRed,
+              ),
+            ),
+          ],
+        );
+
+      default:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: alignment,
+          children: [
+            if (item.player != null)
+              Text(
+                '↑ ${item.player}',
+                textAlign: textAlign,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: AppColors.soccer,
+                ),
+              ),
+            if (item.secondaryPlayer != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                '↓ ${item.secondaryPlayer}',
+                textAlign: textAlign,
+                style: const TextStyle(
+                  color: AppColors.liveRed,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ],
+        );
+    }
+  }
+
+  Widget _incidentBadge(String kind) {
+    final (Color bgColor, Color borderColor, Widget icon) = switch (kind) {
+      'goal' => (
+        AppColors.primary.withValues(alpha: 0.12),
+        AppColors.primary.withValues(alpha: 0.35),
+        const Icon(
+          Icons.sports_soccer,
+          size: 17,
+          color: AppColors.primary,
+        ),
+      ),
+      'yellowCard' => (
+        const Color(0xFFF59E0B).withValues(alpha: 0.14),
+        const Color(0xFFF59E0B).withValues(alpha: 0.45),
+        Container(
+          width: 11,
+          height: 15,
           decoration: BoxDecoration(
             color: const Color(0xFFF59E0B),
             borderRadius: BorderRadius.circular(2),
           ),
-        );
-      case 'redCard':
-        return Container(
-          width: 12,
-          height: 16,
+        ),
+      ),
+      'redCard' => (
+        AppColors.liveRed.withValues(alpha: 0.12),
+        AppColors.liveRed.withValues(alpha: 0.4),
+        Container(
+          width: 11,
+          height: 15,
           decoration: BoxDecoration(
-            color: AppColors.error,
+            color: AppColors.liveRed,
             borderRadius: BorderRadius.circular(2),
           ),
-        );
-      default:
-        return const Icon(
-          Icons.swap_horiz_rounded,
-          size: 18,
-          color: AppColors.textSecondary,
-        );
-    }
+        ),
+      ),
+      _ => (
+        AppColors.surfaceMuted,
+        AppColors.border,
+        const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.arrow_downward_rounded,
+              size: 12,
+              color: AppColors.liveRed,
+            ),
+            Icon(
+              Icons.arrow_upward_rounded,
+              size: 12,
+              color: AppColors.soccer,
+            ),
+          ],
+        ),
+      ),
+    };
+
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: bgColor,
+        border: Border.all(color: borderColor, width: 1.2),
+      ),
+      alignment: Alignment.center,
+      child: icon,
+    );
   }
 
   List<FootballStatistic> _extractKeyStats(List<FootballStatistic> all) {
@@ -562,4 +740,3 @@ class _FootballDetailViewState extends State<FootballDetailView> {
     ),
   );
 }
-
