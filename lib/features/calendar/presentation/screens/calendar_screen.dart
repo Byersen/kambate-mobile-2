@@ -8,8 +8,6 @@ import '../../../../models/event_model.dart';
 import '../../../../models/event_status.dart';
 import '../../../../models/sport_type.dart';
 import '../../../favorites/providers/favorites_provider.dart';
-import '../../../feed/data/feed_repository.dart';
-import '../../../feed/providers/connection_provider.dart';
 import '../../../feed/providers/feed_provider.dart';
 
 class CalendarScreen extends ConsumerStatefulWidget {
@@ -659,13 +657,20 @@ class _SimpleMatchRow extends StatelessWidget {
       );
 
       if (liveMinute != null) {
-        timeWidget = Text(
-          liveMinute,
-          style: const TextStyle(
-            color: AppColors.liveRed,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-          ),
+        timeWidget = Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            dot,
+            const SizedBox(width: 4),
+            Text(
+              liveMinute,
+              style: const TextStyle(
+                color: AppColors.liveRed,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
         );
       } else {
         timeWidget = dot;
