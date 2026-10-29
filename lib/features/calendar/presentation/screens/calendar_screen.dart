@@ -83,6 +83,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   Widget build(BuildContext context) {
     final eventsAsync = ref.watch(feedNotifierProvider);
     final favoriteTeamIds = ref.watch(favoriteTeamIdsProvider);
+    final selectedSports = ref.watch(selectedSportsProvider);
+    final effectiveSelectedSport =
+        (_selectedSport != SportType.all &&
+            selectedSports.isNotEmpty &&
+            !selectedSports.contains(_selectedSport))
+        ? SportType.all
+        : _selectedSport;
 
 
     return Scaffold(
@@ -166,7 +173,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             var availableEvents = allEvents
                 .where((e) =>
                     e.status != EventStatus.finished &&
-                    e.status != EventStatus.archived)
+                    e.status != EventStatus.archived &&
+                    (selectedSports.isEmpty || selectedSports.contains(e.sport)))
                 .toList();
 
             if (_onlyFollowed && favoriteTeamIds.isNotEmpty) {
@@ -177,9 +185,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               }).toList();
             }
 
-            if (_selectedSport != SportType.all) {
+            if (effectiveSelectedSport != SportType.all) {
               availableEvents =
-                  availableEvents.where((e) => e.sport == _selectedSport).toList();
+                  availableEvents.where((e) => e.sport == effectiveSelectedSport).toList();
             }
 
             final Map<String, List<EventModel>> eventsByDay = {};
@@ -207,7 +215,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               padding: const EdgeInsets.only(bottom: 24),
               children: [
 
-                _buildFilterBar(),
+                _buildFilterBar(selectedSports, effectiveSelectedSport),
 
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
@@ -378,7 +386,18 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     );
   }
 
-  Widget _buildFilterBar() {
+  Widget _buildFilterBar(
+    Set<SportType> selectedSports,
+    SportType effectiveSelectedSport,
+  ) {
+    final visibleSports = _filterSports
+        .where(
+          (s) =>
+              s == SportType.all ||
+              selectedSports.isEmpty ||
+              selectedSports.contains(s),
+        )
+        .toList();
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: SingleChildScrollView(
@@ -423,8 +442,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             Container(width: 1, height: 20, color: AppColors.cardBorderDark),
             const SizedBox(width: 8),
 
-            ..._filterSports.map((sport) {
-              final isSelected = _selectedSport == sport;
+            ...visibleSports.map((sport) {
+              final isSelected = effectiveSelectedSport == sport;
               final sportColor = sport == SportType.all ? AppColors.primary : sport.color;
 
               return Padding(

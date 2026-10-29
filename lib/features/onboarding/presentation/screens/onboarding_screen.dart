@@ -14,7 +14,7 @@ class OnboardingScreen extends ConsumerStatefulWidget {
 }
 
 class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
-  final List<SportType> _allSports = [
+  final List<SportType> _allSports = const [
     SportType.soccer,
     SportType.nba,
     SportType.lol,
@@ -22,23 +22,36 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     SportType.ufc,
   ];
 
-  final Set<SportType> _selectedSports = {
-    SportType.soccer,
-    SportType.nba,
-    SportType.lol,
-    SportType.valorant,
-    SportType.ufc,
-  };
-
+  late final Set<SportType> _selectedSports;
   bool _isSaving = false;
 
-  final Map<SportType, String> _sportDescriptions = {
+  final Map<SportType, String> _sportDescriptions = const {
     SportType.soccer: 'Champions League, Premier, LaLiga, Libertadores',
     SportType.nba: 'Temporada Regular, Playoffs, Conferencia Este y Oeste',
     SportType.lol: 'Worlds, MSI, LCK, LEC, LLA Esports',
     SportType.valorant: 'VCT Champions Tour, Masters, VCT Americas',
     SportType.ufc: 'UFC PPV Numerados, Carteleras y Fight Nights',
   };
+
+  @override
+  void initState() {
+    super.initState();
+    final current = ref.read(selectedSportsProvider);
+    _selectedSports = current.isNotEmpty
+        ? Set<SportType>.from(current)
+        : Set<SportType>.from(_allSports);
+    _syncSavedSelection();
+  }
+
+  Future<void> _syncSavedSelection() async {
+    final saved = await CacheService.getSelectedSportTypes();
+    if (!mounted || saved.isEmpty) return;
+    setState(() {
+      _selectedSports
+        ..clear()
+        ..addAll(saved);
+    });
+  }
 
   void _toggleSport(SportType sport) {
     setState(() {
@@ -66,15 +79,20 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Future<void> _handleContinue() async {
     setState(() => _isSaving = true);
     try {
-      final sportSlugs = _selectedSports.map((s) => s.id).toList();
-      await CacheService.saveSelectedSports(sportSlugs);
+      final orderedSelection = _allSports
+          .where(_selectedSports.contains)
+          .toList();
+      final effectiveSelection = orderedSelection.isNotEmpty
+          ? orderedSelection
+          : <SportType>[SportType.soccer];
+
+      await ref
+          .read(selectedSportsProvider.notifier)
+          .setSelectedSports(effectiveSelection);
       await CacheService.setOnboardingCompleted(true);
 
-      if (_selectedSports.isNotEmpty) {
-        ref.read(selectedSportFilterProvider.notifier).state = _selectedSports.first;
-      } else {
-        ref.read(selectedSportFilterProvider.notifier).state = SportType.soccer;
-      }
+      ref.read(selectedSportFilterProvider.notifier).state =
+          effectiveSelection.first;
 
       if (mounted) {
         context.go('/feed');
@@ -91,7 +109,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final allSelected = _selectedSports.length == _allSports.length;
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
+      backgroundColor: AppColors.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -103,14 +121,17 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.primary,
                           borderRadius: BorderRadius.circular(8),
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.primary.withValues(alpha: 0.35),
-                              blurRadius: 12,
+                              color: AppColors.primary.withValues(alpha: 0.25),
+                              blurRadius: 10,
                               offset: const Offset(0, 3),
                             ),
                           ],
@@ -158,24 +179,60 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.surfaceMuted,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(
+                          Icons.bolt_rounded,
+                          size: 16,
+                          color: AppColors.primary,
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Solo cargamos partidos de tus deportes elegidos para ahorrar datos y espacio.',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        '${_selectedSports.length} de ${_allSports.length} seleccionados',
-                        style: const TextStyle(
-                          color: AppColors.primary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
+                      Flexible(
+                        child: Text(
+                          '${_selectedSports.length} de ${_allSports.length} seleccionados',
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 8),
                       GestureDetector(
                         onTap: _toggleSelectAll,
                         child: Text(
                           allSelected ? 'Desmarcar' : 'Seleccionar Todos',
                           style: const TextStyle(
-                            color: AppColors.textMuted,
+                            color: AppColors.primaryDark,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             decoration: TextDecoration.underline,
@@ -199,6 +256,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   final desc = _sportDescriptions[sport] ?? '';
 
                   return _SportSelectionCard(
+                    key: ValueKey('onboarding_sport_card_${sport.id}'),
                     sport: sport,
                     description: desc,
                     isSelected: isSelected,
@@ -218,8 +276,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: AppColors.onPrimary,
-                    elevation: 6,
-                    shadowColor: AppColors.primary.withValues(alpha: 0.5),
+                    elevation: 4,
+                    shadowColor: AppColors.primary.withValues(alpha: 0.35),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
@@ -233,15 +291,18 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                             color: AppColors.onPrimary,
                           ),
                         )
-                      : Row(
+                      : const Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: const [
-                            Text(
-                              'Continuar a Partidos',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.5,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'Continuar a Partidos',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 0.5,
+                                ),
                               ),
                             ),
                             SizedBox(width: 8),
@@ -265,6 +326,7 @@ class _SportSelectionCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const _SportSelectionCard({
+    super.key,
     required this.sport,
     required this.description,
     required this.isSelected,
@@ -273,8 +335,6 @@ class _SportSelectionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sportColor = sport.color;
-
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
@@ -282,16 +342,18 @@ class _SportSelectionCard extends StatelessWidget {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: isSelected ? sportColor.withValues(alpha: 0.12) : AppColors.surfaceDark,
+          color: isSelected
+              ? AppColors.primary.withValues(alpha: 0.08)
+              : AppColors.surface,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: isSelected ? sportColor : AppColors.cardBorderDark,
+            color: isSelected ? AppColors.primary : AppColors.border,
             width: isSelected ? 2.0 : 1.0,
           ),
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: sportColor.withValues(alpha: 0.15),
+                    color: AppColors.primary.withValues(alpha: 0.12),
                     blurRadius: 10,
                     offset: const Offset(0, 2),
                   ),
@@ -305,17 +367,17 @@ class _SportSelectionCard extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 color: isSelected
-                    ? sportColor.withValues(alpha: 0.25)
-                    : AppColors.cardDark,
+                    ? AppColors.primary.withValues(alpha: 0.14)
+                    : AppColors.surfaceMuted,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: isSelected ? sportColor : AppColors.cardBorderDark,
+                  color: isSelected ? AppColors.primary : AppColors.border,
                   width: 1.2,
                 ),
               ),
               child: Icon(
                 sport.icon,
-                color: isSelected ? sportColor : AppColors.textMuted,
+                color: isSelected ? AppColors.primary : AppColors.textSecondary,
                 size: 22,
               ),
             ),
@@ -326,25 +388,38 @@ class _SportSelectionCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(
-                        sport.displayName,
-                        style: TextStyle(
-                          color: isSelected ? AppColors.textPrimary : AppColors.textSecondary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
+                      Flexible(
+                        child: Text(
+                          sport.displayName,
+                          style: TextStyle(
+                            color: isSelected
+                                ? AppColors.textPrimary
+                                : AppColors.textSecondary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       const SizedBox(width: 6),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 1.5,
+                        ),
                         decoration: BoxDecoration(
-                          color: sportColor.withValues(alpha: 0.2),
+                          color: isSelected
+                              ? AppColors.primary.withValues(alpha: 0.14)
+                              : AppColors.surfaceMuted,
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
                           sport.name.toUpperCase(),
                           style: TextStyle(
-                            color: sportColor,
+                            color: isSelected
+                                ? AppColors.primaryDark
+                                : AppColors.textMuted,
                             fontSize: 9,
                             fontWeight: FontWeight.w800,
                           ),
@@ -356,7 +431,7 @@ class _SportSelectionCard extends StatelessWidget {
                   Text(
                     description,
                     style: const TextStyle(
-                      color: AppColors.textMuted,
+                      color: AppColors.textSecondary,
                       fontSize: 11,
                     ),
                     maxLines: 1,
@@ -371,10 +446,10 @@ class _SportSelectionCard extends StatelessWidget {
               width: 26,
               height: 26,
               decoration: BoxDecoration(
-                color: isSelected ? sportColor : Colors.transparent,
+                color: isSelected ? AppColors.primary : AppColors.surfaceMuted,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isSelected ? sportColor : AppColors.textMuted,
+                  color: isSelected ? AppColors.primary : AppColors.border,
                   width: 2.0,
                 ),
               ),

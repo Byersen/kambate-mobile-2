@@ -42,7 +42,12 @@ class FeedScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final date = ref.watch(selectedFeedDateProvider);
-    final sport = ref.watch(selectedSportFilterProvider);
+    final selectedSports = ref.watch(selectedSportsProvider);
+    final rawSport = ref.watch(selectedSportFilterProvider);
+    final sport =
+        (selectedSports.isNotEmpty && !selectedSports.contains(rawSport))
+        ? selectedSports.first
+        : rawSport;
     final status = ref.watch(selectedEventStatusProvider);
     final feed = ref.watch(feedNotifierProvider);
     final source = ref.watch(feedDataSourceProvider);
@@ -54,6 +59,7 @@ class FeedScreen extends ConsumerWidget {
             .where(
               (event) {
                 if (!AppDateFormatter.isSameDay(event.startTime, date)) return false;
+                if (selectedSports.isNotEmpty && !selectedSports.contains(event.sport)) return false;
                 if (sport != SportType.all && event.sport != sport) return false;
                 if (status != null && event.status != status) return false;
                 if (event.status == EventStatus.archived) return false;
@@ -123,6 +129,7 @@ class FeedScreen extends ConsumerWidget {
             SliverToBoxAdapter(
               child: SportFilterBar(
                 selectedSport: sport,
+                availableSports: selectedSports,
                 onSportSelected: (value) =>
                     ref.read(selectedSportFilterProvider.notifier).state =
                         value,
@@ -277,7 +284,9 @@ class FeedScreen extends ConsumerWidget {
                           DateTime(now.year, now.month, now.day);
                     } else {
                       ref.read(selectedSportFilterProvider.notifier).state =
-                          SportType.soccer;
+                          selectedSports.isNotEmpty
+                              ? selectedSports.first
+                              : SportType.soccer;
                       ref.read(selectedEventStatusProvider.notifier).state =
                           null;
                     }
