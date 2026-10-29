@@ -25,12 +25,70 @@ class FeedRepository {
   FeedDataSource source = FeedDataSource.remote;
   DateTime? lastUpdated;
 
+  static const int _totalSupportedSportsCount = 5;
+
+  static bool _isSubsetSelection(Set<SportType>? selectedSports) {
+    if (selectedSports == null || selectedSports.isEmpty) return false;
+    final valid = selectedSports.where((s) => s != SportType.all).toSet();
+    return valid.isNotEmpty && valid.length < _totalSupportedSportsCount;
+  }
+
+  /// Construye la proyección PostgREST incluyendo únicamente las tablas de estadísticas
+  /// de los deportes seleccionados por el usuario para ahorrar ancho de banda y memoria.
+  @visibleForTesting
+  static String buildEventSelect([Set<SportType>? selectedSports]) {
+    if (!_isSubsetSelection(selectedSports)) {
+      return _eventSelect;
+    }
+    final valid = selectedSports!.where((s) => s != SportType.all).toSet();
+    final fields = <String>[
+      'id, externalId, startDate, status, score',
+      'sport:Sport!inner(id, name, slug)',
+      'league:League(id, name, slug, country, logoUrl, isActive)',
+      'season:Season(id, name, slug, isCurrent)',
+      'participants:Participant(id, name, externalId, logoUrl)',
+      if (valid.contains(SportType.soccer)) 'footballStats:FootballStats(*)',
+      if (valid.contains(SportType.nba)) 'nbaStats:NbaStats(*)',
+      if (valid.contains(SportType.ufc)) 'ufcStats:UfcStats(*)',
+      if (valid.contains(SportType.lol) || valid.contains(SportType.valorant))
+        'esportsStats:EsportsStats(*)',
+    ];
+    return fields.join(',\n  ');
+  }
+
+  /// Mapea los deportes seleccionados en la app a los slugs de la tabla `Sport` en Supabase.
+  @visibleForTesting
+  static List<String> backendSportSlugs(Set<SportType> selectedSports) {
+    final slugs = <String>{};
+    for (final sport in selectedSports) {
+      switch (sport) {
+        case SportType.soccer:
+          slugs.addAll(['football', 'soccer']);
+          break;
+        case SportType.nba:
+          slugs.addAll(['nba', 'basketball']);
+          break;
+        case SportType.ufc:
+          slugs.addAll(['ufc', 'mma']);
+          break;
+        case SportType.lol:
+        case SportType.valorant:
+          slugs.addAll(['esports', 'lol', 'valorant']);
+          break;
+        case SportType.all:
+          break;
+      }
+    }
+    return slugs.toList();
+  }
+
   /// Solo se almacena información obtenida de Supabase, nunca datos de ejemplo.
   Future<List<EventModel>> getEvents({
     SportType? sport,
     int? leagueTier,
     bool forceRefresh = false,
   }) async {
+    final effectiveSelectedSports = await CacheService.getSelectedSportTypes();
     final cached = await CacheService.getCachedEvents();
     final lastSync = await CacheService.getLastSyncTime();
     final isCacheFresh = lastSync != null &&
@@ -40,22 +98,36 @@ class FeedRepository {
     if (!forceRefresh && cached != null && isCacheFresh) {
       source = FeedDataSource.remote;
       lastUpdated = lastSync;
-      return _filter(cached, sport, leagueTier);
+      return _filter(cached, sport, leagueTier, effectiveSelectedSports);
     }
 
     try {
-      final events = await fetchRemoteEvents();
-      await CacheService.saveEvents(events);
+      final rawEvents = await fetchRemoteEvents();
+      final filteredBySelection = _filterBySelectedSports(
+        rawEvents,
+        effectiveSelectedSports,
+      );
+      await CacheService.saveEvents(filteredBySelection);
       source = FeedDataSource.remote;
       lastUpdated = DateTime.now();
-      return _filter(events, sport, leagueTier);
+      return _filter(
+        filteredBySelection,
+        sport,
+        leagueTier,
+        effectiveSelectedSports,
+      );
     } catch (error) {
       debugPrint('No se pudieron actualizar los partidos remotamente: $error');
       final fallbackCached = cached ?? await CacheService.getCachedEvents();
       if (fallbackCached == null) rethrow;
       source = FeedDataSource.cache;
       lastUpdated = lastSync ?? await CacheService.getLastSyncTime();
-      return _filter(fallbackCached, sport, leagueTier);
+      return _filter(
+        fallbackCached,
+        sport,
+        leagueTier,
+        effectiveSelectedSports,
+      );
     }
   }
 
@@ -71,6 +143,12 @@ class FeedRepository {
   }) async {
     final client = SupabaseService.client;
     if (client == null) throw StateError('Conexión de datos no disponible');
+
+    final effectiveSelectedSports = await CacheService.getSelectedSportTypes();
+    final isSubset = _isSubsetSelection(effectiveSelectedSports);
+    final selectClause = buildEventSelect(effectiveSelectedSports);
+    final allowedSlugs =
+        isSubset ? backendSportSlugs(effectiveSelectedSports) : const <String>[];
 
     final nowLocal = DateTime.now();
     final rangeStart = (start ??
@@ -91,15 +169,22 @@ class FeedRepository {
     final events = <EventModel>[];
     const pageSize = 1000;
     for (var offset = 0; ; offset += pageSize) {
-      final data = await client
+      var query = client
           .from('Event')
-          .select(_eventSelect)
+          .select(selectClause)
           .gte('startDate', rangeStart.toIso8601String())
-          .lte('startDate', rangeEnd.toIso8601String())
+          .lte('startDate', rangeEnd.toIso8601String());
+
+      if (isSubset && allowedSlugs.isNotEmpty) {
+        query = query.inFilter('sport.slug', allowedSlugs);
+      }
+
+      final data = await query
           .order('startDate')
           .order('id')
           .range(offset, offset + pageSize - 1);
-      events.addAll(data.map(EventModel.fromJson));
+      final parsed = data.map(EventModel.fromJson);
+      events.addAll(_filterBySelectedSports(parsed, effectiveSelectedSports));
       if (data.length < pageSize) break;
     }
     return events;
@@ -112,10 +197,16 @@ class FeedRepository {
   Future<List<EventModel>> fetchLiveAndDueEvents(
     List<String> trackedLiveIds,
   ) async {
+    final effectiveSelectedSports = await CacheService.getSelectedSportTypes();
     final client = SupabaseService.client;
     if (client == null) {
       return getEvents(forceRefresh: true);
     }
+
+    final isSubset = _isSubsetSelection(effectiveSelectedSports);
+    final selectClause = buildEventSelect(effectiveSelectedSports);
+    final allowedSlugs =
+        isSubset ? backendSportSlugs(effectiveSelectedSports) : const <String>[];
 
     final nowLocal = DateTime.now();
     final nowUtcIso = nowLocal.toUtc().toIso8601String();
@@ -141,17 +232,25 @@ class FeedRepository {
         'id.in.(${cleanTrackedIds.map((id) => '"$id"').join(',')})',
     ];
 
-    final data = await client
+    var query = client
         .from('Event')
-        .select(_eventSelect)
-        .or(orFilters.join(','))
-        .order('startDate')
-        .order('id');
+        .select(selectClause)
+        .or(orFilters.join(','));
+
+    if (isSubset && allowedSlugs.isNotEmpty) {
+      query = query.inFilter('sport.slug', allowedSlugs);
+    }
+
+    final data = await query.order('startDate').order('id');
 
     final seenIds = <String>{};
     final result = <EventModel>[];
     for (final row in data) {
       final event = EventModel.fromJson(row);
+      if (effectiveSelectedSports.isNotEmpty &&
+          !effectiveSelectedSports.contains(event.sport)) {
+        continue;
+      }
       if (seenIds.add(event.id)) {
         result.add(event);
       }
@@ -164,6 +263,7 @@ class FeedRepository {
     DateTime start,
     DateTime end,
   ) async {
+    final effectiveSelectedSports = await CacheService.getSelectedSportTypes();
     final normalizedStart = start.isUtc
         ? start
         : DateTime(
@@ -189,7 +289,7 @@ class FeedRepository {
 
     if (SupabaseService.client == null) {
       final all = await fetchRemoteEvents();
-      return all.where((event) {
+      return _filterBySelectedSports(all, effectiveSelectedSports).where((event) {
         final t = event.startTime.toUtc();
         return !t.isBefore(normalizedStart) && !t.isAfter(normalizedEnd);
       }).toList();
@@ -201,14 +301,33 @@ class FeedRepository {
     );
   }
 
+  List<EventModel> _filterBySelectedSports(
+    Iterable<EventModel> events,
+    Set<SportType>? selectedSports,
+  ) {
+    if (selectedSports == null || selectedSports.isEmpty) {
+      return events.toList();
+    }
+    final valid = selectedSports.where((s) => s != SportType.all).toSet();
+    if (valid.isEmpty) return events.toList();
+    return events.where((e) => valid.contains(e.sport)).toList();
+  }
+
   List<EventModel> _filter(
     List<EventModel> events,
     SportType? sport,
-    int? tier,
-  ) {
+    int? tier, [
+    Set<SportType>? selectedSports,
+  ]) {
+    final validSelected = selectedSports
+        ?.where((s) => s != SportType.all)
+        .toSet();
     return events
         .where(
           (event) =>
+              (validSelected == null ||
+                  validSelected.isEmpty ||
+                  validSelected.contains(event.sport)) &&
               (sport == null ||
                   sport == SportType.all ||
                   event.sport == sport) &&

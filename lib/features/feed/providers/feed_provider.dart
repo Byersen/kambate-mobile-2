@@ -13,6 +13,75 @@ final feedRepositoryProvider = Provider<FeedRepository>((ref) {
   return FeedRepository();
 });
 
+const List<SportType> kDefaultSelectedSports = [
+  SportType.soccer,
+  SportType.nba,
+  SportType.ufc,
+  SportType.lol,
+  SportType.valorant,
+];
+
+class SelectedSportsNotifier extends StateNotifier<Set<SportType>> {
+  final Ref _ref;
+
+  SelectedSportsNotifier(this._ref, [Set<SportType>? initialSports])
+      : super(
+          initialSports != null
+              ? normalizeSports(initialSports)
+              : kDefaultSelectedSports.toSet(),
+        ) {
+    if (initialSports == null) {
+      _loadFromCache();
+    }
+  }
+
+  static Set<SportType> normalizeSports(Iterable<SportType> sports) {
+    final ordered = <SportType>{};
+    for (final canonical in kDefaultSelectedSports) {
+      if (sports.contains(canonical)) {
+        ordered.add(canonical);
+      }
+    }
+    return ordered.isEmpty ? {SportType.soccer} : ordered;
+  }
+
+  Future<void> _loadFromCache() async {
+    final saved = await CacheService.getSelectedSportTypes();
+    if (!mounted || saved.isEmpty) return;
+    final normalized = normalizeSports(saved);
+    state = normalized;
+    final currentFilter = _ref.read(selectedSportFilterProvider);
+    if (!normalized.contains(currentFilter)) {
+      _ref.read(selectedSportFilterProvider.notifier).state = normalized.first;
+    }
+  }
+
+  Future<void> setSelectedSports(Iterable<SportType> sports) async {
+    final normalized = normalizeSports(sports);
+    final addedNewSport = normalized.any((s) => !state.contains(s));
+    state = normalized;
+
+    await CacheService.saveSelectedSports(
+      normalized.map((s) => s.id).toList(),
+    );
+
+    final currentFilter = _ref.read(selectedSportFilterProvider);
+    if (!normalized.contains(currentFilter)) {
+      _ref.read(selectedSportFilterProvider.notifier).state = normalized.first;
+    }
+
+    await _ref
+        .read(feedNotifierProvider.notifier)
+        .applySelectedSports(normalized, reloadRemote: addedNewSport);
+  }
+}
+
+/// User's selected sports in onboarding/settings (defaults to all 5 sports)
+final selectedSportsProvider =
+    StateNotifierProvider<SelectedSportsNotifier, Set<SportType>>((ref) {
+      return SelectedSportsNotifier(ref);
+    });
+
 /// Sport discipline filter (defaults to soccer; soccer, nba, ufc, lol, valorant)
 final selectedSportFilterProvider = StateProvider<SportType>((ref) {
   return SportType.soccer;
@@ -106,8 +175,12 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
 
     _isPulsing = true;
     try {
+      final cachedSports = await CacheService.getSelectedSportTypes();
+      final selectedSports = cachedSports.isNotEmpty
+          ? SelectedSportsNotifier.normalizeSports(cachedSports)
+          : _ref.read(selectedSportsProvider);
       final trackedLiveIds = currentEvents
-          .where((e) => e.isLive)
+          .where((e) => e.isLive && selectedSports.contains(e.sport))
           .map((e) => e.id)
           .toList();
 
@@ -127,6 +200,10 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
       };
 
       for (final incoming in updatedBatch) {
+        if (selectedSports.isNotEmpty &&
+            !selectedSports.contains(incoming.sport)) {
+          continue;
+        }
         final existingIndex =
             indexById[incoming.id] ??
             latestEvents.indexWhere(
@@ -159,6 +236,27 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
     }
   }
 
+  /// Aplica el subconjunto de deportes seleccionados descartando eventos no seleccionados
+  /// de la memoria y recargando si se habilitó una disciplina adicional.
+  Future<void> applySelectedSports(
+    Set<SportType> allowedSports, {
+    bool reloadRemote = false,
+  }) async {
+    final currentEvents = state.asData?.value;
+    if (currentEvents != null && allowedSports.isNotEmpty) {
+      final pruned = currentEvents
+          .where((e) => allowedSports.contains(e.sport))
+          .toList();
+      if (pruned.length != currentEvents.length) {
+        state = AsyncValue.data(pruned);
+      }
+      await CacheService.saveEvents(pruned);
+    }
+    if (reloadRemote) {
+      await loadEvents(forceRefresh: true);
+    }
+  }
+
   /// Listen to Supabase Realtime PostgreSQL updates
   void _listenToRealtimeUpdates() {
     _realtimeSubscription = RealtimeService().onEventUpdate.listen(
@@ -188,9 +286,17 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
 
   @visibleForTesting
   Future<void> applyRealtimeUpdate(RealtimeEventUpdate update) async {
+    final cachedSports = await CacheService.getSelectedSportTypes();
+    final selectedSports = cachedSports.isNotEmpty
+        ? SelectedSportsNotifier.normalizeSports(cachedSports)
+        : _ref.read(selectedSportsProvider);
     if (update.requiresRefresh) {
       final refreshed = await _repository.getEventById(update.eventId);
       if (!mounted || refreshed == null) return;
+      if (selectedSports.isNotEmpty &&
+          !selectedSports.contains(refreshed.sport)) {
+        return;
+      }
       final events = state.asData?.value;
       if (events == null) return;
       final index = events.indexWhere(
@@ -223,7 +329,9 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
     );
     if (index == -1) {
       final newEvent = await _repository.getEventById(update.eventId);
-      if (newEvent != null && mounted) {
+      if (newEvent != null &&
+          mounted &&
+          (selectedSports.isEmpty || selectedSports.contains(newEvent.sport))) {
         final currentEvents = state.asData?.value ?? [];
         final updatedList = List<EventModel>.from(currentEvents)..add(newEvent);
         state = AsyncValue.data(updatedList);
@@ -328,11 +436,18 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
     }
     try {
       final favoriteIds = await CacheService.getFavoriteIds();
+      final cachedSports = await CacheService.getSelectedSportTypes();
+      final selectedSports = cachedSports.isNotEmpty
+          ? SelectedSportsNotifier.normalizeSports(cachedSports)
+          : _ref.read(selectedSportsProvider);
 
       final rawEvents = await _repository.getEvents(forceRefresh: forceRefresh);
+      final filteredEvents = selectedSports.isEmpty
+          ? rawEvents
+          : rawEvents.where((e) => selectedSports.contains(e.sport)).toList();
 
       final events =
-          rawEvents.map((e) {
+          filteredEvents.map((e) {
             if (favoriteIds.contains(e.id)) {
               return e.copyWith(isFavorite: true);
             }
