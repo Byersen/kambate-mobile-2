@@ -191,3 +191,4 @@ class NbaTeamFormatter {
     return trimmed;
   }
 }
+
