@@ -844,7 +844,7 @@ void main() {
 
       // Los partidos programados y en vivo sí deben aparecer
       expect(find.text('Cobresal vs Cobreloa'), findsOneWidget);
-      expect(find.text('Celtics 82 - 78 Heat'), findsOneWidget);
+      expect(find.text('Celtics vs Heat'), findsOneWidget);
 
       // Los partidos finalizados y archivados NO deben aparecer en el calendario
       expect(find.text('Huachipato vs Audax Italiano'), findsNothing);
@@ -933,18 +933,17 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Texto de evento en vivo y solo punto rojo (sin texto EN VIVO)
-      expect(find.text('Real Madrid 1 - 0 Manchester City'), findsOneWidget);
+      // En fútbol en vivo se muestra 'Real Madrid vs Manchester City' sin marcador
+      expect(find.text('Real Madrid vs Manchester City'), findsOneWidget);
       expect(find.text('EN VIVO'), findsNothing);
 
-      // Punto rojo visible con key específica
-      final dotFinder = find.byKey(const ValueKey('live_indicator_dot'));
-      expect(dotFinder, findsOneWidget);
-
-      final container = tester.widget<Container>(dotFinder);
-      final decoration = container.decoration as BoxDecoration;
-      expect(decoration.color, AppColors.liveRed);
-      expect(decoration.shape, BoxShape.circle);
+      // Sin círculo rojo; solo números de horario en rojo
+      expect(find.byKey(const ValueKey('live_indicator_dot')), findsNothing);
+      final redNumberFinder = find.text('16:00');
+      expect(redNumberFinder, findsOneWidget);
+      final textWidget = tester.widget<Text>(redNumberFinder);
+      expect(textWidget.style?.color, AppColors.liveRed);
+      expect(textWidget.style?.fontWeight, FontWeight.bold);
 
       // Accesibilidad: semántica 'En vivo' presente en el árbol accesible
       final semantics = tester.ensureSemantics();
@@ -1029,16 +1028,15 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Indicador de punto rojo visible y accesible
-      final dotFinder = find.byKey(const ValueKey('live_indicator_dot'));
-      expect(dotFinder, findsOneWidget);
+      // Sin círculo rojo
+      expect(find.byKey(const ValueKey('live_indicator_dot')), findsNothing);
 
       final semantics = tester.ensureSemantics();
       await tester.pumpAndSettle();
       expect(find.bySemanticsLabel('En vivo'), findsOneWidget);
       semantics.dispose();
 
-      // Minuto real visible formateado con prima ′
+      // Minuto real visible formateado con prima ′ en números rojos
       expect(find.text('23′'), findsOneWidget);
 
       // Color del texto del minuto es AppColors.liveRed
@@ -1046,8 +1044,8 @@ void main() {
       expect(minuteText.style?.color, AppColors.liveRed);
       expect(minuteText.style?.fontWeight, FontWeight.bold);
 
-      // Marcador y equipos
-      expect(find.text('Colo-Colo 1 - 0 U. de Chile'), findsOneWidget);
+      // En fútbol y básquet no muestra resultado sino formato vs
+      expect(find.text('Colo-Colo vs U. de Chile'), findsOneWidget);
     });
 
     testWidgets('Tiempo añadido: conserva formato de tiempo añadido (e.g. 90+3′ o 45+2′) sin inventar sumas ni adiciones', (tester) async {
@@ -1137,8 +1135,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Ambos eventos muestran su punto rojo
-      expect(find.byKey(const ValueKey('live_indicator_dot')), findsNWidgets(2));
+      // Sin círculo rojo; muestran los números de su horario o estado ET en rojo accesible
+      expect(find.byKey(const ValueKey('live_indicator_dot')), findsNothing);
+      expect(find.text('15:00'), findsOneWidget);
+      final time1 = tester.widget<Text>(find.text('15:00'));
+      expect(time1.style?.color, AppColors.liveRed);
+      expect(find.text('ET'), findsOneWidget);
+      final time2 = tester.widget<Text>(find.text('ET'));
+      expect(time2.style?.color, AppColors.liveRed);
 
       // Ninguno muestra texto de minuto ni etiqueta HT en el reloj
       expect(find.text('HT'), findsNothing);
@@ -1192,8 +1196,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Todos tienen punto rojo accesible
-      expect(find.byKey(const ValueKey('live_indicator_dot')), findsNWidgets(3));
+      // Todos prescinden de círculo rojo
+      expect(find.byKey(const ValueKey('live_indicator_dot')), findsNothing);
+
+      // NBA muestra formato vs sin resultado
+      expect(find.text('Lakers vs Warriors'), findsOneWidget);
 
       // No se inventan minutos de fútbol a partir de cuentas regresivas ni asaltos
       expect(find.textContaining('′'), findsNothing);
@@ -1293,10 +1300,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // El widget se actualiza inmediatamente reflejando el minuto 13′ y el nuevo resultado
+      // El widget se actualiza inmediatamente reflejando el minuto 13′ y conserva formato sin marcador
       expect(find.text('13′'), findsOneWidget);
       expect(find.text('12′'), findsNothing);
-      expect(find.text('River Plate 1 - 0 Boca Juniors'), findsOneWidget);
+      expect(find.text('River Plate vs Boca Juniors'), findsOneWidget);
     });
   });
 }
