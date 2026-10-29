@@ -48,8 +48,11 @@ final favoriteTeamIdsProvider =
 /// Uses real Participant UUIDs so following a team correctly highlights their matches in the feed.
 final allAvailableTeamsProvider = Provider<List<SearchableTeamItem>>((ref) {
   final feedState = ref.watch(feedNotifierProvider);
+  final selectedSports = ref.watch(selectedSportsProvider);
   final List<EventModel> events = feedState.maybeWhen(
-    data: (data) => data,
+    data: (data) => data
+        .where((e) => selectedSports.isEmpty || selectedSports.contains(e.sport))
+        .toList(),
     orElse: () => [],
   );
 
