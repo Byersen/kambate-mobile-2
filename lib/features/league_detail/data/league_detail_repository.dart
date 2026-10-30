@@ -64,16 +64,35 @@ class LeagueDetailRepository {
       return 'uefa.super_cup';
     }
 
+    if (l.contains('copa argentina') || l == 'arg.copa') return 'arg.copa';
     if (l.contains('arg') || l.contains('argentin') || l.contains('liga prof')) {
       return 'arg.1';
     }
+    if (l.contains('copa do brasil') || l.contains('copa_do_brazil')) {
+      return 'bra.copa_do_brazil';
+    }
     if (l.contains('bra') || l.contains('brasileir')) return 'bra.1';
+    if (l.contains('copa chile') || l.contains('copa_chi')) {
+      return 'chi.copa_chi';
+    }
     if (l.contains('chi') || l.contains('chile') || l.contains('campeonato itaú')) {
       return 'chi.1';
     }
 
+    if (l.contains('copa del rey') || l.contains('copa_del_rey')) {
+      return 'esp.copa_del_rey';
+    }
     if (l.contains('esp') || l.contains('spanish') || l.contains('laliga')) {
       return 'esp.1';
+    }
+    if (l.contains('carabao') || l.contains('league_cup') || l.contains('league cup') || l.contains('efl cup')) {
+      return 'eng.league_cup';
+    }
+    if (l.contains('community shield') || l.contains('charity')) {
+      return 'eng.charity';
+    }
+    if (l.contains('fa cup') || l == 'eng.fa') {
+      return 'eng.fa';
     }
     if (l.contains('eng') || l.contains('english') || l.contains('premier')) {
       return 'eng.1';
