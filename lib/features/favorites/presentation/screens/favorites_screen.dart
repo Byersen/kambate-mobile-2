@@ -588,9 +588,9 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
     if (['libertadores', 'sudamericana', 'recopa', 'conmebol'].any((x) => l.contains(x))) return 'CONMEBOL';
     if (['arg', 'argentin', 'liga prof', 'copa de la liga', 'copa argentina'].any((x) => l.contains(x))) return 'Argentina';
     if (['bra', 'brasileir', 'copa do brasil', 'paulista', 'carioca'].any((x) => l.contains(x))) return 'Brasil';
-    if (['chi', 'chile', 'campeonato itaú', 'copa chile'].any((x) => l.contains(x))) return 'Chile';
-    if (['esp', 'españa', 'spanish', 'laliga'].any((x) => l.contains(x))) return 'España';
-    if (['eng', 'inglaterra', 'english', 'premier'].any((x) => l.contains(x))) return 'Inglaterra';
+    if (['chi', 'chile', 'campeonato itaú', 'copa chile', 'copa_chi'].any((x) => l.contains(x))) return 'Chile';
+    if (['esp', 'españa', 'spanish', 'laliga', 'copa del rey'].any((x) => l.contains(x))) return 'España';
+    if (['eng', 'inglaterra', 'english', 'premier', 'carabao', 'community shield', 'fa cup', 'efl cup'].any((x) => l.contains(x))) return 'Inglaterra';
     if (['ita', 'italian', 'serie a'].any((x) => l.contains(x))) return 'Italia';
     if (['ger', 'german', 'bundesliga'].any((x) => l.contains(x))) return 'Alemania';
     if (['fra', 'french', 'ligue 1'].any((x) => l.contains(x))) return 'Francia';
@@ -640,7 +640,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
     if (l.contains('arg') || l.contains('argentin') || l.contains('liga prof')) return 'Liga Profesional';
     if (l.contains('copa do brasil')) return 'Copa do Brasil';
     if (l.contains('bra') || l.contains('brazilian') || l.contains('brasileir')) return 'Brasileirão';
-    if (l.contains('copa chile')) return 'Copa Chile';
+    if (l.contains('copa chile') || l.contains('copa_chi')) return 'Copa Chile';
     if (l.contains('chi') || l.contains('chile') || l.contains('campeonato itaú')) return 'Primera División';
     if (l.contains('col') || l.contains('colombia')) return 'Primera A';
     if (l.contains('libertadores')) return 'Copa Libertadores';
@@ -649,7 +649,11 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
     if (l.contains('champions')) return 'Champions League';
     if (l.contains('europa league') || (l.contains('europa') && !l.contains('eurocopa'))) return 'Europa League';
     if (l.contains('conference')) return 'Conference League';
-    if (l.contains('supercopa de europa')) return 'Supercopa de Europa';
+    if (l.contains('supercopa de europa') || l.contains('uefa.super_cup') || l.contains('uefa super cup')) return 'Supercopa de Europa';
+    if (l.contains('carabao') || l.contains('league_cup') || l.contains('league cup') || l.contains('efl cup')) return 'Carabao Cup';
+    if (l.contains('community shield') || l.contains('charity')) return 'Community Shield';
+    if (l.contains('fa cup') || l == 'eng.fa') return 'FA Cup';
+    if (l.contains('copa del rey') || l.contains('copa_del_rey')) return 'Copa del Rey';
     if (l.contains('esp') || l.contains('spanish') || l.contains('laliga')) return 'LaLiga';
     if (l.contains('eng') || l.contains('english') || l.contains('premier')) return 'Premier League';
     if (l.contains('ita') || l.contains('italian') || l.contains('serie a')) return 'Serie A';
