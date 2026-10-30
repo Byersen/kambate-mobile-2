@@ -260,6 +260,20 @@ class FeedScreen extends ConsumerWidget {
                   onPressed: refresh,
                 ),
               )
+            else if (events.isEmpty && sport == SportType.ufc)
+              // UFC concentra sus combates en veladas puntuales: en lugar de un
+              // estado vacío, invita a revisar las próximas carteleras confirmadas.
+              SliverToBoxAdapter(
+                child: _FeedMessage(
+                  key: const ValueKey('ufc_upcoming_cards_cta'),
+                  icon: Icons.sports_mma_rounded,
+                  title: 'Revisa los próximos eventos aquí',
+                  message:
+                      'Consulta las próximas carteleras confirmadas de UFC.',
+                  action: 'Ver próximas carteleras',
+                  onPressed: () => context.push('/ufc'),
+                ),
+              )
             else if (events.isEmpty)
               SliverToBoxAdapter(
                 child: _FeedMessage(
@@ -898,6 +912,7 @@ class _SectionHeader extends StatelessWidget {
 
 class _FeedMessage extends StatelessWidget {
   const _FeedMessage({
+    super.key,
     required this.icon,
     required this.title,
     required this.message,

@@ -239,6 +239,31 @@ void main() {
   );
 
   testWidgets(
+    'UFC sin combates hoy invita a revisar las próximas carteleras',
+    (tester) async {
+      final app = await mount(
+        tester,
+        customEvents: fixtures()
+            .where((event) => event.sport != SportType.ufc)
+            .toList(),
+      );
+      app.container.read(selectedSportFilterProvider.notifier).state =
+          SportType.ufc;
+      await tester.pumpAndSettle();
+
+      expect(find.text('Revisa los próximos eventos aquí'), findsOneWidget);
+      expect(find.text('No hay encuentros para estos filtros'), findsNothing);
+
+      await tester.tap(find.text('Ver próximas carteleras'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.text('Próximas carteleras'), findsOneWidget);
+      expect(find.text('Rankings'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'La liga reúne sus partidos y permite seguirla desde la cabecera',
     (tester) async {
       final now = DateTime.now();
