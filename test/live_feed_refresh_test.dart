@@ -13,6 +13,7 @@ class ClockRepository extends FeedRepository {
 
   EventModel event;
   final refreshes = <bool>[];
+  List<String>? lastTrackedLiveIds;
 
   @override
   Future<List<EventModel>> getEvents({
@@ -21,6 +22,15 @@ class ClockRepository extends FeedRepository {
     bool forceRefresh = false,
   }) async {
     refreshes.add(forceRefresh);
+    return [event];
+  }
+
+  @override
+  Future<List<EventModel>> fetchLiveAndDueEvents(
+    List<String> trackedLiveIds,
+  ) async {
+    lastTrackedLiveIds = trackedLiveIds;
+    refreshes.add(true);
     return [event];
   }
 }
@@ -55,6 +65,7 @@ void main() {
     await tester.pump(const Duration(seconds: 30));
     await tester.pumpAndSettle();
     expect(repository.refreshes, [true, true]);
+    expect(repository.lastTrackedLiveIds, ['live-match']);
     expect(
       MatchMinuteFormatter.format(
         container.read(feedNotifierProvider).requireValue.single,
@@ -87,4 +98,50 @@ void main() {
     expect(repository.refreshes.length, finishedCount);
     container.dispose();
   });
+
+  testWidgets(
+    'refreshLivePulse hace merge de partido SCHEDULED próximo a iniciar sin estado loading',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      final dueStart = DateTime.now().add(const Duration(minutes: 2)).toUtc();
+      final scheduledDue = EventModel(
+        id: 'due-match',
+        sport: SportType.soccer,
+        league: 'Primera División',
+        status: EventStatus.scheduled,
+        startTime: dueStart,
+      );
+
+      final repository = ClockRepository(scheduledDue);
+      final container = ProviderContainer(
+        overrides: [feedRepositoryProvider.overrideWithValue(repository)],
+      );
+      final notifier = container.read(feedNotifierProvider.notifier);
+      await notifier.loadEvents(forceRefresh: true);
+      notifier.startLiveRefresh();
+
+      final states = <AsyncValue<List<EventModel>>>[];
+      container.listen(
+        feedNotifierProvider,
+        (_, next) => states.add(next),
+        fireImmediately: false,
+      );
+
+      repository.event = scheduledDue.copyWith(
+        status: EventStatus.live,
+        homeScore: 1,
+        awayScore: 0,
+        score: '1 - 0',
+      );
+
+      await tester.pump(const Duration(seconds: 30));
+      await tester.pumpAndSettle();
+
+      expect(states.any((s) => s.isLoading), isFalse);
+      final updated = container.read(feedNotifierProvider).requireValue.single;
+      expect(updated.status, EventStatus.live);
+      expect(updated.homeScore, 1);
+      container.dispose();
+    },
+  );
 }

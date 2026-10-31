@@ -236,7 +236,7 @@ void main() {
       );
     }
 
-    testWidgets('Estructura completa de vista de búsqueda: encabezado, pestañas, buscador, deportes, región y GridView 2 columnas', (tester) async {
+    testWidgets('Estructura completa de vista de búsqueda: encabezado, pestañas, buscador, deportes, región en fútbol y GridView 2 columnas', (tester) async {
       await tester.pumpWidget(createSearchScreenWidget());
       await tester.pumpAndSettle();
 
@@ -252,17 +252,17 @@ void main() {
       expect(find.text('Buscar equipos, atletas, ligas...'), findsOneWidget);
       expect(find.byIcon(Icons.search_rounded), findsOneWidget);
 
-      // 4. Filtros por deporte (FavoritesSportChips)
+      // 4. Filtros por deporte (FavoritesSportChips) sin mezclar todos
       expect(find.byType(FavoritesSportChips), findsOneWidget);
-      expect(find.text('Todos'), findsWidgets);
       expect(find.text('Fútbol'), findsOneWidget);
-      expect(find.text('NBA'), findsWidgets); // chip y tarjeta
-      expect(find.text('UFC'), findsWidgets); // chip y tarjeta
+      expect(find.text('NBA'), findsOneWidget); // solo chip
+      expect(find.text('UFC'), findsOneWidget); // solo chip
       expect(find.text('LoL'), findsOneWidget);
-      expect(find.text('Valorant'), findsWidgets);
+      expect(find.text('Valorant'), findsOneWidget);
 
-      // 5. Selector de región (FavoritesRegionTabs)
+      // 5. Selector de región (FavoritesRegionTabs) visible por defecto en Fútbol
       expect(find.byType(FavoritesRegionTabs), findsOneWidget);
+      expect(find.text('Todos'), findsOneWidget); // en tabs de región
       expect(find.text('Europa'), findsOneWidget);
       expect(find.text('Sudamérica'), findsOneWidget);
       expect(find.text('Norteamérica'), findsOneWidget);
@@ -273,10 +273,10 @@ void main() {
       expect(gridFinder, findsOneWidget);
       final gridView = tester.widget<GridView>(gridFinder);
       final delegate = gridView.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount;
-      expect(delegate.crossAxisCount, 2, reason: 'El prototipo vista-buscar.png requiere exactamente 2 columnas');
+      expect(delegate.crossAxisCount, 2, reason: 'El prototipo requiere exactamente 2 columnas');
     });
 
-    testWidgets('Tarjetas de ligas corresponden exactamente a las 6 primeras de vista-buscar.png', (tester) async {
+    testWidgets('Vista principal abre en fútbol por defecto y oculta regiones en otros deportes', (tester) async {
       tester.view.physicalSize = const Size(800, 1200);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
@@ -285,24 +285,45 @@ void main() {
       await tester.pumpWidget(createSearchScreenWidget());
       await tester.pumpAndSettle();
 
-      // Comprobar las 6 tarjetas que encabezan la captura de referencia vista-buscar.png
+      // Vista principal abre en Fútbol por defecto: muestra ligas de fútbol y no mezcla NBA/UFC
       expect(find.byKey(const ValueKey('league_card_Champions League')), findsOneWidget);
-      expect(find.byKey(const ValueKey('league_card_NBA')), findsOneWidget);
-      expect(find.byKey(const ValueKey('league_card_UFC')), findsOneWidget);
-      expect(find.byKey(const ValueKey('league_card_LCK')), findsOneWidget);
-      expect(find.byKey(const ValueKey('league_card_VCT Americas')), findsOneWidget);
       expect(find.byKey(const ValueKey('league_card_Europa League')), findsOneWidget);
+      expect(find.byKey(const ValueKey('league_card_NBA')), findsNothing);
+      expect(find.byKey(const ValueKey('league_card_UFC')), findsNothing);
+      expect(find.byType(FavoritesRegionTabs), findsOneWidget);
 
-      // Comprobar sus subtítulos en tarjetas
-      expect(find.text('🇪🇺 UEFA'), findsWidgets); // Champions y Europa League
-      expect(find.text('🇺🇸 Estados Unidos'), findsWidgets);
-      expect(find.text('Artes marciales mixtas'), findsOneWidget);
-      expect(find.text('League of Legends'), findsOneWidget);
-      expect(find.text('Valorant'), findsWidgets);
+      // Al cambiar a NBA: se ocultan los filtros regionales
+      final nbaChip = find.descendant(
+        of: find.byType(FavoritesSportChips),
+        matching: find.text('NBA'),
+      );
+      await tester.tap(nbaChip);
+      await tester.pumpAndSettle();
 
-      // Comprobar que cada LeagueSearchCard tiene badge de disciplina e icono de estrella para favoritos
-      expect(find.byType(LeagueSearchCard), findsWidgets);
-      expect(find.byIcon(Icons.star_outline_rounded), findsWidgets);
+      expect(find.byType(FavoritesRegionTabs), findsNothing);
+      expect(find.byKey(const ValueKey('league_card_NBA')), findsOneWidget);
+      expect(find.byKey(const ValueKey('league_card_Champions League')), findsNothing);
+
+      // Al cambiar a UFC: tampoco se muestran los filtros regionales
+      final ufcChip = find.descendant(
+        of: find.byType(FavoritesSportChips),
+        matching: find.text('UFC'),
+      );
+      await tester.tap(ufcChip);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FavoritesRegionTabs), findsNothing);
+      expect(find.byKey(const ValueKey('league_card_UFC')), findsOneWidget);
+
+      // Al volver a Fútbol: reaparecen los filtros regionales
+      final futbolChip = find.descendant(
+        of: find.byType(FavoritesSportChips),
+        matching: find.text('Fútbol'),
+      );
+      await tester.tap(futbolChip);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FavoritesRegionTabs), findsOneWidget);
     });
 
     testWidgets('Conmutar favorito mediante estrella en tarjeta de liga persiste en followedLeaguesProvider', (tester) async {
@@ -331,9 +352,9 @@ void main() {
       await tester.pumpWidget(createSearchScreenWidget());
       await tester.pumpAndSettle();
 
-      // Inicialmente se ve Champions League (fútbol) y NBA en tarjetas
+      // Inicialmente se ve Champions League (fútbol) y no NBA
       expect(find.descendant(of: find.byType(LeagueSearchCard), matching: find.text('Champions League')), findsOneWidget);
-      expect(find.descendant(of: find.byType(LeagueSearchCard), matching: find.text('NBA')), findsOneWidget);
+      expect(find.descendant(of: find.byType(LeagueSearchCard), matching: find.text('NBA')), findsNothing);
 
       // Pulsar el chip "NBA"
       final nbaChip = find.descendant(
@@ -347,6 +368,7 @@ void main() {
       expect(find.descendant(of: find.byType(LeagueSearchCard), matching: find.text('NBA')), findsOneWidget);
       expect(find.descendant(of: find.byType(LeagueSearchCard), matching: find.text('Champions League')), findsNothing);
       expect(find.descendant(of: find.byType(LeagueSearchCard), matching: find.text('UFC')), findsNothing);
+      expect(find.byType(FavoritesRegionTabs), findsNothing);
     });
 
     testWidgets('Filtros por región limitan las tarjetas a la región seleccionada (ej. Europa)', (tester) async {

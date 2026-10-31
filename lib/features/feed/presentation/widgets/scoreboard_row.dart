@@ -289,21 +289,33 @@ class ScoreboardRow extends StatelessWidget {
     if (event.isLive) {
       final liveMinute = MatchMinuteFormatter.format(event);
       if (liveMinute != null) {
-        return Text(
-          liveMinute,
-          style: const TextStyle(
-            color: AppColors.liveRed,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
+        return Semantics(
+          container: true,
+          label: 'En vivo',
+          child: ExcludeSemantics(
+            child: Text(
+              liveMinute,
+              style: const TextStyle(
+                color: AppColors.liveRed,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ),
         );
       }
-      return const Text(
-        'VIVO',
-        style: TextStyle(
-          color: AppColors.liveRed,
-          fontSize: 11,
-          fontWeight: FontWeight.bold,
+      return Semantics(
+        container: true,
+        label: 'En vivo',
+        child: ExcludeSemantics(
+          child: Text(
+            'VIVO',
+            style: TextStyle(
+              color: AppColors.liveRed,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ),
       );
     }

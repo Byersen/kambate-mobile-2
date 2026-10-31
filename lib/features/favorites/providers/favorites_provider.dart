@@ -9,7 +9,7 @@ import '../../../services/cache_service.dart';
 final favoritesSearchQueryProvider = StateProvider<String>((ref) => '');
 
 /// Tag / Sport filter for favorites screen
-final favoritesSportFilterProvider = StateProvider<SportType>((ref) => SportType.all);
+final favoritesSportFilterProvider = StateProvider<SportType>((ref) => SportType.soccer);
 
 /// Region filter for explore / search screen (Todos, Europa, Sudamérica, Norteamérica, Internacional)
 final favoritesRegionFilterProvider = StateProvider<String>((ref) => 'Todos');
@@ -48,8 +48,11 @@ final favoriteTeamIdsProvider =
 /// Uses real Participant UUIDs so following a team correctly highlights their matches in the feed.
 final allAvailableTeamsProvider = Provider<List<SearchableTeamItem>>((ref) {
   final feedState = ref.watch(feedNotifierProvider);
+  final selectedSports = ref.watch(selectedSportsProvider);
   final List<EventModel> events = feedState.maybeWhen(
-    data: (data) => data,
+    data: (data) => data
+        .where((e) => selectedSports.isEmpty || selectedSports.contains(e.sport))
+        .toList(),
     orElse: () => [],
   );
 
@@ -195,7 +198,9 @@ final filteredTeamsProvider = Provider<List<SearchableTeamItem>>((ref) {
   final sportFilter = ref.watch(favoritesSportFilterProvider);
 
   return allTeams.where((team) {
-    if (sportFilter != SportType.all && team.sport != sportFilter) return false;
+    if (query.isEmpty && sportFilter != SportType.all && team.sport != sportFilter) {
+      return false;
+    }
     if (query.isEmpty) return true;
 
     final nameMatch = team.name.toLowerCase().contains(query);

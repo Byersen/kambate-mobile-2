@@ -1180,7 +1180,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
       return 'Brasileirão';
     }
 
-    if (l.contains('copa chile')) return 'Copa Chile';
+    if (l.contains('copa chile') || l.contains('copa_chi')) return 'Copa Chile';
     if (l.contains('chi') || l.contains('chile') || l.contains('campeonato itaú')) {
       return 'Primera División';
     }
@@ -1196,7 +1196,22 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
       return 'Europa League';
     }
     if (l.contains('conference')) return 'Conference League';
-    if (l.contains('supercopa de europa')) return 'Supercopa de Europa';
+    if (l.contains('supercopa de europa') || l.contains('uefa.super_cup') || l.contains('uefa super cup')) {
+      return 'Supercopa de Europa';
+    }
+
+    if (l.contains('carabao') || l.contains('league_cup') || l.contains('league cup') || l.contains('efl cup')) {
+      return 'Carabao Cup';
+    }
+    if (l.contains('community shield') || l.contains('charity')) {
+      return 'Community Shield';
+    }
+    if (l.contains('fa cup') || l == 'eng.fa') {
+      return 'FA Cup';
+    }
+    if (l.contains('copa del rey') || l.contains('copa_del_rey')) {
+      return 'Copa del Rey';
+    }
 
     if (l.contains('esp') || l.contains('spanish') || l.contains('laliga')) {
       return 'LaLiga';

@@ -4,12 +4,11 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/date_formatter.dart';
 import '../../../../core/utils/match_minute_formatter.dart';
+import '../../../../core/utils/nba_team_formatter.dart';
 import '../../../../models/event_model.dart';
 import '../../../../models/event_status.dart';
 import '../../../../models/sport_type.dart';
 import '../../../favorites/providers/favorites_provider.dart';
-import '../../../feed/data/feed_repository.dart';
-import '../../../feed/providers/connection_provider.dart';
 import '../../../feed/providers/feed_provider.dart';
 
 class CalendarScreen extends ConsumerStatefulWidget {
@@ -83,6 +82,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   Widget build(BuildContext context) {
     final eventsAsync = ref.watch(feedNotifierProvider);
     final favoriteTeamIds = ref.watch(favoriteTeamIdsProvider);
+    final selectedSports = ref.watch(selectedSportsProvider);
+    final effectiveSelectedSport =
+        (_selectedSport != SportType.all &&
+            selectedSports.isNotEmpty &&
+            !selectedSports.contains(_selectedSport))
+        ? SportType.all
+        : _selectedSport;
 
 
     return Scaffold(
@@ -166,7 +172,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             var availableEvents = allEvents
                 .where((e) =>
                     e.status != EventStatus.finished &&
-                    e.status != EventStatus.archived)
+                    e.status != EventStatus.archived &&
+                    (selectedSports.isEmpty || selectedSports.contains(e.sport)))
                 .toList();
 
             if (_onlyFollowed && favoriteTeamIds.isNotEmpty) {
@@ -177,9 +184,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               }).toList();
             }
 
-            if (_selectedSport != SportType.all) {
+            if (effectiveSelectedSport != SportType.all) {
               availableEvents =
-                  availableEvents.where((e) => e.sport == _selectedSport).toList();
+                  availableEvents.where((e) => e.sport == effectiveSelectedSport).toList();
             }
 
             final Map<String, List<EventModel>> eventsByDay = {};
@@ -207,7 +214,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               padding: const EdgeInsets.only(bottom: 24),
               children: [
 
-                _buildFilterBar(),
+                _buildFilterBar(selectedSports, effectiveSelectedSport),
 
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 6),
@@ -378,7 +385,18 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     );
   }
 
-  Widget _buildFilterBar() {
+  Widget _buildFilterBar(
+    Set<SportType> selectedSports,
+    SportType effectiveSelectedSport,
+  ) {
+    final visibleSports = _filterSports
+        .where(
+          (s) =>
+              s == SportType.all ||
+              selectedSports.isEmpty ||
+              selectedSports.contains(s),
+        )
+        .toList();
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: SingleChildScrollView(
@@ -423,8 +441,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             Container(width: 1, height: 20, color: AppColors.cardBorderDark),
             const SizedBox(width: 8),
 
-            ..._filterSports.map((sport) {
-              final isSelected = _selectedSport == sport;
+            ...visibleSports.map((sport) {
+              final isSelected = effectiveSelectedSport == sport;
               final sportColor = sport == SportType.all ? AppColors.primary : sport.color;
 
               return Padding(
@@ -596,8 +614,13 @@ class _SimpleMatchRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final team1Name = event.participant1Name;
-    final team2Name = event.participant2Name;
+    var team1Name = event.participant1Name;
+    var team2Name = event.participant2Name;
+
+    if (event.sport == SportType.nba) {
+      team1Name = NbaTeamFormatter.format(team1Name);
+      team2Name = NbaTeamFormatter.format(team2Name);
+    }
 
     final local = event.startTime.toLocal();
     final h = local.hour.toString().padLeft(2, '0');
@@ -625,32 +648,20 @@ class _SimpleMatchRow extends StatelessWidget {
     Widget timeWidget;
     if (event.isLive) {
       final liveMinute = MatchMinuteFormatter.format(event);
-      final dot = Semantics(
+      final liveNumbers = liveMinute ?? '$h:$m';
+      timeWidget = Semantics(
         container: true,
         label: 'En vivo',
-        child: Container(
-          key: const ValueKey('live_indicator_dot'),
-          width: 8,
-          height: 8,
-          decoration: const BoxDecoration(
-            color: AppColors.liveRed,
-            shape: BoxShape.circle,
-          ),
-        ),
-      );
-
-      if (liveMinute != null) {
-        timeWidget = Text(
-          liveMinute,
+        excludeSemantics: true,
+        child: Text(
+          liveNumbers,
           style: const TextStyle(
             color: AppColors.liveRed,
             fontSize: 12,
             fontWeight: FontWeight.bold,
           ),
-        );
-      } else {
-        timeWidget = dot;
-      }
+        ),
+      );
     } else {
       timeWidget = Text(
         timeStr,
@@ -663,21 +674,26 @@ class _SimpleMatchRow extends StatelessWidget {
     }
 
     String matchText = '$team1Name vs $team2Name';
-    if ((event.isLive || event.status == EventStatus.finished) &&
-        !event.isCombat) {
-      if (event.homeScore != null && event.awayScore != null) {
-        matchText = '$team1Name ${event.homeScore} - ${event.awayScore} $team2Name';
-      } else if (event.status == EventStatus.finished &&
-          event.score != null &&
-          event.score != 'vs' &&
-          event.score!.trim().isNotEmpty) {
-        matchText = '$team1Name vs $team2Name • ${event.score}';
+    final isBallSportWithoutScore =
+        event.sport == SportType.soccer || event.sport == SportType.nba;
+
+    if (!isBallSportWithoutScore) {
+      if ((event.isLive || event.status == EventStatus.finished) &&
+          !event.isCombat) {
+        if (event.homeScore != null && event.awayScore != null) {
+          matchText = '$team1Name ${event.homeScore} - ${event.awayScore} $team2Name';
+        } else if (event.status == EventStatus.finished &&
+            event.score != null &&
+            event.score != 'vs' &&
+            event.score!.trim().isNotEmpty) {
+          matchText = '$team1Name vs $team2Name • ${event.score}';
+        }
+      } else if (event.isCombat &&
+          (event.status == EventStatus.finished || event.isLive) &&
+          (event.fightResult != null || event.score != null)) {
+        final res = event.fightResult ?? event.score;
+        matchText = '$team1Name vs $team2Name • $res';
       }
-    } else if (event.isCombat &&
-        (event.status == EventStatus.finished || event.isLive) &&
-        (event.fightResult != null || event.score != null)) {
-      final res = event.fightResult ?? event.score;
-      matchText = '$team1Name vs $team2Name • $res';
     }
 
     return InkWell(

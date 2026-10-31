@@ -7,9 +7,11 @@ class SportFilterBar extends StatelessWidget {
     super.key,
     required this.selectedSport,
     required this.onSportSelected,
+    this.availableSports,
   });
   final SportType selectedSport;
   final ValueChanged<SportType> onSportSelected;
+  final Iterable<SportType>? availableSports;
 
   static const List<SportType> supportedSports = [
     SportType.soccer,
@@ -21,6 +23,13 @@ class SportFilterBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final allowedSet = availableSports
+        ?.where((s) => s != SportType.all)
+        .toSet();
+    final sportsToShow = (allowedSet != null && allowedSet.isNotEmpty)
+        ? supportedSports.where(allowedSet.contains).toList()
+        : supportedSports;
+
     return Center(
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -29,11 +38,11 @@ class SportFilterBar extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            for (var i = 0; i < supportedSports.length; i++) ...[
+            for (var i = 0; i < sportsToShow.length; i++) ...[
               if (i > 0) const SizedBox(width: 6),
               Builder(
                 builder: (context) {
-                  final sport = supportedSports[i];
+                  final sport = sportsToShow[i];
                   final selected = sport == selectedSport;
                   final label = switch (sport) {
                     SportType.ufc => 'UFC',

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/date_formatter.dart';
+import '../../../../core/utils/match_minute_formatter.dart';
 import '../../../../models/event_model.dart';
 import '../../../../models/event_status.dart';
 import '../../../../models/sport_type.dart';
@@ -156,7 +157,11 @@ class MatchCard extends StatelessWidget {
                   ],
 
                   if (event.isLive)
-                    LiveBadge(text: event.currentPeriod ?? 'EN VIVO')
+                    LiveBadge(
+                      text: MatchMinuteFormatter.format(event) ??
+                          event.currentPeriod ??
+                          'EN VIVO',
+                    )
                   else if (event.status == EventStatus.finished)
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

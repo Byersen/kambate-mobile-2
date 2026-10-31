@@ -15,9 +15,8 @@ class NbaDetailView extends StatefulWidget {
 }
 
 class _NbaDetailViewState extends State<NbaDetailView> {
-  int _section = 0; // 0: Resumen, 1: Jugadores, 2: Jugadas
+  int _section = 0; // 0: Resumen, 1: Jugadores
   int _playerTeamIndex = 0; // 0: Home team, 1: Away team
-  String _playFilter = 'Todas';
 
   @override
   Widget build(BuildContext context) {
@@ -39,18 +38,16 @@ class _NbaDetailViewState extends State<NbaDetailView> {
       children: [
         _buildSectionChips(),
         const SizedBox(height: 16),
-        switch (_section) {
-          0 => _buildSummaryTab(event, detail),
-          1 => _buildPlayersTab(event, detail),
-          _ => _buildPlaysTab(event, detail),
-        },
+        _section == 0
+            ? _buildSummaryTab(event, detail)
+            : _buildPlayersTab(event, detail),
       ],
     );
   }
 
   // --- SELECTION CHIPS (Resumen / Jugadores / Jugadas) ---
   Widget _buildSectionChips() {
-    const tabs = ['Resumen', 'Jugadores', 'Jugadas'];
+    const tabs = ['Resumen', 'Jugadores'];
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -345,7 +342,7 @@ class _NbaDetailViewState extends State<NbaDetailView> {
     return match != null ? int.tryParse(match.group(1)!) : null;
   }
 
-  // --- 2. COMPARATIVA DE EQUIPOS ---
+  // --- 2. ESTADÍSTICAS POR EQUIPO ---
   Widget _buildTeamComparisonCard(EventModel event, BasketballDetailModel? detail) {
     final stats = detail?.statistics ?? [];
 
@@ -355,16 +352,7 @@ class _NbaDetailViewState extends State<NbaDetailView> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text(
-              'Comparativa de equipos',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Header con ambos equipos
+            // Header con ambos equipos (sin título de sección)
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -946,192 +934,4 @@ class _NbaDetailViewState extends State<NbaDetailView> {
     );
   }
 
-  // =========================================================================
-  // TAB 2: JUGADAS
-  // =========================================================================
-  Widget _buildPlaysTab(EventModel event, BasketballDetailModel? detail) {
-    final plays = detail?.plays ?? [];
-
-    if (plays.isEmpty) {
-      final message = event.status == EventStatus.scheduled
-          ? 'El partido aún no comienza. Las jugadas aparecerán cuando esté en juego.'
-          : 'No hay jugadas registradas para este encuentro.';
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(
-                Icons.sports_basketball_outlined,
-                size: 40,
-                color: AppColors.textMuted,
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                'Jugadas del partido',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                message,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    // Filtrar jugadas por periodo si corresponde
-    final filteredPlays = _playFilter == 'Todas'
-        ? plays
-        : plays.where((p) => p.period?.contains(_playFilter) == true).toList();
-
-    final periodsSet = {'Todas', ...plays.map((p) => p.period).whereType<String>()};
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Jugadas del partido',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-                color: AppColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (periodsSet.length > 2) ...[
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    for (final p in periodsSet)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: ChoiceChip(
-                          label: Text(p),
-                          selected: _playFilter == p,
-                          showCheckmark: false,
-                          selectedColor: AppColors.primary,
-                          side: BorderSide.none,
-                          backgroundColor: AppColors.surfaceMuted,
-                          labelStyle: TextStyle(
-                            fontSize: 11.5,
-                            color: _playFilter == p
-                                ? AppColors.onPrimary
-                                : AppColors.textPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          onSelected: (_) => setState(() => _playFilter = p),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 14),
-            ],
-            for (var i = 0; i < filteredPlays.length; i++) ...[
-              _buildPlayItem(filteredPlays[i]),
-              if (i < filteredPlays.length - 1)
-                const Divider(color: AppColors.cardBorderDark, height: 18),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPlayItem(BasketballPlay play) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Reloj y periodo
-        SizedBox(
-          width: 58,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                play.clock ?? '—',
-                style: const TextStyle(
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              if (play.period != null)
-                Text(
-                  play.period!,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        // Icono o badge de anotación
-        Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: play.scoringPlay
-                ? AppColors.primary.withValues(alpha: 0.15)
-                : AppColors.surfaceMuted,
-            shape: BoxShape.circle,
-          ),
-          child: Icon(
-            play.scoringPlay
-                ? Icons.sports_basketball
-                : Icons.adjust_rounded,
-            size: 15,
-            color: play.scoringPlay ? AppColors.primary : AppColors.textMuted,
-          ),
-        ),
-        const SizedBox(width: 10),
-        // Texto de la jugada
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                play.text,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: play.scoringPlay ? FontWeight.w600 : FontWeight.normal,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              if (play.homeScore != null && play.awayScore != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  'Marcador: ${play.homeScore} - ${play.awayScore}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.textSecondary,
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 }

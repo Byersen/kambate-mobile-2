@@ -23,12 +23,20 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  final nowLocal = DateTime.now();
+  final todayNoonUtc = DateTime(
+    nowLocal.year,
+    nowLocal.month,
+    nowLocal.day,
+    12,
+  ).toUtc();
+
   final event = EventModel(
     id: 'real-event',
     sport: SportType.soccer,
     league: 'Primera División',
     status: EventStatus.live,
-    startTime: DateTime.utc(2026, 10, 4, 21),
+    startTime: todayNoonUtc,
     homeScore: 2,
     awayScore: 1,
   );
@@ -96,6 +104,128 @@ void main() {
         'kambate_cached_events_v1': '[]',
       });
       expect(await CacheService.getCachedEvents(), isNull);
+    },
+  );
+
+  test(
+    'Autolimpieza diaria invalida la caché cuando cambia la fecha local',
+    () async {
+      await CacheService.saveEvents([event]);
+      expect(await CacheService.getCachedEvents(), isNotNull);
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('kambate_cached_events_date', '2000-01-01');
+
+      expect(await CacheService.getCachedEvents(), isNull);
+      expect(prefs.getString('kambate_cached_events_v2'), isNull);
+      expect(prefs.getString('kambate_last_sync_timestamp'), isNull);
+      expect(prefs.getString('kambate_cached_events_date'), isNull);
+    },
+  );
+
+  test(
+    'saveEvents guarda únicamente eventos dentro de la ventana activa [ayer, hoy, mañana]',
+    () async {
+      final yesterdayEvent = event.copyWith(
+        id: 'yesterday-event',
+        startTime: DateTime(
+          nowLocal.year,
+          nowLocal.month,
+          nowLocal.day - 1,
+          15,
+        ),
+      );
+      final tomorrowEvent = event.copyWith(
+        id: 'tomorrow-event',
+        startTime: DateTime(
+          nowLocal.year,
+          nowLocal.month,
+          nowLocal.day + 1,
+          18,
+        ),
+      );
+      final oldHistoricalEvent = event.copyWith(
+        id: 'historical-event',
+        startTime: DateTime(
+          nowLocal.year,
+          nowLocal.month,
+          nowLocal.day - 5,
+          12,
+        ),
+      );
+      final farFutureEvent = event.copyWith(
+        id: 'future-event',
+        startTime: DateTime(
+          nowLocal.year,
+          nowLocal.month,
+          nowLocal.day + 4,
+          12,
+        ),
+      );
+
+      await CacheService.saveEvents([
+        oldHistoricalEvent,
+        yesterdayEvent,
+        event,
+        tomorrowEvent,
+        farFutureEvent,
+      ]);
+
+      final cached = await CacheService.getCachedEvents();
+      expect(cached, isNotNull);
+      expect(
+        cached!.map((e) => e.id).toList(),
+        equals(['yesterday-event', 'real-event', 'tomorrow-event']),
+      );
+    },
+  );
+
+  test(
+    'fetchEventsForDateRange filtra el rango solicitado en UTC bajo demanda',
+    () async {
+      final targetDay = DateTime(2026, 11, 15);
+      final targetEvent = event.copyWith(
+        id: 'target-day-event',
+        startTime: DateTime(2026, 11, 15, 18, 30).toUtc(),
+      );
+      final otherDayEvent = event.copyWith(
+        id: 'other-day-event',
+        startTime: DateTime(2026, 11, 18, 18, 30).toUtc(),
+      );
+
+      final repository = TestRepository(events: [targetEvent, otherDayEvent]);
+      final result = await repository.fetchEventsForDateRange(
+        targetDay,
+        targetDay,
+      );
+
+      expect(result.map((e) => e.id).toList(), equals(['target-day-event']));
+    },
+  );
+
+  test(
+    'getEventsForDate obtiene los partidos del día especificado respetando hora local',
+    () async {
+      final requestedDate = DateTime(2026, 11, 20);
+      final matchEvent = event.copyWith(
+        id: 'date-match-event',
+        status: EventStatus.finished,
+        homeScore: 3,
+        awayScore: 0,
+        startTime: DateTime(2026, 11, 20, 15, 0).toUtc(),
+      );
+      final nextDayEvent = event.copyWith(
+        id: 'next-day-match-event',
+        startTime: DateTime(2026, 11, 21, 15, 0).toUtc(),
+      );
+
+      final repository = TestRepository(events: [matchEvent, nextDayEvent]);
+      final result = await repository.getEventsForDate(requestedDate);
+
+      expect(result.length, 1);
+      expect(result.single.id, 'date-match-event');
+      expect(result.single.homeScore, 3);
+      expect(result.single.status, EventStatus.finished);
     },
   );
 }

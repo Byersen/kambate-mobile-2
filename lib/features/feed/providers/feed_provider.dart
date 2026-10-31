@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/utils/date_formatter.dart';
 import '../../../models/event_model.dart';
 import '../../../models/event_status.dart';
 import '../../../models/sport_type.dart';
@@ -12,6 +13,75 @@ import 'connection_provider.dart';
 final feedRepositoryProvider = Provider<FeedRepository>((ref) {
   return FeedRepository();
 });
+
+const List<SportType> kDefaultSelectedSports = [
+  SportType.soccer,
+  SportType.nba,
+  SportType.ufc,
+  SportType.lol,
+  SportType.valorant,
+];
+
+class SelectedSportsNotifier extends StateNotifier<Set<SportType>> {
+  final Ref _ref;
+
+  SelectedSportsNotifier(this._ref, [Set<SportType>? initialSports])
+      : super(
+          initialSports != null
+              ? normalizeSports(initialSports)
+              : kDefaultSelectedSports.toSet(),
+        ) {
+    if (initialSports == null) {
+      _loadFromCache();
+    }
+  }
+
+  static Set<SportType> normalizeSports(Iterable<SportType> sports) {
+    final ordered = <SportType>{};
+    for (final canonical in kDefaultSelectedSports) {
+      if (sports.contains(canonical)) {
+        ordered.add(canonical);
+      }
+    }
+    return ordered.isEmpty ? {SportType.soccer} : ordered;
+  }
+
+  Future<void> _loadFromCache() async {
+    final saved = await CacheService.getSelectedSportTypes();
+    if (!mounted || saved.isEmpty) return;
+    final normalized = normalizeSports(saved);
+    state = normalized;
+    final currentFilter = _ref.read(selectedSportFilterProvider);
+    if (!normalized.contains(currentFilter)) {
+      _ref.read(selectedSportFilterProvider.notifier).state = normalized.first;
+    }
+  }
+
+  Future<void> setSelectedSports(Iterable<SportType> sports) async {
+    final normalized = normalizeSports(sports);
+    final addedNewSport = normalized.any((s) => !state.contains(s));
+    state = normalized;
+
+    await CacheService.saveSelectedSports(
+      normalized.map((s) => s.id).toList(),
+    );
+
+    final currentFilter = _ref.read(selectedSportFilterProvider);
+    if (!normalized.contains(currentFilter)) {
+      _ref.read(selectedSportFilterProvider.notifier).state = normalized.first;
+    }
+
+    await _ref
+        .read(feedNotifierProvider.notifier)
+        .applySelectedSports(normalized, reloadRemote: addedNewSport);
+  }
+}
+
+/// User's selected sports in onboarding/settings (defaults to all 5 sports)
+final selectedSportsProvider =
+    StateNotifierProvider<SelectedSportsNotifier, Set<SportType>>((ref) {
+      return SelectedSportsNotifier(ref);
+    });
 
 /// Sport discipline filter (defaults to soccer; soccer, nba, ufc, lol, valorant)
 final selectedSportFilterProvider = StateProvider<SportType>((ref) {
@@ -30,6 +100,9 @@ final selectedLeagueTierProvider = StateProvider<int?>((ref) {
 });
 
 /// Selected date filter for the main feed carousel (defaults to today)
+/// Notifica si los partidos de una fecha seleccionada se están cargando bajo demanda
+final isDateLoadingProvider = StateProvider<bool>((ref) => false);
+
 final selectedFeedDateProvider = StateProvider<DateTime>((ref) {
   final now = DateTime.now();
   return DateTime(now.year, now.month, now.day);
@@ -43,6 +116,7 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
   bool _liveRefreshEnabled = false;
   DateTime? _lastRefreshTime;
   bool _isLoading = false;
+  bool _isPulsing = false;
 
   FeedNotifier(this._repository, this._ref)
     : super(const AsyncValue.loading()) {
@@ -63,14 +137,128 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
     _liveRefreshTimer?.cancel();
   }
 
+  bool _shouldRunLivePulse(List<EventModel> events) {
+    final nowLocal = DateTime.now();
+    final pulseHorizonUtc = nowLocal.toUtc().add(const Duration(minutes: 5));
+
+    for (final event in events) {
+      if (event.isLive) return true;
+      if (event.status == EventStatus.scheduled) {
+        final localStart = event.startTime.toLocal();
+        final isToday =
+            localStart.year == nowLocal.year &&
+            localStart.month == nowLocal.month &&
+            localStart.day == nowLocal.day;
+        if (isToday && !event.startTime.toUtc().isAfter(pulseHorizonUtc)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   void _startLiveRefresh() {
     _liveRefreshTimer?.cancel();
     _liveRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
       final events = state.asData?.value;
-      if (mounted && !_isLoading && (events?.any((e) => e.isLive) ?? false)) {
-        unawaited(loadEvents(forceRefresh: true));
+      if (mounted &&
+          !_isLoading &&
+          !_isPulsing &&
+          events != null &&
+          _shouldRunLivePulse(events)) {
+        unawaited(refreshLivePulse());
       }
     });
+  }
+
+  /// Pulso ligero de sincronización reactiva sin spinner de carga completa ni bloqueo de UI.
+  Future<void> refreshLivePulse() async {
+    if (_isLoading || _isPulsing) return;
+    final currentEvents = state.asData?.value;
+    if (currentEvents == null || !_shouldRunLivePulse(currentEvents)) return;
+
+    _isPulsing = true;
+    try {
+      final cachedSports = await CacheService.getSelectedSportTypes();
+      final selectedSports = cachedSports.isNotEmpty
+          ? SelectedSportsNotifier.normalizeSports(cachedSports)
+          : _ref.read(selectedSportsProvider);
+      final trackedLiveIds = currentEvents
+          .where((e) => e.isLive && selectedSports.contains(e.sport))
+          .map((e) => e.id)
+          .toList();
+
+      final updatedBatch = await _repository.fetchLiveAndDueEvents(
+        trackedLiveIds,
+      );
+      if (!mounted || updatedBatch.isEmpty) return;
+
+      final favoriteIds = await CacheService.getFavoriteIds();
+      if (!mounted) return;
+
+      final latestEvents = List<EventModel>.from(
+        state.asData?.value ?? currentEvents,
+      );
+      final indexById = <String, int>{
+        for (var i = 0; i < latestEvents.length; i++) latestEvents[i].id: i,
+      };
+
+      for (final incoming in updatedBatch) {
+        if (selectedSports.isNotEmpty &&
+            !selectedSports.contains(incoming.sport)) {
+          continue;
+        }
+        final existingIndex =
+            indexById[incoming.id] ??
+            latestEvents.indexWhere(
+              (e) =>
+                  e.externalId != null && e.externalId == incoming.externalId,
+            );
+        if (existingIndex != -1) {
+          final prev = latestEvents[existingIndex];
+          latestEvents[existingIndex] = incoming.copyWith(
+            isFavorite: prev.isFavorite || favoriteIds.contains(incoming.id),
+          );
+        } else {
+          latestEvents.add(
+            incoming.copyWith(isFavorite: favoriteIds.contains(incoming.id)),
+          );
+          indexById[incoming.id] = latestEvents.length - 1;
+        }
+      }
+
+      final now = DateTime.now();
+      _lastRefreshTime = now;
+      _ref.read(feedLastUpdatedProvider.notifier).state = now;
+      _ref.read(connectionStatusProvider.notifier).setConnected();
+      state = AsyncValue.data(latestEvents);
+      await CacheService.saveEvents(latestEvents);
+    } catch (e) {
+      debugPrint('FeedNotifier.refreshLivePulse error: $e');
+    } finally {
+      _isPulsing = false;
+    }
+  }
+
+  /// Aplica el subconjunto de deportes seleccionados descartando eventos no seleccionados
+  /// de la memoria y recargando si se habilitó una disciplina adicional.
+  Future<void> applySelectedSports(
+    Set<SportType> allowedSports, {
+    bool reloadRemote = false,
+  }) async {
+    final currentEvents = state.asData?.value;
+    if (currentEvents != null && allowedSports.isNotEmpty) {
+      final pruned = currentEvents
+          .where((e) => allowedSports.contains(e.sport))
+          .toList();
+      if (pruned.length != currentEvents.length) {
+        state = AsyncValue.data(pruned);
+      }
+      await CacheService.saveEvents(pruned);
+    }
+    if (reloadRemote) {
+      await loadEvents(forceRefresh: true);
+    }
   }
 
   /// Listen to Supabase Realtime PostgreSQL updates
@@ -102,9 +290,17 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
 
   @visibleForTesting
   Future<void> applyRealtimeUpdate(RealtimeEventUpdate update) async {
+    final cachedSports = await CacheService.getSelectedSportTypes();
+    final selectedSports = cachedSports.isNotEmpty
+        ? SelectedSportsNotifier.normalizeSports(cachedSports)
+        : _ref.read(selectedSportsProvider);
     if (update.requiresRefresh) {
       final refreshed = await _repository.getEventById(update.eventId);
       if (!mounted || refreshed == null) return;
+      if (selectedSports.isNotEmpty &&
+          !selectedSports.contains(refreshed.sport)) {
+        return;
+      }
       final events = state.asData?.value;
       if (events == null) return;
       final index = events.indexWhere(
@@ -137,7 +333,9 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
     );
     if (index == -1) {
       final newEvent = await _repository.getEventById(update.eventId);
-      if (newEvent != null && mounted) {
+      if (newEvent != null &&
+          mounted &&
+          (selectedSports.isEmpty || selectedSports.contains(newEvent.sport))) {
         final currentEvents = state.asData?.value ?? [];
         final updatedList = List<EventModel>.from(currentEvents)..add(newEvent);
         state = AsyncValue.data(updatedList);
@@ -242,11 +440,18 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
     }
     try {
       final favoriteIds = await CacheService.getFavoriteIds();
+      final cachedSports = await CacheService.getSelectedSportTypes();
+      final selectedSports = cachedSports.isNotEmpty
+          ? SelectedSportsNotifier.normalizeSports(cachedSports)
+          : _ref.read(selectedSportsProvider);
 
       final rawEvents = await _repository.getEvents(forceRefresh: forceRefresh);
+      final filteredEvents = selectedSports.isEmpty
+          ? rawEvents
+          : rawEvents.where((e) => selectedSports.contains(e.sport)).toList();
 
       final events =
-          rawEvents.map((e) {
+          filteredEvents.map((e) {
             if (favoriteIds.contains(e.id)) {
               return e.copyWith(isFavorite: true);
             }
@@ -264,6 +469,7 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
         _ref.read(connectionStatusProvider.notifier).setConnected();
       }
       state = AsyncValue.data(events);
+      _preloadUpcomingDays();
     } catch (e, st) {
       if (mounted) {
         _ref.read(connectionStatusProvider.notifier).setOffline();
@@ -273,6 +479,92 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
       _isLoading = false;
       _currentLoadFuture = null;
     }
+  }
+
+
+  void _preloadUpcomingDays() {
+    unawaited(Future.microtask(() async {
+      try {
+        final nowLocal = DateTime.now();
+        final start = DateTime(nowLocal.year, nowLocal.month, nowLocal.day + 1, 0, 0, 0);
+        final end = DateTime(nowLocal.year, nowLocal.month, nowLocal.day + 6, 23, 59, 59, 999);
+        final upcoming = await _repository.fetchEventsForDateRange(start, end);
+        if (!mounted || upcoming.isEmpty) return;
+
+        final favoriteIds = await CacheService.getFavoriteIds();
+        final current = state.asData?.value ?? [];
+        final merged = _mergeEvents(current, upcoming, favoriteIds);
+        state = AsyncValue.data(merged);
+        await CacheService.saveEvents(merged);
+      } catch (e) {
+        debugPrint('FeedNotifier: Preload upcoming days silent error: $e');
+      }
+    }));
+  }
+
+  final Set<String> _loadingDates = {};
+
+  /// Carga bajo demanda los partidos y resultados de un día seleccionado
+  Future<void> loadEventsForDate(DateTime date, {bool forceRefresh = false}) async {
+    final dateKey = '--';
+    if (_loadingDates.contains(dateKey)) return;
+    _loadingDates.add(dateKey);
+
+    final currentEvents = state.asData?.value ?? <EventModel>[];
+    final hasEventsForDate = currentEvents.any(
+      (e) => AppDateFormatter.isSameDay(e.startTime, date),
+    );
+
+    if (!hasEventsForDate) {
+      _ref.read(isDateLoadingProvider.notifier).state = true;
+    }
+
+    try {
+      final startLocal = DateTime(date.year, date.month, date.day, 0, 0, 0);
+      final endLocal = DateTime(date.year, date.month, date.day, 23, 59, 59, 999);
+      final incoming = await _repository.fetchEventsForDateRange(startLocal, endLocal);
+
+      final favoriteIds = await CacheService.getFavoriteIds();
+      final latestEvents = List<EventModel>.from(state.asData?.value ?? currentEvents);
+      final merged = _mergeEvents(latestEvents, incoming, favoriteIds);
+
+      state = AsyncValue.data(merged);
+      await CacheService.saveEvents(merged);
+      _ref.read(connectionStatusProvider.notifier).setConnected();
+    } catch (e) {
+      debugPrint('FeedNotifier.loadEventsForDate error for $dateKey: $e');
+    } finally {
+      _loadingDates.remove(dateKey);
+      if (mounted) {
+        _ref.read(isDateLoadingProvider.notifier).state = false;
+      }
+    }
+  }
+
+  static List<EventModel> _mergeEvents(
+    List<EventModel> current,
+    List<EventModel> incoming,
+    Set<String> favoriteIds,
+  ) {
+    final result = List<EventModel>.from(current);
+    final indexById = <String, int>{
+      for (var i = 0; i < result.length; i++) result[i].id: i,
+    };
+
+    for (final inc in incoming) {
+      final idx = indexById[inc.id] ??
+          result.indexWhere((e) => e.externalId != null && e.externalId == inc.externalId);
+      final isFav = favoriteIds.contains(inc.id) || (idx != -1 && result[idx].isFavorite);
+      final item = inc.copyWith(isFavorite: isFav);
+
+      if (idx != -1) {
+        result[idx] = item;
+      } else {
+        result.add(item);
+        indexById[item.id] = result.length - 1;
+      }
+    }
+    return result;
   }
 
   void toggleFavorite(String eventId) async {

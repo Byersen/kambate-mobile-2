@@ -11,6 +11,7 @@ import '../widgets/football_detail_view.dart';
 import '../widgets/football_match_header.dart';
 import '../widgets/lol_detail_view.dart';
 import '../widgets/lol_match_header.dart';
+import '../widgets/match_context_bar.dart';
 import '../widgets/match_header_hero.dart';
 import '../widgets/nba_detail_view.dart';
 import '../widgets/ufc_detail_view.dart';
@@ -153,6 +154,10 @@ class MatchDetailScreen extends ConsumerWidget {
                 ),
               ),
             ],
+
+            if (currentEvent.sport == SportType.soccer ||
+                currentEvent.sport == SportType.nba)
+              MatchContextBar(event: currentEvent),
 
             if (currentEvent.sport == SportType.soccer)
               FootballMatchHeader(event: currentEvent)

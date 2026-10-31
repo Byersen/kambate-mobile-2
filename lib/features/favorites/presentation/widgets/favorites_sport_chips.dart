@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../models/sport_type.dart';
+import '../../../feed/providers/feed_provider.dart';
 import '../../providers/favorites_provider.dart';
 
 class FavoritesSportChips extends ConsumerWidget {
@@ -10,8 +11,15 @@ class FavoritesSportChips extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedSport = ref.watch(favoritesSportFilterProvider);
+    final allowedSports = ref.watch(selectedSportsProvider);
 
-    final sports = SportType.values;
+    final sports = SportType.values
+        .where(
+          (s) =>
+              s != SportType.all &&
+              (allowedSports.isEmpty || allowedSports.contains(s)),
+        )
+        .toList();
 
     return SizedBox(
       height: 40,
@@ -28,12 +36,7 @@ class FavoritesSportChips extends ConsumerWidget {
             sport: sport,
             isSelected: isSelected,
             onTap: () {
-              final notifier = ref.read(favoritesSportFilterProvider.notifier);
-              if (notifier.state == sport && sport != SportType.all) {
-                notifier.state = SportType.all;
-              } else {
-                notifier.state = sport;
-              }
+              ref.read(favoritesSportFilterProvider.notifier).state = sport;
             },
           );
         },

@@ -239,6 +239,31 @@ void main() {
   );
 
   testWidgets(
+    'UFC sin combates hoy invita a revisar las próximas carteleras',
+    (tester) async {
+      final app = await mount(
+        tester,
+        customEvents: fixtures()
+            .where((event) => event.sport != SportType.ufc)
+            .toList(),
+      );
+      app.container.read(selectedSportFilterProvider.notifier).state =
+          SportType.ufc;
+      await tester.pumpAndSettle();
+
+      expect(find.text('Revisa los próximos eventos aquí'), findsOneWidget);
+      expect(find.text('No hay encuentros para estos filtros'), findsNothing);
+
+      await tester.tap(find.text('Ver próximas carteleras'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+
+      expect(find.text('Próximas carteleras'), findsOneWidget);
+      expect(find.text('Rankings'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'La liga reúne sus partidos y permite seguirla desde la cabecera',
     (tester) async {
       final now = DateTime.now();
@@ -605,7 +630,7 @@ void main() {
       expect(find.text('34′'), findsOneWidget); // Exactamente 1 ocurrencia, sin duplicarse en cabecera
     });
 
-    testWidgets('En vivo sin minuto (otro deporte o descanso): muestra indicador en vivo accesible sin inventar reloj', (tester) async {
+    testWidgets('NBA en vivo muestra cuarto y minuto (ej. C3 - 4:12) en vez de VIVO', (tester) async {
       final now = DateTime.now();
       final nbaLive = EventModel(
         id: 'evt-3col-nba-live',
@@ -635,8 +660,9 @@ void main() {
       expect(find.text('88'), findsOneWidget);
       expect(find.text('82'), findsOneWidget);
 
-      // Indicador en vivo presente (VIVO) sin punto rojo
-      expect(find.text('VIVO'), findsOneWidget);
+      // Muestra cuarto y minuto en vez de VIVO
+      expect(find.text('C3 - 4:12'), findsOneWidget);
+      expect(find.text('VIVO'), findsNothing);
       final semantics = tester.ensureSemantics();
       await tester.pumpAndSettle();
       expect(find.bySemanticsLabel('En vivo'), findsWidgets);
@@ -644,6 +670,68 @@ void main() {
 
       // No inventa minuto de fútbol
       expect(find.textContaining('′'), findsNothing);
+    });
+
+    testWidgets('Fútbol en entretiempo muestra ET en vez de VIVO', (tester) async {
+      final now = DateTime.now();
+      final soccerHt = EventModel(
+        id: 'evt-3col-soccer-ht',
+        sport: SportType.soccer,
+        league: 'Champions League',
+        status: EventStatus.live,
+        startTime: DateTime(now.year, now.month, now.day, 20, 0),
+        currentPeriod: 'Entretiempo',
+        homeTeam: const TeamModel(id: 't-rma', name: 'Real Madrid'),
+        awayTeam: const TeamModel(id: 't-bar', name: 'Barcelona'),
+        homeScore: 1,
+        awayScore: 1,
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.light(),
+          home: Scaffold(
+            body: ScoreboardRow(event: soccerHt, onTap: () {}),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('ET'), findsOneWidget);
+      expect(find.text('VIVO'), findsNothing);
+      final semantics = tester.ensureSemantics();
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('En vivo'), findsWidgets);
+      semantics.dispose();
+    });
+
+    testWidgets('Deporte sin reloj disponible muestra indicador accesible VIVO', (tester) async {
+      final now = DateTime.now();
+      final ufcLive = EventModel(
+        id: 'evt-3col-ufc-live',
+        sport: SportType.ufc,
+        league: 'UFC',
+        status: EventStatus.live,
+        startTime: DateTime(now.year, now.month, now.day, 23, 0),
+        fighter1: const FighterModel(id: 'f-1', name: 'Peleador 1'),
+        fighter2: const FighterModel(id: 'f-2', name: 'Peleador 2'),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData.light(),
+          home: Scaffold(
+            body: ScoreboardRow(event: ufcLive, onTap: () {}),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('VIVO'), findsOneWidget);
+      final semantics = tester.ensureSemantics();
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('En vivo'), findsWidgets);
+      semantics.dispose();
     });
 
     testWidgets('Finalizado con score real: muestra marcadores finales y estado FINAL en tercera columna', (tester) async {

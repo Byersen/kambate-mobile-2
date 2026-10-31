@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kambate_mobile/core/theme/app_theme.dart';
+import 'package:kambate_mobile/core/utils/date_formatter.dart';
 import 'package:kambate_mobile/core/router/app_router.dart';
 import 'package:kambate_mobile/main.dart';
 import 'package:kambate_mobile/models/sport_type.dart';
@@ -32,6 +33,7 @@ Map<String, dynamic> details() => {
       'side': 'home',
       'minute': '12′',
       'player': 'Jugador de prueba',
+      'secondaryPlayer': 'Asistente de prueba',
     },
     {
       'kind': 'yellowCard',
@@ -61,6 +63,8 @@ EventModel sample({
   String status = 'LIVE',
   bool withDetail = true,
   String score = '2 - 1',
+  Map<String, dynamic>? detail,
+  String? round,
 }) {
   return EventModel.fromJson({
     'id': 'football',
@@ -74,7 +78,11 @@ EventModel sample({
       {'id': 'home', 'name': 'Local de prueba'},
     ],
     'footballStats': {
-      'extraStats': {'clock': '67′', if (withDetail) 'detail': details()},
+      'extraStats': {
+        'clock': '67′',
+        if (withDetail) 'detail': detail ?? details(),
+        if (round != null) 'round': round,
+      },
     },
   });
 }
@@ -240,8 +248,22 @@ void main() {
       expect(find.text('Estadísticas clave'), findsOneWidget);
       expect(find.text('Ver todas las estadísticas'), findsOneWidget);
       expect(find.text('Jugador de prueba'), findsOneWidget);
-      expect(find.text('Tarjeta amarilla'), findsOneWidget);
-      expect(find.text('Entra: Entra de prueba'), findsOneWidget);
+      expect(find.text('Asista: Asistente de prueba'), findsOneWidget);
+      expect(find.text('Defensa de prueba'), findsOneWidget);
+      expect(find.text('Entra de prueba'), findsOneWidget);
+      expect(find.text('para Sale de prueba'), findsOneWidget);
+      expect(find.text('Medio tiempo 1-0'), findsOneWidget);
+      expect(find.textContaining('Empieza el partido'), findsOneWidget);
+      final entraY = tester.getTopLeft(find.text('Entra de prueba')).dy;
+      final medioTiempoY = tester.getTopLeft(find.text('Medio tiempo 1-0')).dy;
+      final defensaY = tester.getTopLeft(find.text('Defensa de prueba')).dy;
+      final jugadorY = tester.getTopLeft(find.text('Jugador de prueba')).dy;
+      final empiezaY =
+          tester.getTopLeft(find.textContaining('Empieza el partido')).dy;
+      expect(entraY, lessThan(medioTiempoY));
+      expect(medioTiempoY, lessThan(defensaY));
+      expect(defensaY, lessThan(jugadorY));
+      expect(jugadorY, lessThan(empiezaY));
       await capturePreview(
         tester,
         app.preview.currentContext!.findRenderObject() as RenderRepaintBoundary,
@@ -281,7 +303,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('3 - 1'), findsOneWidget);
     expect(find.text('FINALIZADO'), findsOneWidget);
-    expect(find.text('Comparativa de equipos'), findsOneWidget);
+    expect(find.text('Comparativa de equipos'), findsNothing);
+    expect(find.text('Posesión'), findsOneWidget);
     expect(find.text('67′'), findsNothing);
     expect(tester.takeException(), isNull);
   });
@@ -383,10 +406,100 @@ void main() {
     await mount(tester, sample());
     final link = find.text('Ver todas las estadísticas');
     expect(link, findsOneWidget);
+    await tester.ensureVisible(link);
+    await tester.pumpAndSettle();
     await tester.tap(link);
     await tester.pumpAndSettle();
-    expect(find.text('Comparativa de equipos'), findsOneWidget);
-    expect(find.text('— Dato no disponible'), findsOneWidget);
+    // Sin título "Comparativa de equipos" ni leyenda "— Dato no disponible":
+    // solo los nombres de los equipos encabezan las estadísticas.
+    expect(find.text('Comparativa de equipos'), findsNothing);
+    expect(find.text('— Dato no disponible'), findsNothing);
+    expect(find.text('Posesión'), findsOneWidget);
+    expect(find.text('Local de prueba'), findsWidgets);
+    expect(find.text('Visitante de prueba'), findsWidgets);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'Alineaciones: titulares y suplentes de ambos equipos en pantalla, local a la izquierda y visitante a la derecha',
+    (tester) async {
+      final detail = {
+        ...details(),
+        'homeLineup': {
+          'formation': '4-3-3',
+          'starters': [
+            {'name': 'Titular local', 'number': 10, 'position': 'Delantero'},
+          ],
+          'substitutes': [
+            {'name': 'Suplente local', 'number': 12},
+          ],
+        },
+        'awayLineup': {
+          'formation': '4-4-2',
+          'starters': [
+            {'name': 'Titular visitante', 'number': 9},
+          ],
+          'substitutes': [
+            {'name': 'Suplente visitante', 'number': 18},
+          ],
+        },
+      };
+      await mount(tester, sample(detail: detail));
+      await tab(tester, 'Alineaciones');
+
+      expect(find.text('Titulares'), findsOneWidget);
+      expect(find.text('Suplentes'), findsOneWidget);
+      expect(find.text('Formación 4-3-3'), findsOneWidget);
+      expect(find.text('Formación 4-4-2'), findsOneWidget);
+
+      final homeStarter = tester.getCenter(find.text('Titular local'));
+      final awayStarter = tester.getCenter(find.text('Titular visitante'));
+      final homeSub = tester.getCenter(find.text('Suplente local'));
+      final awaySub = tester.getCenter(find.text('Suplente visitante'));
+
+      // Local a la izquierda, visitante a la derecha, en la misma fila.
+      expect(homeStarter.dx, lessThan(awayStarter.dx));
+      expect(homeSub.dx, lessThan(awaySub.dx));
+      expect(homeStarter.dy, closeTo(awayStarter.dy, 1));
+      expect(homeSub.dy, closeTo(awaySub.dy, 1));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('El icono de gol en la cronología es más grande', (tester) async {
+    await mount(tester, sample());
+    final goalIcon = find.byKey(const ValueKey('goal-incident-icon'));
+    expect(goalIcon, findsOneWidget);
+    expect(tester.getSize(goalIcon).width, greaterThanOrEqualTo(28));
+    final icon = tester.widget<Icon>(
+      find.descendant(of: goalIcon, matching: find.byType(Icon)),
+    );
+    expect(icon.size, greaterThanOrEqualTo(26));
+  });
+
+  testWidgets(
+    'La cabecera del detalle muestra fase/ronda y la fecha en que se juega',
+    (tester) async {
+      final event = sample(round: 'Quarter-finals');
+      await mount(tester, event);
+      expect(find.byKey(const ValueKey('match-context-bar')), findsOneWidget);
+      expect(find.text('Cuartos de final'), findsOneWidget);
+      final local = event.startTime.toLocal();
+      final time =
+          '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+      expect(
+        find.text('${AppDateFormatter.formatDate(local)} · $time'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('Sin ronda conocida muestra solo la fecha del partido', (
+    tester,
+  ) async {
+    await mount(tester, sample());
+    expect(find.byKey(const ValueKey('match-context-bar')), findsOneWidget);
+    expect(find.byKey(const ValueKey('match-round-chip')), findsNothing);
+    expect(find.byKey(const ValueKey('match-date-text')), findsOneWidget);
   });
 }
