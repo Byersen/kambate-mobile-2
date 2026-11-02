@@ -4,6 +4,7 @@ import 'package:kambate_mobile/features/feed/data/feed_repository.dart';
 import 'package:kambate_mobile/models/event_model.dart';
 import 'package:kambate_mobile/models/event_status.dart';
 import 'package:kambate_mobile/models/sport_type.dart';
+import 'package:kambate_mobile/models/stats_models.dart';
 import 'package:kambate_mobile/services/cache_service.dart';
 
 class TestRepository extends FeedRepository {
@@ -22,6 +23,20 @@ class TestRepository extends FeedRepository {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  test('El feed excluye detalles pesados y conserva el reloj en vivo', () {
+    final select = FeedRepository.buildFeedSelect({SportType.soccer, SportType.nba});
+    expect(select, contains('clock:extraStats->>clock'));
+    expect(select, isNot(contains('FootballStats(*)')));
+    expect(select, isNot(contains('NbaStats(*)')));
+    final football = FootballStatsModel.fromJson({
+      'id': 'stats-1',
+      'clock': "42'",
+      'homeGoals': 1,
+    });
+    expect(football.extraStats?['clock'], "42'");
+    expect(football.homeGoals, 1);
+  });
 
   final nowLocal = DateTime.now();
   final todayNoonUtc = DateTime(

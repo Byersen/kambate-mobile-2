@@ -17,6 +17,11 @@ const _eventSelect = '''
   ufcStats:UfcStats(*), esportsStats:EsportsStats(*)
 ''';
 
+const _lightFootballStats =
+    'footballStats:FootballStats(id,eventId,homeGoals,awayGoals,homeCards,awayCards,clock:extraStats->>clock,period:extraStats->>period,leagueLogo:extraStats->>leagueLogo,venue:extraStats->>venue)';
+const _lightNbaStats =
+    'nbaStats:NbaStats(id,eventId,homePoints,awayPoints,quarter,clock:extraStats->>clock,period:extraStats->>period,venue:extraStats->>venue)';
+
 class FeedRepository {
   FeedRepository({bool subscribeToRealtime = true}) {
     if (subscribeToRealtime) RealtimeService().subscribeToEvents();
@@ -55,6 +60,12 @@ class FeedRepository {
     ];
     return fields.join(',\n  ');
   }
+
+  @visibleForTesting
+  static String buildFeedSelect([Set<SportType>? selectedSports]) =>
+      buildEventSelect(selectedSports)
+          .replaceAll('footballStats:FootballStats(*)', _lightFootballStats)
+          .replaceAll('nbaStats:NbaStats(*)', _lightNbaStats);
 
   /// Mapea los deportes seleccionados en la app a los slugs de la tabla `Sport` en Supabase.
   @visibleForTesting
@@ -146,7 +157,7 @@ class FeedRepository {
 
     final effectiveSelectedSports = await CacheService.getSelectedSportTypes();
     final isSubset = _isSubsetSelection(effectiveSelectedSports);
-    final selectClause = buildEventSelect(effectiveSelectedSports);
+    final selectClause = buildFeedSelect(effectiveSelectedSports);
     final allowedSlugs =
         isSubset ? backendSportSlugs(effectiveSelectedSports) : const <String>[];
 
@@ -204,7 +215,7 @@ class FeedRepository {
     }
 
     final isSubset = _isSubsetSelection(effectiveSelectedSports);
-    final selectClause = buildEventSelect(effectiveSelectedSports);
+    final selectClause = buildFeedSelect(effectiveSelectedSports);
     final allowedSlugs =
         isSubset ? backendSportSlugs(effectiveSelectedSports) : const <String>[];
 

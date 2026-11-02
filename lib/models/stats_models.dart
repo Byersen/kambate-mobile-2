@@ -57,7 +57,15 @@ class FootballStatsModel {
                         json['awayCards']?.toString() ??
                         '',
                   )),
-      extraStats: json['extra_stats'] is Map<String, dynamic>
+      extraStats: json['clock'] != null || json['period'] != null ||
+              json['leagueLogo'] != null || json['venue'] != null
+          ? {
+              if (json['clock'] != null) 'clock': json['clock'],
+              if (json['period'] != null) 'period': json['period'],
+              if (json['leagueLogo'] != null) 'leagueLogo': json['leagueLogo'],
+              if (json['venue'] != null) 'venue': json['venue'],
+            }
+          : json['extra_stats'] is Map<String, dynamic>
           ? json['extra_stats'] as Map<String, dynamic>
           : (json['extraStats'] is Map<String, dynamic>
                 ? json['extraStats'] as Map<String, dynamic>
@@ -108,7 +116,14 @@ class NbaStatsModel {
       homePoints: parsePoints(json['home_points'] ?? json['homePoints']),
       awayPoints: parsePoints(json['away_points'] ?? json['awayPoints']),
       quarter: json['quarter']?.toString(),
-      extraStats: json['extra_stats'] is Map<String, dynamic>
+      extraStats: json['clock'] != null || json['period'] != null ||
+              json['venue'] != null
+          ? {
+              if (json['clock'] != null) 'clock': json['clock'],
+              if (json['period'] != null) 'period': json['period'],
+              if (json['venue'] != null) 'venue': json['venue'],
+            }
+          : json['extra_stats'] is Map<String, dynamic>
           ? json['extra_stats'] as Map<String, dynamic>
           : (json['extraStats'] is Map<String, dynamic>
                 ? json['extraStats'] as Map<String, dynamic>
