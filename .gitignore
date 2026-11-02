@@ -64,3 +64,9 @@ app.*.map.json
 # Local Web Preview Scaffold
 /web/
 
+
+# Build packages
+*.ipa
+*.apk
+*.aab
+/dist/
