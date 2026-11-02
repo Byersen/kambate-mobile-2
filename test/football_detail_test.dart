@@ -241,29 +241,12 @@ void main() {
   }
 
   testWidgets(
-    'Presenta cronología, ceros reales, datos parciales y alineaciones',
+    'Presenta estadísticas y alineaciones sin cronología de jugadas',
     (tester) async {
       final app = await mount(tester, sample());
-      expect(find.text('Momentos del partido'), findsOneWidget);
+      expect(find.text('Momentos del partido'), findsNothing);
       expect(find.text('Estadísticas clave'), findsOneWidget);
       expect(find.text('Ver todas las estadísticas'), findsOneWidget);
-      expect(find.text('Jugador de prueba'), findsOneWidget);
-      expect(find.text('Asista: Asistente de prueba'), findsOneWidget);
-      expect(find.text('Defensa de prueba'), findsOneWidget);
-      expect(find.text('Entra de prueba'), findsOneWidget);
-      expect(find.text('para Sale de prueba'), findsOneWidget);
-      expect(find.text('Medio tiempo 1-0'), findsOneWidget);
-      expect(find.textContaining('Empieza el partido'), findsOneWidget);
-      final entraY = tester.getTopLeft(find.text('Entra de prueba')).dy;
-      final medioTiempoY = tester.getTopLeft(find.text('Medio tiempo 1-0')).dy;
-      final defensaY = tester.getTopLeft(find.text('Defensa de prueba')).dy;
-      final jugadorY = tester.getTopLeft(find.text('Jugador de prueba')).dy;
-      final empiezaY =
-          tester.getTopLeft(find.textContaining('Empieza el partido')).dy;
-      expect(entraY, lessThan(medioTiempoY));
-      expect(medioTiempoY, lessThan(defensaY));
-      expect(defensaY, lessThan(jugadorY));
-      expect(jugadorY, lessThan(empiezaY));
       await capturePreview(
         tester,
         app.preview.currentContext!.findRenderObject() as RenderRepaintBoundary,
@@ -466,15 +449,10 @@ void main() {
     },
   );
 
-  testWidgets('El icono de gol en la cronología es más grande', (tester) async {
+  testWidgets('La cronología de jugadas no se muestra', (tester) async {
     await mount(tester, sample());
     final goalIcon = find.byKey(const ValueKey('goal-incident-icon'));
-    expect(goalIcon, findsOneWidget);
-    expect(tester.getSize(goalIcon).width, greaterThanOrEqualTo(28));
-    final icon = tester.widget<Icon>(
-      find.descendant(of: goalIcon, matching: find.byType(Icon)),
-    );
-    expect(icon.size, greaterThanOrEqualTo(26));
+    expect(goalIcon, findsNothing);
   });
 
   testWidgets(

@@ -87,12 +87,6 @@ class _FootballDetailViewState extends State<FootballDetailView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: _summaryTimeline(event, detail),
-          ),
-        ),
         if (keyStats.isNotEmpty) ...[
           const SizedBox(height: 16),
           Card(
@@ -106,6 +100,7 @@ class _FootballDetailViewState extends State<FootballDetailView> {
     );
   }
 
+  // ignore: unused_element
   Widget _summaryTimeline(EventModel event, FootballDetailModel? detail) {
     final incidents = detail?.timeline;
     if (incidents == null || incidents.isEmpty) {
