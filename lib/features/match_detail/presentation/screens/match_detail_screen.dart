@@ -18,6 +18,10 @@ import '../widgets/ufc_detail_view.dart';
 import '../widgets/valorant_detail_view.dart';
 import '../widgets/valorant_match_header.dart';
 
+final matchDetailProvider = FutureProvider.family<EventModel?, String>((ref, id) {
+  return ref.read(feedRepositoryProvider).getEventById(id);
+});
+
 class MatchDetailScreen extends ConsumerWidget {
   final EventModel event;
 
@@ -26,11 +30,19 @@ class MatchDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final feedAsync = ref.watch(feedNotifierProvider);
-    final currentEvent = feedAsync.maybeWhen(
+    final feedEvent = feedAsync.maybeWhen(
       data: (events) =>
           events.firstWhere((e) => e.id == event.id, orElse: () => event),
       orElse: () => event,
     );
+    final detailAsync = ref.watch(matchDetailProvider(event.id));
+    final feedHasDetail = feedEvent.footballStats?.extraStats?['detail'] != null ||
+        feedEvent.nbaStats?.extraStats?['detail'] != null ||
+        feedEvent.ufcStats?.extraStats?['card'] != null ||
+        feedEvent.esportsStats?.extraStats?['detail'] != null;
+    final currentEvent = feedHasDetail
+        ? feedEvent
+        : (detailAsync.asData?.value ?? feedEvent);
 
     return Scaffold(
       appBar: AppBar(
@@ -98,6 +110,7 @@ class MatchDetailScreen extends ConsumerWidget {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
+          ref.invalidate(matchDetailProvider(event.id));
           await ref
               .read(feedNotifierProvider.notifier)
               .loadEvents(forceRefresh: true);
