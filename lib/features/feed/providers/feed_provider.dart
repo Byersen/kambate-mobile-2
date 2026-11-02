@@ -5,6 +5,7 @@ import '../../../core/utils/date_formatter.dart';
 import '../../../models/event_model.dart';
 import '../../../models/event_status.dart';
 import '../../../models/sport_type.dart';
+import '../../../models/stats_models.dart';
 import '../../../services/cache_service.dart';
 import '../../../services/realtime_service.dart';
 import '../data/feed_repository.dart';
@@ -294,6 +295,67 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
     final selectedSports = cachedSports.isNotEmpty
         ? SelectedSportsNotifier.normalizeSports(cachedSports)
         : _ref.read(selectedSportsProvider);
+    final currentEvents = state.asData?.value;
+    final currentIndex = currentEvents?.indexWhere(
+      (event) => event.id == update.eventId || event.externalId == update.eventId,
+    ) ?? -1;
+    if (currentEvents != null && currentIndex >= 0 &&
+        (update.statsKind == RealtimeStatsKind.football ||
+         update.statsKind == RealtimeStatsKind.nba)) {
+      final previous = currentEvents[currentIndex];
+      final record = update.record;
+      final extra = record['extraStats'] ?? record['extra_stats'];
+      final payloadExtra = extra is Map ? Map<String, dynamic>.from(extra) : <String, dynamic>{};
+      final incomingExtra = <String, dynamic>{
+        for (final key in ['clock', 'period', 'leagueLogo', 'venue'])
+          if (payloadExtra.containsKey(key)) key: payloadExtra[key],
+      };
+      EventModel updated;
+      if (update.statsKind == RealtimeStatsKind.football && previous.sport == SportType.soccer) {
+        final incoming = FootballStatsModel.fromJson(record);
+        final old = previous.footballStats;
+        final stats = FootballStatsModel(
+          id: incoming.id.isEmpty ? (old?.id ?? '') : incoming.id,
+          eventId: incoming.eventId ?? old?.eventId,
+          homeGoals: incoming.homeGoals ?? old?.homeGoals,
+          awayGoals: incoming.awayGoals ?? old?.awayGoals,
+          homeCards: incoming.homeCards ?? old?.homeCards,
+          awayCards: incoming.awayCards ?? old?.awayCards,
+          extraStats: {...?old?.extraStats, ...incomingExtra},
+        );
+        updated = previous.copyWith(
+          footballStats: stats,
+          homeScore: stats.homeGoals,
+          awayScore: stats.awayGoals,
+          score: stats.homeGoals != null && stats.awayGoals != null
+              ? '${stats.homeGoals} - ${stats.awayGoals}' : previous.score,
+        );
+      } else if (update.statsKind == RealtimeStatsKind.nba && previous.sport == SportType.nba) {
+        final incoming = NbaStatsModel.fromJson(record);
+        final old = previous.nbaStats;
+        final stats = NbaStatsModel(
+          id: incoming.id.isEmpty ? (old?.id ?? '') : incoming.id,
+          eventId: incoming.eventId ?? old?.eventId,
+          homePoints: incoming.homePoints ?? old?.homePoints,
+          awayPoints: incoming.awayPoints ?? old?.awayPoints,
+          quarter: incoming.quarter ?? old?.quarter,
+          extraStats: {...?old?.extraStats, ...incomingExtra},
+        );
+        updated = previous.copyWith(
+          nbaStats: stats,
+          homeScore: stats.homePoints,
+          awayScore: stats.awayPoints,
+          score: stats.homePoints != null && stats.awayPoints != null
+              ? '${stats.homePoints} - ${stats.awayPoints}' : previous.score,
+        );
+      } else {
+        return;
+      }
+      final updatedList = List<EventModel>.from(currentEvents)..[currentIndex] = updated;
+      state = AsyncValue.data(updatedList);
+      await CacheService.saveEvents(updatedList);
+      return;
+    }
     if (update.requiresRefresh) {
       final refreshed = await _repository.getEventById(update.eventId);
       if (!mounted || refreshed == null) return;

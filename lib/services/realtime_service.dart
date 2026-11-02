@@ -5,17 +5,20 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'supabase_service.dart';
 
 enum RealtimeConnectionState { connecting, connected, disconnected, offline }
+enum RealtimeStatsKind { football, nba, esports, ufc }
 
 class RealtimeEventUpdate {
   const RealtimeEventUpdate({
     required this.eventId,
     required this.record,
     required this.requiresRefresh,
+    this.statsKind,
   });
 
   final String eventId;
   final Map<String, dynamic> record;
   final bool requiresRefresh;
+  final RealtimeStatsKind? statsKind;
 
   static RealtimeEventUpdate? event(Map<String, dynamic> record) {
     final eventId = record['id']?.toString();
@@ -35,6 +38,7 @@ class RealtimeEventUpdate {
       eventId: eventId,
       record: record,
       requiresRefresh: true,
+      statsKind: RealtimeStatsKind.football,
     );
   }
 
@@ -46,6 +50,7 @@ class RealtimeEventUpdate {
       eventId: eventId,
       record: record,
       requiresRefresh: true,
+      statsKind: RealtimeStatsKind.nba,
     );
   }
 

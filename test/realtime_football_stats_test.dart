@@ -15,12 +15,14 @@ class RealtimeTestRepository extends FeedRepository {
 
   final EventModel initial;
   final EventModel refreshed;
+  int detailRequests = 0;
 
   @override
   Future<List<EventModel>> fetchRemoteEvents() async => [initial];
 
   @override
   Future<EventModel?> getEventById(String id) async {
+    detailRequests++;
     return id == refreshed.id ? refreshed : null;
   }
 }
@@ -43,7 +45,7 @@ void main() {
   });
 
   test(
-    'una actualización de FootballStats recarga el detalle completo',
+    'una actualización de FootballStats actualiza el feed sin consultar el detalle',
     () async {
       final initial = EventModel(
         id: 'event-1',
@@ -84,18 +86,16 @@ void main() {
       final notifier = container.read(feedNotifierProvider.notifier);
       await notifier.loadEvents(forceRefresh: true);
 
-      await notifier.applyRealtimeUpdate(
-        const RealtimeEventUpdate(
-          eventId: 'event-1',
-          record: {'eventId': 'event-1'},
-          requiresRefresh: true,
-        ),
-      );
+      await notifier.applyRealtimeUpdate(RealtimeEventUpdate.footballStats({
+        'eventId': 'event-1', 'id': 'stats-1',
+        'homeGoals': 2, 'awayGoals': 0,
+      })!);
 
       final event = container.read(feedNotifierProvider).requireValue.single;
       expect(event.homeScore, 2);
       expect(event.footballStats?.homeGoals, 2);
       expect(event.isFavorite, isTrue);
+      expect(repository.detailRequests, 0);
     },
   );
 }

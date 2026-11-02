@@ -15,12 +15,14 @@ class RealtimeTestRepository extends FeedRepository {
 
   final EventModel initial;
   final EventModel refreshed;
+  int detailRequests = 0;
 
   @override
   Future<List<EventModel>> fetchRemoteEvents() async => [initial];
 
   @override
   Future<EventModel?> getEventById(String id) async {
+    detailRequests++;
     return id == refreshed.id ? refreshed : null;
   }
 }
@@ -43,7 +45,7 @@ void main() {
   });
 
   test(
-    'una actualización de NbaStats recarga el detalle completo de básquetbol conservando favoritos',
+    'una actualización de NbaStats actualiza el feed sin consulta adicional',
     () async {
       final initial = EventModel(
         id: 'nba-event-1',
@@ -95,13 +97,11 @@ void main() {
       final notifier = container.read(feedNotifierProvider.notifier);
       await notifier.loadEvents(forceRefresh: true);
 
-      await notifier.applyRealtimeUpdate(
-        const RealtimeEventUpdate(
-          eventId: 'nba-event-1',
-          record: {'eventId': 'nba-event-1'},
-          requiresRefresh: true,
-        ),
-      );
+      await notifier.applyRealtimeUpdate(RealtimeEventUpdate.nbaStats({
+        'eventId': 'nba-event-1', 'id': 'nba-stats-1',
+        'homePoints': 84, 'awayPoints': 79, 'quarter': '3',
+        'extraStats': {'clock': '02:34'},
+      })!);
 
       final event = container.read(feedNotifierProvider).requireValue.single;
       expect(event.homeScore, 84);
@@ -109,6 +109,7 @@ void main() {
       expect(event.nbaStats?.homePoints, 84);
       expect(event.nbaStats?.extraStats?['clock'], '02:34');
       expect(event.isFavorite, isTrue);
+      expect(repository.detailRequests, 0);
     },
   );
 }
