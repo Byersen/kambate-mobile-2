@@ -336,6 +336,7 @@ void main() {
         ProviderScope(
           overrides: [
             ufcRankingsProvider.overrideWith((ref) => Future.value(rankings)),
+            upcomingUfcCardsProvider.overrideWith((ref) => Future.value(<EventModel>[])),
           ],
           child: const MaterialApp(
             home: LeagueDetailScreen(
@@ -370,7 +371,7 @@ void main() {
       expect(find.byType(UfcUpcomingCardsView), findsOneWidget);
     });
 
-    testWidgets('UfcRankingsView muestra campeón de división, orden #1..N y chips de división', (tester) async {
+    testWidgets('UfcRankingsView muestra divisiones plegadas y expande el ranking', (tester) async {
       final rankings = UfcRankingsModel.fromJson(sampleBackendRankingsJson());
 
       await tester.pumpWidget(
@@ -386,7 +387,11 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // P4P está seleccionado por defecto
+      // Todas las divisiones son visibles antes de abrir un ranking.
+      expect(find.text('Peso pesado'), findsOneWidget);
+      expect(find.text('Kamaru Usman "Nigerian Nightmare"'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('ufc-division-pound-for-pound')));
+      await tester.pumpAndSettle();
       expect(find.text('LIBRA POR LIBRA MASCULINO'), findsOneWidget);
       expect(find.text('Kamaru Usman "Nigerian Nightmare"'), findsOneWidget);
       expect(find.text('#1'), findsOneWidget);

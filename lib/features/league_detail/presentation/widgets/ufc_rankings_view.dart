@@ -25,6 +25,7 @@ class UfcRankingsView extends StatefulWidget {
 class _UfcRankingsViewState extends State<UfcRankingsView> {
   String? _selectedCategoryId;
 
+  // ignore: unused_element
   UfcRankingCategoryModel? get _currentCategory {
     final cats = widget.rankings.categories;
     if (cats.isEmpty) return null;
@@ -140,68 +141,48 @@ class _UfcRankingsViewState extends State<UfcRankingsView> {
       );
     }
 
-    final category = _currentCategory;
-    if (category == null) return const SizedBox.shrink();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Selector horizontal de divisiones
-        _buildCategoryChips(),
-        const Divider(height: 1, color: AppColors.borderDark),
-
-        // Lista deslizable con el campeón y los contendientes
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 32),
-            children: [
-              // Encabezado de la división seleccionada
-              _buildCategoryHeader(category),
-              const SizedBox(height: 16),
-
-              // Tarjeta del campeón de la división (si aplica)
-              if (category.champion != null) ...[
-                _buildChampionCard(category.champion!),
-                const SizedBox(height: 20),
-              ] else ...[
-                _buildNoBeltBanner(category),
-                const SizedBox(height: 16),
-              ],
-
-              // Encabezado de la lista de contendientes
-              Row(
-                children: [
-                  const Text(
-                    'CONTENDIENTES',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.8,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                  const Spacer(),
-                  Text(
-                    '${category.ranks.length} clasificados',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textMuted,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-
-              // Filas de los contendientes
-              for (final fighter in category.ranks)
-                _buildFighterRow(fighter),
-            ],
-          ),
-        ),
-      ],
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+      itemCount: widget.rankings.categories.length,
+      itemBuilder: (context, index) {
+        final category = widget.rankings.categories[index];
+        final expanded = _selectedCategoryId == category.id;
+        return Card(
+          color: AppColors.surfaceDark,
+          margin: const EdgeInsets.only(bottom: 8),
+          child: Column(children: [
+            ListTile(
+              key: ValueKey('ufc-division-${category.id}'),
+              dense: true,
+              title: Text(category.translatedName, style: const TextStyle(
+                color: AppColors.textPrimary, fontWeight: FontWeight.bold)),
+              subtitle: Text('${category.ranks.length} clasificados',
+                style: const TextStyle(color: AppColors.textSecondary)),
+              trailing: Icon(expanded ? Icons.expand_less : Icons.expand_more,
+                color: AppColors.textSecondary),
+              onTap: () => setState(() =>
+                _selectedCategoryId = expanded ? null : category.id),
+            ),
+            if (expanded) Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: Column(children: [
+                const Divider(color: AppColors.borderDark),
+                _buildCategoryHeader(category),
+                const SizedBox(height: 8),
+                if (category.champion != null)
+                  _buildChampionCard(category.champion!)
+                else _buildNoBeltBanner(category),
+                const SizedBox(height: 12),
+                for (final fighter in category.ranks) _buildFighterRow(fighter),
+              ]),
+            ),
+          ]),
+        );
+      },
     );
   }
 
+  // ignore: unused_element
   Widget _buildCategoryChips() {
     return Container(
       color: AppColors.surfaceDark,
