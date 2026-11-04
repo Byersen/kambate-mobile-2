@@ -11,16 +11,22 @@ class MatchCard extends StatelessWidget {
   final EventModel event;
   final VoidCallback? onTap;
   final bool isFollowed;
+  final bool isCompact;
 
   const MatchCard({
     super.key,
     required this.event,
     this.onTap,
     this.isFollowed = false,
+    this.isCompact = false,
   });
 
   @override
   Widget build(BuildContext context) {
+    if (isCompact) {
+      return _buildCompactCard(context);
+    }
+
     final isEsports = event.sport == SportType.lol || event.sport == SportType.valorant;
 
     return Card(
@@ -515,5 +521,221 @@ class MatchCard extends StatelessWidget {
     }
 
     return fallback;
+  }
+
+  Widget _buildCompactCard(BuildContext context) {
+    final isFinished = event.status == EventStatus.finished;
+    final isLive = event.isLive;
+    final showScore = !event.isCombat && (isLive || isFinished);
+    final homeScoreText = showScore ? (event.homeScore?.toString() ?? '—') : '—';
+    final awayScoreText = showScore ? (event.awayScore?.toString() ?? '—') : '—';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isLive ? AppColors.primary.withValues(alpha: 0.5) : AppColors.border,
+          width: isLive ? 1.2 : 0.8,
+        ),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Estado / Horario
+              SizedBox(
+                width: 54,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isLive)
+                      LiveBadge(
+                        text: MatchMinuteFormatter.format(event) ??
+                            event.currentPeriod ??
+                            'VIVO',
+                      )
+                    else if (isFinished)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.surfaceMuted,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: const Text(
+                          'FINAL',
+                          style: TextStyle(
+                            color: AppColors.textMuted,
+                            fontSize: 9.5,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      )
+                    else
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            AppDateFormatter.formatEventTime(event.startTime),
+                            style: const TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          if (event.startTime.day != DateTime.now().day) ...[
+                            const SizedBox(height: 1),
+                            Text(
+                              '${event.startTime.day} ${_shortMonth(event.startTime.month)}',
+                              style: const TextStyle(
+                                color: AppColors.textMuted,
+                                fontSize: 9.5,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                  ],
+                ),
+              ),
+
+              // Separador vertical
+              Container(
+                height: 36,
+                width: 1,
+                color: AppColors.border,
+                margin: const EdgeInsets.only(left: 4, right: 12),
+              ),
+
+              // Equipos y Marcadores
+              Expanded(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Equipo Local
+                    Row(
+                      children: [
+                        _buildCompactAvatar(event.participant1Name, event.homeTeam?.logoUrl),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            event.participant1Name,
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 13,
+                              fontWeight: isFinished && (event.homeScore ?? 0) > (event.awayScore ?? 0)
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (showScore) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            homeScoreText,
+                            style: TextStyle(
+                              color: isLive ? AppColors.primary : AppColors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    const SizedBox(height: 5),
+                    // Equipo Visitante
+                    Row(
+                      children: [
+                        _buildCompactAvatar(event.participant2Name, event.awayTeam?.logoUrl),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            event.participant2Name,
+                            style: TextStyle(
+                              color: AppColors.textPrimary,
+                              fontSize: 13,
+                              fontWeight: isFinished && (event.awayScore ?? 0) > (event.homeScore ?? 0)
+                                  ? FontWeight.bold
+                                  : FontWeight.w500,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (showScore) ...[
+                          const SizedBox(width: 8),
+                          Text(
+                            awayScoreText,
+                            style: TextStyle(
+                              color: isLive ? AppColors.primary : AppColors.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactAvatar(String name, String? logoUrl) {
+    if (logoUrl != null && logoUrl.isNotEmpty) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(4),
+        child: Image.network(
+          logoUrl,
+          width: 18,
+          height: 18,
+          fit: BoxFit.contain,
+          errorBuilder: (_, __, ___) => _buildFallbackCompactAvatar(name),
+        ),
+      );
+    }
+    return _buildFallbackCompactAvatar(name);
+  }
+
+  Widget _buildFallbackCompactAvatar(String name) {
+    final initials = name.isNotEmpty
+        ? name.trim().split(RegExp(r'\s+')).take(2).map((w) => w.isNotEmpty ? w[0] : '').join().toUpperCase()
+        : '?';
+    return Container(
+      width: 18,
+      height: 18,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: AppColors.surfaceMuted,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        initials,
+        style: const TextStyle(
+          color: AppColors.textSecondary,
+          fontSize: 8,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    );
+  }
+
+  static String _shortMonth(int month) {
+    const m = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    if (month >= 1 && month <= 12) return m[month - 1];
+    return '';
   }
 }
