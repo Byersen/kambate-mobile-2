@@ -253,6 +253,22 @@ class LeagueDetailRepository {
       }
 
       if (entries.isNotEmpty) {
+        entries.sort((a, b) {
+          if (a.position != b.position && a.position > 0 && b.position > 0) {
+            return a.position.compareTo(b.position);
+          }
+          if (a.points != b.points) {
+            return b.points.compareTo(a.points);
+          }
+          final gdA = a.goalDifference ?? 0;
+          final gdB = b.goalDifference ?? 0;
+          if (gdA != gdB) {
+            return gdB.compareTo(gdA);
+          }
+          final gfA = a.goalsFor ?? 0;
+          final gfB = b.goalsFor ?? 0;
+          return gfB.compareTo(gfA);
+        });
         groups.add(
           LeagueStandingGroupModel(
             name: child['name']?.toString() ?? 'General',
