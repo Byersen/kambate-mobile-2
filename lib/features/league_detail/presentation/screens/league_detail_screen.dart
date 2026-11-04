@@ -20,6 +20,9 @@ import '../widgets/ufc_upcoming_cards_view.dart';
 import '../../../favorites/models/search_league_item.dart';
 import '../../../favorites/providers/favorites_provider.dart';
 
+final upcomingUfcCardsProvider = FutureProvider<List<EventModel>>((ref) =>
+    ref.read(feedRepositoryProvider).fetchUpcomingUfcCards());
+
 class LeagueDetailScreen extends ConsumerStatefulWidget {
   final String leagueName;
   final SportType sport;
@@ -581,7 +584,9 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
             widget.leagueName.toLowerCase().contains('worlds'));
 
     if (isWorlds) {
-      final worldsAsync = ref.watch(lolWorldsStageProvider(params.seasonId));
+      final seasonSlug = RegExp(r'^[0-9a-fA-F]{8}-').hasMatch(params.seasonId ?? '')
+          ? null : params.seasonId;
+      final worldsAsync = ref.watch(lolWorldsStageProvider(seasonSlug));
       return Scaffold(
         backgroundColor: AppColors.backgroundDark,
         appBar: AppBar(
@@ -634,7 +639,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
                 color: AppColors.textSecondary,
               ),
               onPressed: () =>
-                  ref.refresh(lolWorldsStageProvider(params.seasonId)),
+                  ref.refresh(lolWorldsStageProvider(seasonSlug)),
             ),
           ],
         ),
@@ -642,7 +647,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
           data: (stageData) => LolWorldsSwissView(
             stageData: stageData,
             onRefresh: () =>
-                ref.refresh(lolWorldsStageProvider(params.seasonId)),
+                ref.refresh(lolWorldsStageProvider(seasonSlug)),
           ),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(
@@ -662,6 +667,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
 
     if (isUfc) {
       final rankingsAsync = ref.watch(ufcRankingsProvider);
+      final cardsAsync = ref.watch(upcomingUfcCardsProvider);
       return DefaultTabController(
         length: 2,
         child: Scaffold(
@@ -718,6 +724,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
                 ),
                 onPressed: () {
                   ref.invalidate(feedNotifierProvider);
+                  ref.invalidate(upcomingUfcCardsProvider);
                   ref.invalidate(ufcRankingsProvider);
                 },
               ),
@@ -735,9 +742,19 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
           ),
           body: TabBarView(
             children: [
-              UfcUpcomingCardsView(
-                allEvents: events,
-                onRefresh: () async => ref.invalidate(feedNotifierProvider),
+              cardsAsync.when(
+                data: (cards) => UfcUpcomingCardsView(
+                  allEvents: cards,
+                  onRefresh: () => ref.invalidate(upcomingUfcCardsProvider),
+                ),
+                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (error, _) => events.any((e) => e.sport == SportType.ufc)
+                  ? UfcUpcomingCardsView(allEvents: events,
+                      onRefresh: () => ref.invalidate(upcomingUfcCardsProvider))
+                  : Center(child: Text(
+                      'No se pudieron cargar las carteleras: $error',
+                      style: const TextStyle(color: AppColors.textSecondary),
+                    )),
               ),
               rankingsAsync.when(
                 data: (rankings) => UfcRankingsView(

@@ -28,6 +28,21 @@ class FeedRepository {
   }
 
   FeedDataSource source = FeedDataSource.remote;
+
+  /// Las veladas UFC pueden estar programadas semanas después del feed diario.
+  Future<List<EventModel>> fetchUpcomingUfcCards() async {
+    final client = SupabaseService.client;
+    if (client == null) throw StateError('Conexión de datos no disponible');
+    final now = DateTime.now().toUtc();
+    final data = await client.from('Event').select(
+      _eventSelect.replaceFirst('sport:Sport(', 'sport:Sport!inner('),
+    ).eq('sport.slug', 'ufc')
+      .gte('startDate', now.subtract(const Duration(hours: 12)).toIso8601String())
+      .lte('startDate', now.add(const Duration(days: 60)).toIso8601String())
+      .order('startDate')
+      .limit(500);
+    return data.map(EventModel.fromJson).toList();
+  }
   DateTime? lastUpdated;
 
   static const int _totalSupportedSportsCount = 5;
