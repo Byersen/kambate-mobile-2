@@ -596,7 +596,11 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
     if (['fra', 'french', 'ligue 1'].any((x) => l.contains(x))) return 'Francia';
     if (['ned', 'dutch', 'eredivisie', 'paises bajos', 'países bajos'].any((x) => l.contains(x))) return 'Países Bajos';
     if (['por', 'portuguese', 'primeira', 'portugal'].any((x) => l.contains(x))) return 'Portugal';
-    if (['champions', 'europa league', 'conference', 'supercopa de europa', 'uefa'].any((x) => l.contains(x))) return 'UEFA';
+    if (l.contains('worlds') || l.contains('world championship') || l.contains('lol') || l.contains('legends')) return 'Internacional';
+    if (['uefa champions league', 'champions league', 'uefa.champions', 'europa league', 'conference', 'supercopa de europa', 'uefa'].any((x) => l.contains(x)) ||
+        (l.contains('champions') && !l.contains('championship'))) {
+      return 'UEFA';
+    }
     if (['mundial', 'world cup'].any((x) => l.contains(x))) return 'Mundial';
     if (['copa américa'].any((x) => l.contains(x))) return 'Copa América';
     if (['eurocopa'].any((x) => l.contains(x))) return 'Eurocopa';
@@ -643,10 +647,25 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
     if (l.contains('copa chile') || l.contains('copa_chi')) return 'Copa Chile';
     if (l.contains('chi') || l.contains('chile') || l.contains('campeonato itaú')) return 'Primera División';
     if (l.contains('col') || l.contains('colombia')) return 'Primera A';
+    // LoL
+    if (l.contains('worlds') || l.contains('world championship')) return 'Worlds';
+    if (l.contains('lck')) return 'LCK';
+    if (l.contains('lec')) return 'LEC';
+    if (l.contains('lcs')) return 'LCS';
+    if (l.contains('lpl')) return 'LPL';
+    if (l.contains('msi')) return 'MSI';
+    if (l.contains('lol') || l.contains('legends')) return 'LoL';
+
     if (l.contains('libertadores')) return 'Copa Libertadores';
     if (l.contains('sudamericana')) return 'Copa Sudamericana';
     if (l.contains('recopa')) return 'Recopa Sudamericana';
-    if (l.contains('champions')) return 'Champions League';
+    if (l == 'uefa champions league' ||
+        l == 'champions league' ||
+        l == 'uefa.champions' ||
+        l == 'ucl' ||
+        (l.contains('champions') && !l.contains('championship'))) {
+      return 'Champions League';
+    }
     if (l.contains('europa league') || (l.contains('europa') && !l.contains('eurocopa'))) return 'Europa League';
     if (l.contains('conference')) return 'Conference League';
     if (l.contains('supercopa de europa') || l.contains('uefa.super_cup') || l.contains('uefa super cup')) return 'Supercopa de Europa';

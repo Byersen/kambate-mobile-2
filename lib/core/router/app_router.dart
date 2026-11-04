@@ -155,38 +155,52 @@ GoRouter createRouter({String initialLocation = '/feed'}) {
           final decodedName = Uri.decodeComponent(leagueName);
           final lowerName = decodedName.toLowerCase();
           final lowerSlug = slug?.toLowerCase() ?? '';
-          final resolvedSport = extraSport ??
-              (lowerName.contains('worlds') ||
-                      lowerSlug.contains('worlds') ||
-                      lowerName.contains('msi') ||
-                      lowerSlug.contains('msi') ||
-                      lowerName.contains('lck') ||
-                      lowerName.contains('lec') ||
-                      lowerName.contains('lcs') ||
-                      lowerName.contains('lpl') ||
-                      lowerName.contains('lol') ||
-                      lowerSlug.contains('lol')
-                  ? SportType.lol
-                  : lowerName.contains('nba') || lowerSlug.contains('nba')
-                      ? SportType.nba
-                      : lowerName.contains('ufc') || lowerSlug.contains('ufc')
-                          ? SportType.ufc
-                          : (lowerName.contains('vct') ||
-                                  lowerName.contains('valorant') ||
-                                  lowerSlug.contains('valorant') ||
-                                  lowerSlug.contains('vct') ||
-                                  lowerName == 'valorant champions' ||
-                                  lowerName == 'valorant masters' ||
-                                  lowerSlug == 'valorant-champions' ||
-                                  lowerSlug == 'valorant-masters')
-                              ? SportType.valorant
-                              : SportType.soccer);
+
+          final isUcl = lowerName == 'uefa champions league' ||
+              lowerName == 'champions league' ||
+              lowerSlug == 'uefa.champions' ||
+              lowerSlug == 'ucl' ||
+              (lowerName.contains('champions') &&
+                  !lowerName.contains('valorant') &&
+                  !lowerName.contains('vct') &&
+                  !lowerName.contains('lol') &&
+                  !lowerName.contains('worlds') &&
+                  !lowerName.contains('championship'));
+
+          final resolvedSport = isUcl
+              ? SportType.soccer
+              : (extraSport ??
+                  (lowerName.contains('worlds') ||
+                          lowerSlug.contains('worlds') ||
+                          lowerName.contains('msi') ||
+                          lowerSlug.contains('msi') ||
+                          lowerName.contains('lck') ||
+                          lowerName.contains('lec') ||
+                          lowerName.contains('lcs') ||
+                          lowerName.contains('lpl') ||
+                          lowerName.contains('lol') ||
+                          lowerSlug.contains('lol')
+                      ? SportType.lol
+                      : lowerName.contains('nba') || lowerSlug.contains('nba')
+                          ? SportType.nba
+                          : lowerName.contains('ufc') || lowerSlug.contains('ufc')
+                              ? SportType.ufc
+                              : (lowerName.contains('vct') ||
+                                      lowerName.contains('valorant') ||
+                                      lowerSlug.contains('valorant') ||
+                                      lowerSlug.contains('vct') ||
+                                      lowerName == 'valorant champions' ||
+                                      lowerName == 'valorant masters' ||
+                                      lowerSlug == 'valorant-champions' ||
+                                      lowerSlug == 'valorant-masters')
+                                  ? SportType.valorant
+                                  : SportType.soccer));
           return LeagueDetailScreen(
             leagueName: decodedName,
             sport: resolvedSport,
             leagueId: leagueId,
             seasonId: seasonId,
-            leagueSlug: slug,
+            leagueSlug: slug ?? (isUcl ? 'uefa.champions' : null),
           );
         },
       ),
