@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/utils/date_formatter.dart';
 import '../../../../core/utils/match_round_formatter.dart';
 import '../../../../models/event_model.dart';
 import '../../../../models/event_status.dart';
@@ -66,7 +65,6 @@ class _ParticipatingTeamInfo {
 class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  int? _selectedMatchdayNumber;
 
   bool get _isSoccer => widget.sport == SportType.soccer;
 
@@ -78,25 +76,6 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
             slug.contains('champions') ||
             slug == 'ucl' ||
             slug == 'uefa.champions');
-  }
-
-  int? _extractMatchdayNumber(String? round) {
-    if (round == null) return null;
-    final match = RegExp(r'(\d+)').firstMatch(round);
-    return match != null ? int.tryParse(match.group(1)!) : null;
-  }
-
-  String _resolveActiveRoundDisplay(List<EventModel> events) {
-    final active = _resolveActiveRound(events);
-    if (active != null && active.trim().isNotEmpty) {
-      final formatted = MatchRoundFormatter.format(active);
-      if (formatted != null && formatted.isNotEmpty) return formatted;
-      return active.trim();
-    }
-    if (_isUcl) {
-      return 'Fecha 5';
-    }
-    return '';
   }
 
   List<LeagueStandingEntryModel> _sortGroupEntries(
@@ -119,45 +98,6 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
       return gfB.compareTo(gfA);
     });
     return sorted;
-  }
-
-  String _resolveFormattedDateForEvents(
-    List<EventModel> events, [
-    DateTime? fallbackDate,
-  ]) {
-    if (events.isEmpty) {
-      if (fallbackDate != null) {
-        final rel = AppDateFormatter.getRelativeDayName(fallbackDate);
-        final formatted = AppDateFormatter.formatDate(fallbackDate);
-        if (rel == 'Hoy' || rel == 'Mañana' || rel == 'Ayer') {
-          return '$rel · $formatted';
-        }
-        return formatted;
-      }
-      return '';
-    }
-
-    final dates = <DateTime>{};
-    for (final e in events) {
-      final local = e.startTime.toLocal();
-      dates.add(DateTime(local.year, local.month, local.day));
-    }
-    final sortedDates = dates.toList()..sort();
-
-    if (sortedDates.length == 1) {
-      final d = sortedDates.first;
-      final rel = AppDateFormatter.getRelativeDayName(d);
-      final formatted = AppDateFormatter.formatDate(d);
-      if (rel == 'Hoy' || rel == 'Mañana' || rel == 'Ayer') {
-        return '$rel · $formatted';
-      }
-      return formatted;
-    } else if (sortedDates.length > 1) {
-      final first = sortedDates.first;
-      final last = sortedDates.last;
-      return '${AppDateFormatter.formatShortDayMonth(first)} – ${AppDateFormatter.formatShortDayMonth(last)}';
-    }
-    return '';
   }
 
   String get _displayLeagueTitle {
@@ -571,7 +511,6 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
     final leagueEvents = events
         .where((e) => _matchesLeagueAndSeason(e, params))
         .toList();
-    final activeRoundDisplay = _resolveActiveRoundDisplay(leagueEvents);
     final officialLogo = _resolveLeagueLogo(params, events);
     final participatingTeams = _resolveParticipatingTeams(
       params: params,
@@ -908,46 +847,15 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 const SizedBox(height: 3),
-                                Row(
-                                  children: [
-                                    Text(
-                                      _displayLeagueSubtitle,
-                                      style: const TextStyle(
-                                        color: AppColors.textSecondary,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    if (activeRoundDisplay.isNotEmpty) ...[
-                                      const SizedBox(width: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 7,
-                                          vertical: 1.5,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: AppColors.primary
-                                              .withValues(alpha: 0.1),
-                                          borderRadius:
-                                              BorderRadius.circular(10),
-                                          border: Border.all(
-                                            color: AppColors.primary
-                                                .withValues(alpha: 0.25),
-                                          ),
-                                        ),
-                                        child: Text(
-                                          activeRoundDisplay,
-                                          style: const TextStyle(
-                                            color: AppColors.primary,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
+                                Text(
+                                  _displayLeagueSubtitle,
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ],
                             ),
@@ -1282,81 +1190,42 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
     );
   }
 
-  Widget _buildFechaHeaderCard({
-    required String fechaTitle,
-    String? phaseSubtitle,
-    required String dateSubtitle,
-    Widget? trailing,
-  }) {
+  Widget _buildViewAllMatchesButton() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.border),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(7),
-              decoration: BoxDecoration(
-                color: widget.sport.color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
+      padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
+      child: InkWell(
+        key: const ValueKey('btn_ver_todos_partidos_fecha'),
+        onTap: () {
+          _tabController.animateTo(1);
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Ver todos los partidos de la fecha',
+                style: TextStyle(
+                  color: widget.sport.color,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
               ),
-              child: Icon(
-                Icons.calendar_today_rounded,
-                size: 15,
+              const SizedBox(width: 6),
+              Icon(
+                Icons.arrow_forward_rounded,
+                size: 16,
                 color: widget.sport.color,
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        fechaTitle.toUpperCase(),
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.4,
-                        ),
-                      ),
-                      if (phaseSubtitle != null && phaseSubtitle.isNotEmpty) ...[
-                        const SizedBox(width: 6),
-                        Text(
-                          '· $phaseSubtitle',
-                          style: const TextStyle(
-                            color: AppColors.textSecondary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  if (dateSubtitle.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      dateSubtitle,
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (trailing != null) trailing,
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1407,7 +1276,6 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
   ) {
     final feedAsync = ref.watch(feedNotifierProvider);
     final detailAsync = ref.watch(leagueDetailProvider(params));
-    final selectedFeedDate = ref.watch(selectedFeedDateProvider);
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -1463,21 +1331,32 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
 
               final activeRound = _resolveActiveRound(leagueEvents);
               List<EventModel> roundMatches;
-              final String fechaTitle;
+              final String headerTitle;
 
               if (activeRound != null) {
                 final filtered = leagueEvents
                     .where((e) => e.roundOrPhase == activeRound)
                     .toList();
                 roundMatches = filtered.isNotEmpty ? filtered : leagueEvents;
-                fechaTitle =
-                    MatchRoundFormatter.format(activeRound) ?? activeRound;
+                headerTitle = _isUcl
+                    ? (MatchRoundFormatter.format(activeRound) ?? activeRound)
+                        .toUpperCase()
+                    : activeRound.toUpperCase();
               } else if (_isUcl) {
                 roundMatches = leagueEvents;
-                fechaTitle = 'Fecha 5';
+                headerTitle = 'FECHA 5';
               } else {
                 roundMatches = leagueEvents;
-                fechaTitle = 'Partidos';
+                headerTitle = 'PARTIDOS';
+              }
+
+              if (_isUcl) {
+                final liveOrUpcoming = roundMatches
+                    .where((e) => e.isLive || e.status == EventStatus.scheduled)
+                    .toList();
+                if (liveOrUpcoming.isNotEmpty) {
+                  roundMatches = liveOrUpcoming;
+                }
               }
 
               if (widget.sport == SportType.soccer ||
@@ -1486,8 +1365,13 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
                 roundMatches = List<EventModel>.from(roundMatches)
                   ..sort((a, b) {
                     int statusOrder(EventModel e) {
-                      if (e.status == EventStatus.live) return 0;
-                      if (e.status == EventStatus.finished) return 1;
+                      if (_isUcl) {
+                        if (e.status == EventStatus.live) return 0;
+                        if (e.status == EventStatus.scheduled) return 1;
+                        return 2;
+                      }
+                      if (e.status == EventStatus.finished) return 0;
+                      if (e.status == EventStatus.live) return 1;
                       return 2;
                     }
                     final orderA = statusOrder(a);
@@ -1499,13 +1383,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
                   });
               }
 
-              final dateSubtitle = _resolveFormattedDateForEvents(
-                roundMatches,
-                selectedFeedDate,
-              );
-              final phaseSubtitle = _isUcl ? 'Fase de Liga' : null;
-
-              final trailingWidget = leagueEvents.length > roundMatches.length
+              final trailingWidget = !_isUcl && leagueEvents.length > roundMatches.length
                   ? GestureDetector(
                       onTap: () => _tabController.animateTo(1),
                       child: Text(
@@ -1519,22 +1397,11 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
                     )
                   : null;
 
-              final headerWidget = _isUcl
-                  ? _buildFechaHeaderCard(
-                      fechaTitle: fechaTitle,
-                      phaseSubtitle: phaseSubtitle,
-                      dateSubtitle: dateSubtitle,
-                      trailing: trailingWidget,
-                    )
-                  : _buildSectionHeader(
-                      activeRound != null
-                          ? activeRound.toUpperCase()
-                          : 'PARTIDOS',
-                      trailing: trailingWidget,
-                    );
-
               return [
-                headerWidget,
+                _buildSectionHeader(
+                  headerTitle,
+                  trailing: trailingWidget,
+                ),
                 ...roundMatches.map(
                   (match) => Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4.0),
@@ -1545,6 +1412,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
                     ),
                   ),
                 ),
+                if (_isUcl) _buildViewAllMatchesButton(),
               ];
             },
             loading: () => [
@@ -1843,277 +1711,60 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
     );
   }
 
-  Widget _buildSoccerMatchesView(
-    List<EventModel> leagueEvents,
-    DateTime selectedFeedDate,
-  ) {
-    // 1. Gather all available matchday numbers in the events
-    final availableMatchdays = <int>{};
-    for (final e in leagueEvents) {
-      final num = _extractMatchdayNumber(e.roundOrPhase);
-      if (num != null) availableMatchdays.add(num);
+  Widget _buildUclMatchesView(List<EventModel> leagueEvents) {
+    final activeRound = _resolveActiveRound(leagueEvents);
+
+    var matchesForFecha = activeRound != null
+        ? leagueEvents
+            .where((e) =>
+                (e.roundOrPhase?.trim() ?? '') == activeRound ||
+                (MatchRoundFormatter.format(e.roundOrPhase) ?? '') ==
+                    (MatchRoundFormatter.format(activeRound) ?? activeRound))
+            .toList()
+        : leagueEvents;
+
+    if (matchesForFecha.isEmpty) {
+      matchesForFecha = leagueEvents;
     }
 
-    final int totalFechas = _isUcl
-        ? 8
-        : (availableMatchdays.isNotEmpty
-            ? availableMatchdays.reduce((a, b) => a > b ? a : b)
-            : 1);
+    final sorted = List<EventModel>.from(matchesForFecha)
+      ..sort((a, b) {
+        int statusOrder(EventModel e) {
+          if (e.status == EventStatus.live) return 0;
+          if (e.status == EventStatus.scheduled) return 1;
+          return 2;
+        }
+        final orderA = statusOrder(a);
+        final orderB = statusOrder(b);
+        if (orderA != orderB) return orderA.compareTo(orderB);
+        return a.startTime.compareTo(b.startTime);
+      });
 
-    final defaultMatchday =
-        _extractMatchdayNumber(_resolveActiveRound(leagueEvents)) ??
-            (_isUcl
-                ? 5
-                : (availableMatchdays.isNotEmpty
-                    ? availableMatchdays.first
-                    : 1));
-
-    final currentFecha = _selectedMatchdayNumber ?? defaultMatchday;
-
-    // Filter matches for currentFecha
-    final matchesForFecha = leagueEvents.where((e) {
-      final num = _extractMatchdayNumber(e.roundOrPhase);
-      return num == currentFecha;
-    }).toList();
-
-    // Compute date label for currentFecha
-    final dateRangeText =
-        _resolveFormattedDateForEvents(matchesForFecha, selectedFeedDate);
+    final headerTitle = activeRound != null
+        ? (MatchRoundFormatter.format(activeRound) ?? activeRound).toUpperCase()
+        : 'FECHA 5';
 
     return ListView(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       children: [
-        // Navigation bar for Fecha
-        Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.border),
-          ),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.chevron_left_rounded),
-                    color: currentFecha > 1
-                        ? AppColors.primary
-                        : AppColors.textMuted.withValues(alpha: 0.3),
-                    onPressed: currentFecha > 1
-                        ? () => setState(
-                            () => _selectedMatchdayNumber = currentFecha - 1)
-                        : null,
-                  ),
-                  Column(
-                    children: [
-                      Text(
-                        _isUcl
-                            ? 'FECHA $currentFecha DE $totalFechas'
-                            : 'FECHA $currentFecha',
-                        style: const TextStyle(
-                          color: AppColors.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        dateRangeText.isNotEmpty
-                            ? dateRangeText
-                            : (_isUcl ? 'Fase de Liga' : 'Temporada regular'),
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.chevron_right_rounded),
-                    color: currentFecha < totalFechas
-                        ? AppColors.primary
-                        : AppColors.textMuted.withValues(alpha: 0.3),
-                    onPressed: currentFecha < totalFechas
-                        ? () => setState(
-                            () => _selectedMatchdayNumber = currentFecha + 1)
-                        : null,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              // Horizontal pills for selecting Fecha 1..totalFechas
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Row(
-                  children: List.generate(totalFechas, (index) {
-                    final fNum = index + 1;
-                    final isSelected = fNum == currentFecha;
-                    final hasMatches = availableMatchdays.contains(fNum);
-
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 3),
-                      child: InkWell(
-                        onTap: () =>
-                            setState(() => _selectedMatchdayNumber = fNum),
-                        borderRadius: BorderRadius.circular(14),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 11,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppColors.primary
-                                : AppColors.surfaceDark,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppColors.primary
-                                  : AppColors.border,
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            'Fecha $fNum',
-                            style: TextStyle(
-                              color: isSelected
-                                  ? Colors.white
-                                  : (hasMatches
-                                      ? AppColors.textPrimary
-                                      : AppColors.textMuted),
-                              fontSize: 11,
-                              fontWeight:
-                                  isSelected ? FontWeight.bold : FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Matches content
-        if (matchesForFecha.isEmpty) ...[
-          Padding(
-            padding: const EdgeInsets.all(32),
-            child: Center(
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.event_note_rounded,
-                    size: 44,
-                    color: AppColors.textMuted.withValues(alpha: 0.5),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Sin partidos para la Fecha $currentFecha',
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Los cruces y horarios de esta jornada se confirmarán próximamente.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: AppColors.textSecondary,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
+        _buildSectionHeader(headerTitle),
+        const SizedBox(height: 8),
+        ...sorted.map(
+          (match) => Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: MatchCard(
+              event: match,
+              isCompact: true,
+              onTap: () => context.push('/detail/${match.id}', extra: match),
             ),
           ),
-        ] else ...[
-          ...() {
-            final sorted = List<EventModel>.from(matchesForFecha)
-              ..sort((a, b) {
-                int statusOrder(EventModel e) {
-                  if (e.status == EventStatus.live) return 0;
-                  if (e.status == EventStatus.finished) return 1;
-                  return 2;
-                }
-                final orderA = statusOrder(a);
-                final orderB = statusOrder(b);
-                if (orderA != orderB) return orderA.compareTo(orderB);
-                return a.startTime.compareTo(b.startTime);
-              });
-
-            final Map<String, List<EventModel>> grouped = {};
-            for (final m in sorted) {
-              final dateKey = AppDateFormatter.formatDate(m.startTime);
-              final rel = AppDateFormatter.getRelativeDayName(m.startTime);
-              final header = (rel == 'Hoy' || rel == 'Mañana' || rel == 'Ayer')
-                  ? '${rel.toUpperCase()} · ${dateKey.toUpperCase()}'
-                  : dateKey.toUpperCase();
-              grouped.putIfAbsent(header, () => []).add(m);
-            }
-
-            final widgets = <Widget>[];
-            for (final entry in grouped.entries) {
-              widgets.add(
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(4, 10, 4, 6),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 3,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          color: AppColors.primary,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        entry.key,
-                        style: const TextStyle(
-                          color: AppColors.textSecondary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-
-              for (final match in entry.value) {
-                widgets.add(
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: MatchCard(
-                      event: match,
-                      isCompact: true,
-                      onTap: () =>
-                          context.push('/detail/${match.id}', extra: match),
-                    ),
-                  ),
-                );
-              }
-            }
-            return widgets;
-          }(),
-        ],
+        ),
       ],
     );
   }
 
   Widget _buildMatchesTab(LeagueDetailParams params) {
     final feedAsync = ref.watch(feedNotifierProvider);
-    final selectedFeedDate = ref.watch(selectedFeedDateProvider);
     return feedAsync.when(
       data: (events) {
         final leagueEvents = events
@@ -2154,7 +1805,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
         }
 
         if (_isUcl) {
-          return _buildSoccerMatchesView(leagueEvents, selectedFeedDate);
+          return _buildUclMatchesView(leagueEvents);
         }
 
         final hasEditions = leagueEvents.any(
@@ -2281,38 +1932,14 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
                   if (_isUcl || detail.groups.length > 1 || group.name != 'General') ...[
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8.0, top: 4.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            _isUcl ? 'FASE DE LIGA' : group.name.toUpperCase(),
-                            style: const TextStyle(
-                              color: AppColors.textPrimary,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          if (_isUcl)
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Text(
-                                'Fecha 5 de 8',
-                                style: TextStyle(
-                                  color: AppColors.primary,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                        ],
+                      child: Text(
+                        _isUcl ? 'FASE DE LIGA' : group.name.toUpperCase(),
+                        style: const TextStyle(
+                          color: AppColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
                       ),
                     ),
                   ],
