@@ -1,4 +1,4 @@
-# Kambate Mobile
+# OmniScore
 
 Aplicacion movil nativa desarrollada en Flutter (Dart) para el seguimiento unificado de resultados en tiempo real, calendarios mensuales y estadisticas de 5 disciplinas deportivas: Futbol, NBA, UFC, League of Legends y Valorant. 
 

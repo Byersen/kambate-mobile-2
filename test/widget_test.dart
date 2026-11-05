@@ -219,11 +219,11 @@ void main() {
     'Inicio claro, filtro por deporte y estado sin perder el catálogo',
     (tester) async {
       final app = await mount(tester);
-      expect(find.text('KAMBATE'), findsOneWidget);
+      expect(find.text('OmniScore'), findsOneWidget);
       expect(find.text('Tu jornada deportiva'), findsNothing);
       expect(app.container.read(selectedSportFilterProvider), SportType.soccer);
       expect(
-        Theme.of(tester.element(find.text('KAMBATE'))).brightness,
+        Theme.of(tester.element(find.text('OmniScore'))).brightness,
         Brightness.light,
       );
       await tester.tap(find.text('NBA').first);
