@@ -228,7 +228,8 @@ class _UfcRankingsViewState extends State<UfcRankingsView> {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
               child: Column(
                 children: [
-                  for (final fighter in category.ranks) _buildFighterRow(fighter),
+                  for (final fighter in category.ranks.take(15))
+                    _buildFighterRow(fighter),
                 ],
               ),
             ),

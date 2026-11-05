@@ -598,9 +598,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
     if (['por', 'portuguese', 'primeira', 'portugal'].any((x) => l.contains(x))) return 'Portugal';
     if (l.contains('worlds') || l.contains('world championship') || l.contains('lol') || l.contains('legends')) return 'Internacional';
     if (['uefa champions league', 'champions league', 'uefa.champions', 'europa league', 'conference', 'supercopa de europa', 'uefa'].any((x) => l.contains(x)) ||
-        (l.contains('champions') && !l.contains('championship'))) {
-      return 'UEFA';
-    }
+        (l.contains('champions') && !l.contains('championship'))) return 'UEFA';
     if (['mundial', 'world cup'].any((x) => l.contains(x))) return 'Mundial';
     if (['copa américa'].any((x) => l.contains(x))) return 'Copa América';
     if (['eurocopa'].any((x) => l.contains(x))) return 'Eurocopa';
@@ -663,9 +661,7 @@ class _FavoritesScreenState extends ConsumerState<FavoritesScreen>
         l == 'champions league' ||
         l == 'uefa.champions' ||
         l == 'ucl' ||
-        (l.contains('champions') && !l.contains('championship'))) {
-      return 'Champions League';
-    }
+        (l.contains('champions') && !l.contains('championship'))) return 'Champions League';
     if (l.contains('europa league') || (l.contains('europa') && !l.contains('eurocopa'))) return 'Europa League';
     if (l.contains('conference')) return 'Conference League';
     if (l.contains('supercopa de europa') || l.contains('uefa.super_cup') || l.contains('uefa super cup')) return 'Supercopa de Europa';

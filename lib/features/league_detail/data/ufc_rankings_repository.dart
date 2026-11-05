@@ -15,55 +15,70 @@ class UfcRankingsRepository {
               ),
             );
 
+  static const List<String> _officialUfcUrls = [
+    'https://www.ufcespanol.com/rankings',
+    'https://www.ufc.com/rankings',
+  ];
+
+  /// Verifica que el modelo contenga un Top 15 oficial actualizado de UFC
+  /// y descarta respuestas congeladas de ESPN (~2021 con solo 9-10 peleadores).
+  static bool isOfficialTop15(UfcRankingsModel model) {
+    if (!model.hasCoverage || model.categories.isEmpty) return false;
+    final hasFullTop15 = model.categories.any((c) => c.ranks.length >= 15);
+    if (!hasFullTop15) return false;
+
+    for (final cat in model.categories) {
+      if (cat.id == 'heavyweight' &&
+          cat.champion?.name.toLowerCase().contains('ngannou') == true) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   Future<UfcRankingsModel> getUfcRankings({bool forceRefresh = false}) async {
     final apiUrl = SupabaseService.apiUrl;
 
-    // 1. Intentar endpoint oficial en backend Kambate
-    try {
-      final response = await _dio.get(
-        '$apiUrl/scrapers/ufc/rankings',
-        options: Options(responseType: ResponseType.json),
-      );
-
-      if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
-        final model = UfcRankingsModel.fromJson(response.data as Map<String, dynamic>);
-        if (model.categories.isNotEmpty) return model;
-      }
-    } catch (e) {
-      debugPrint('Fallo al consultar /scrapers/ufc/rankings: $e. Intentando ruta alternativa...');
+    // 1. Fuente oficial primaria: portal oficial de rankings UFC (Top 15 actualizado)
+    for (final officialUrl in _officialUfcUrls) {
       try {
-        final altResponse = await _dio.get(
-          '$apiUrl/scrapers/leagues/ufc/rankings',
+        final officialResponse = await _dio.get<String>(
+          officialUrl,
+          options: Options(responseType: ResponseType.plain),
+        );
+        if (officialResponse.statusCode == 200 &&
+            officialResponse.data != null &&
+            officialResponse.data!.isNotEmpty) {
+          final parsed = UfcRankingsModel.fromUfcOfficialHtml(officialResponse.data!);
+          if (isOfficialTop15(parsed)) {
+            return parsed;
+          }
+        }
+      } catch (e) {
+        debugPrint('No se pudo obtener HTML directo desde $officialUrl: $e');
+      }
+    }
+
+    // 2. Consultar backend Kambate solo si entrega un Top 15 oficial actualizado
+    for (final path in ['/scrapers/ufc/rankings', '/scrapers/leagues/ufc/rankings']) {
+      try {
+        final response = await _dio.get(
+          '$apiUrl$path',
           options: Options(responseType: ResponseType.json),
         );
-        if (altResponse.statusCode == 200 && altResponse.data is Map<String, dynamic>) {
-          final model = UfcRankingsModel.fromJson(altResponse.data as Map<String, dynamic>);
-          if (model.categories.isNotEmpty) return model;
+
+        if (response.statusCode == 200 && response.data is Map<String, dynamic>) {
+          final model = UfcRankingsModel.fromJson(response.data as Map<String, dynamic>);
+          if (isOfficialTop15(model)) {
+            return model;
+          }
         }
-      } catch (altErr) {
-        debugPrint('Ruta alternativa también falló: $altErr');
+      } catch (e) {
+        debugPrint('Fallo al consultar $path: $e');
       }
     }
 
-    // 2. Resiliencia: Fallback directo a la API pública oficial de ESPN
-    try {
-      final espnResponse = await _dio.get(
-        'https://site.api.espn.com/apis/site/v2/sports/mma/ufc/rankings',
-        options: Options(responseType: ResponseType.json),
-      );
-
-      if (espnResponse.statusCode == 200 && espnResponse.data is Map<String, dynamic>) {
-        final parsed = UfcRankingsModel.fromEspnRaw(espnResponse.data as Map<String, dynamic>);
-        if (parsed.categories.isNotEmpty) return parsed;
-      }
-    } catch (espnErr) {
-      debugPrint('Consulta directa a ESPN también falló: $espnErr');
-    }
-
-    // 3. Estado seguro sin cobertura si ninguna fuente estuvo disponible
-    return UfcRankingsModel.empty(
-      hasCoverage: false,
-      message: 'No se pudo conectar con el proveedor oficial de UFC.',
-    );
+    // 3. Respaldo oficial Top 15 actualizado (evita mostrar datos congelados de ESPN 2021)
+    return UfcRankingsModel.officialTop15Fallback();
   }
 }

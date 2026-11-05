@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:kambate_mobile/features/league_detail/data/ufc_rankings_repository.dart';
 import 'package:kambate_mobile/features/league_detail/presentation/screens/league_detail_screen.dart';
 import 'package:kambate_mobile/features/league_detail/presentation/widgets/ufc_rankings_view.dart';
 import 'package:kambate_mobile/features/league_detail/presentation/widgets/ufc_upcoming_cards_view.dart';
@@ -283,6 +284,32 @@ void main() {
       final empty = UfcRankingsModel.empty();
       expect(empty.hasCoverage, isFalse);
       expect(empty.categories, isEmpty);
+    });
+
+    test('Ranking oficial Top 15 entrega las 13 divisiones con 15 peleadores cada una y descarta listas cortas de ESPN', () {
+      final official = UfcRankingsModel.officialTop15Fallback();
+      expect(official.hasCoverage, isTrue);
+      expect(official.categories.length, equals(13));
+      expect(UfcRankingsRepository.isOfficialTop15(official), isTrue);
+
+      for (final cat in official.categories) {
+        expect(cat.ranks.length, equals(15), reason: 'División ${cat.id} debe tener Top 15');
+        expect(cat.champion, isNotNull);
+        expect(cat.ranks.first.position, equals(1));
+        expect(cat.ranks.last.position, equals(15));
+      }
+
+      final featherweight = official.categories.firstWhere((c) => c.id == 'featherweight');
+      expect(featherweight.champion!.name, equals('Alexander Volkanovski'));
+      expect(featherweight.ranks.first.name, equals('Movsar Evloev'));
+
+      final lightweight = official.categories.firstWhere((c) => c.id == 'lightweight');
+      expect(lightweight.champion!.name, equals('Justin Gaethje'));
+      expect(lightweight.ranks.first.name, equals('Ilia Topuria'));
+
+      // Datos antiguos de ESPN con menos de 15 peleadores son rechazados por isOfficialTop15
+      final staleEspn = UfcRankingsModel.fromJson(sampleBackendRankingsJson());
+      expect(UfcRankingsRepository.isOfficialTop15(staleEspn), isFalse);
     });
   });
 
