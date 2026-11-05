@@ -613,6 +613,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
           backgroundColor: AppColors.backgroundDark,
           appBar: AppBar(
             backgroundColor: AppColors.surfaceDark,
+            centerTitle: true,
             leading: IconButton(
               icon: const Icon(
                 Icons.arrow_back_ios_new_rounded,
@@ -620,40 +621,15 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
               ),
               onPressed: () => context.pop(),
             ),
-            title: Row(
-              children: [
-                Container(
-                  width: 28,
-                  height: 28,
-                  margin: const EdgeInsets.only(right: 10),
-                  decoration: BoxDecoration(
-                    color: Colors.black,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.white24, width: 0.5),
-                  ),
-                  padding: const EdgeInsets.all(2),
-                  child: Image.network(
-                    'https://a.espncdn.com/i/teamlogos/leagues/500/ufc.png',
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(
-                      Icons.sports_mma,
-                      size: 18,
-                      color: AppColors.ufcRed,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Text(
-                    widget.leagueName.toUpperCase(),
-                    style: const TextStyle(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+            title: const Text(
+              'UFC',
+              style: TextStyle(
+                color: Color(0xFF1A1A1A),
+                fontWeight: FontWeight.w900,
+                fontStyle: FontStyle.italic,
+                fontSize: 28,
+                letterSpacing: 1.2,
+              ),
             ),
             actions: [
               IconButton(
@@ -674,7 +650,7 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
               unselectedLabelColor: AppColors.textMuted,
               labelStyle: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
               tabs: [
-                Tab(text: 'Próximas carteleras'),
+                Tab(text: 'Carteleras'),
                 Tab(text: 'Rankings'),
               ],
             ),
