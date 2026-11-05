@@ -23,7 +23,20 @@ class UfcRankingsView extends StatefulWidget {
 }
 
 class _UfcRankingsViewState extends State<UfcRankingsView> {
+  static const Color _ufcFemalePink = Color(0xFFEC4899);
+
   final Set<String> _expandedCategoryIds = {};
+
+  bool _isFemaleCategory(UfcRankingCategoryModel category) {
+    final gender = category.gender?.toUpperCase() ?? '';
+    final id = category.id.toLowerCase();
+    final name = '${category.name} ${category.translatedName}'.toLowerCase();
+    return gender == 'FEMALE' ||
+        id.contains('women') ||
+        name.contains('femenin') ||
+        name.contains('mujer') ||
+        name.contains('women');
+  }
 
   void _navigateToFighterFight(UfcRankingFighterModel fighter) {
     final fighterName = fighter.name.toLowerCase();
@@ -142,6 +155,7 @@ class _UfcRankingsViewState extends State<UfcRankingsView> {
 
   Widget _buildCategoryCard(UfcRankingCategoryModel category, bool expanded) {
     final champion = category.champion;
+    final isFemale = _isFemaleCategory(category);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -178,11 +192,11 @@ class _UfcRankingsViewState extends State<UfcRankingsView> {
                         children: [
                           Text(
                             category.translatedName.toUpperCase(),
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w900,
                               letterSpacing: 0.4,
-                              color: AppColors.ufcRed,
+                              color: isFemale ? _ufcFemalePink : AppColors.ufcRed,
                             ),
                           ),
                           if (champion != null) ...[
