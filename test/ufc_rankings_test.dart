@@ -372,7 +372,7 @@ void main() {
       expect(find.byType(UfcUpcomingCardsView), findsOneWidget);
     });
 
-    testWidgets('UfcRankingsView muestra divisiones plegadas y expande el ranking', (tester) async {
+    testWidgets('UfcRankingsView muestra divisiones plegadas con campeón sin foto y expande el ranking limpio', (tester) async {
       final rankings = UfcRankingsModel.fromJson(sampleBackendRankingsJson());
 
       await tester.pumpWidget(
@@ -388,31 +388,30 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Todas las divisiones son visibles antes de abrir un ranking.
-      expect(find.text('Peso pesado'), findsOneWidget);
-      expect(find.text('Kamaru Usman "Nigerian Nightmare"'), findsNothing);
+      // Todas las divisiones son visibles con su campeón en cabecera sin foto antes de abrir un ranking
+      expect(find.text('LIBRA POR LIBRA MASCULINO'), findsOneWidget);
+      expect(find.text('PESO PESADO'), findsOneWidget);
+      expect(find.text('FRANCIS NGANNOU'), findsOneWidget);
+      expect(find.text('CHAMPION'), findsOneWidget);
+      expect(find.text('Kamaru Usman'), findsNothing);
+
+      // Desplegar Libra por libra
       await tester.tap(find.byKey(const ValueKey('ufc-division-pound-for-pound')));
       await tester.pumpAndSettle();
-      expect(find.text('LIBRA POR LIBRA MASCULINO'), findsOneWidget);
-      expect(find.text('Kamaru Usman "Nigerian Nightmare"'), findsOneWidget);
-      expect(find.text('#1'), findsOneWidget);
-      expect(find.text('#2'), findsOneWidget);
-      expect(find.text('Récord: 21-5-0'), findsNothing); // P4P contender record is in row
-      expect(find.text('21-5-0'), findsOneWidget);
 
-      // Cambiar a Peso pesado
-      await tester.tap(find.text('Peso pesado'));
+      expect(find.text('Kamaru Usman'), findsOneWidget);
+      expect(find.text('Alexander Volkanovski'), findsOneWidget);
+      expect(find.text('1'), findsWidgets);
+      expect(find.text('2'), findsWidgets);
+      // Sin apodos ni récords recargados en las filas
+      expect(find.text('21-5-0'), findsNothing);
+      expect(find.text('"The Predator"'), findsNothing);
+
+      // Desplegar Peso pesado
+      await tester.tap(find.byKey(const ValueKey('ufc-division-heavyweight')));
       await tester.pumpAndSettle();
 
-      // Se despliega el campeón oficial de la división
-      expect(find.text('CAMPEÓN DE LA DIVISIÓN'), findsOneWidget);
-      expect(find.text('Francis Ngannou'), findsOneWidget);
-      expect(find.text('"The Predator"'), findsOneWidget);
-      expect(find.text('2 defensas'), findsOneWidget);
-      expect(find.text('Hasta 265 lbs'), findsOneWidget);
-
-      // Se despliegan los contendientes de Peso pesado
-      expect(find.text('Ciryl Gane "Bon Gamin"'), findsOneWidget);
+      expect(find.text('Ciryl Gane'), findsOneWidget);
       expect(find.text('Tom Aspinall'), findsOneWidget);
     });
 
@@ -431,7 +430,8 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Muestra la cartelera futura de forma simple sin desplegar combates ni etiqueta PROGRAMADO
+      // Muestra el número de cartelera (UFC 310) y nombres VS centrados sin desplegar combates ni etiqueta PROGRAMADO
+      expect(find.text('UFC 310'), findsOneWidget);
       expect(find.text('PANTOJA VS ASAKURA'), findsOneWidget);
       expect(find.text('PROGRAMADO'), findsNothing);
       expect(find.text('Alexandre Pantoja'), findsNothing);
