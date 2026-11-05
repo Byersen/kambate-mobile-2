@@ -57,13 +57,24 @@ class FootballStatsModel {
                         json['awayCards']?.toString() ??
                         '',
                   )),
-      extraStats: json['clock'] != null || json['period'] != null ||
-              json['leagueLogo'] != null || json['venue'] != null
+      extraStats: json['clock'] != null ||
+              json['period'] != null ||
+              json['statusDetail'] != null ||
+              json['leagueLogo'] != null ||
+              json['venue'] != null ||
+              json['round'] != null ||
+              json['homeTeamId'] != null ||
+              json['awayTeamId'] != null
           ? {
               if (json['clock'] != null) 'clock': json['clock'],
               if (json['period'] != null) 'period': json['period'],
+              if (json['statusDetail'] != null)
+                'statusDetail': json['statusDetail'],
               if (json['leagueLogo'] != null) 'leagueLogo': json['leagueLogo'],
               if (json['venue'] != null) 'venue': json['venue'],
+              if (json['round'] != null) 'round': json['round'],
+              if (json['homeTeamId'] != null) 'homeTeamId': json['homeTeamId'],
+              if (json['awayTeamId'] != null) 'awayTeamId': json['awayTeamId'],
             }
           : json['extra_stats'] is Map<String, dynamic>
           ? json['extra_stats'] as Map<String, dynamic>
@@ -116,11 +127,15 @@ class NbaStatsModel {
       homePoints: parsePoints(json['home_points'] ?? json['homePoints']),
       awayPoints: parsePoints(json['away_points'] ?? json['awayPoints']),
       quarter: json['quarter']?.toString(),
-      extraStats: json['clock'] != null || json['period'] != null ||
+      extraStats: json['clock'] != null ||
+              json['period'] != null ||
+              json['statusDetail'] != null ||
               json['venue'] != null
           ? {
               if (json['clock'] != null) 'clock': json['clock'],
               if (json['period'] != null) 'period': json['period'],
+              if (json['statusDetail'] != null)
+                'statusDetail': json['statusDetail'],
               if (json['venue'] != null) 'venue': json['venue'],
             }
           : json['extra_stats'] is Map<String, dynamic>

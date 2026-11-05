@@ -307,7 +307,16 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
       final extra = record['extraStats'] ?? record['extra_stats'];
       final payloadExtra = extra is Map ? Map<String, dynamic>.from(extra) : <String, dynamic>{};
       final incomingExtra = <String, dynamic>{
-        for (final key in ['clock', 'period', 'leagueLogo', 'venue'])
+        for (final key in [
+          'clock',
+          'period',
+          'statusDetail',
+          'leagueLogo',
+          'venue',
+          'round',
+          'homeTeamId',
+          'awayTeamId',
+        ])
           if (payloadExtra.containsKey(key)) key: payloadExtra[key],
       };
       EventModel updated;
@@ -548,14 +557,51 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
     unawaited(Future.microtask(() async {
       try {
         final nowLocal = DateTime.now();
-        final start = DateTime(nowLocal.year, nowLocal.month, nowLocal.day + 1, 0, 0, 0);
-        final end = DateTime(nowLocal.year, nowLocal.month, nowLocal.day + 6, 23, 59, 59, 999);
-        final upcoming = await _repository.fetchEventsForDateRange(start, end);
-        if (!mounted || upcoming.isEmpty) return;
+        final yesterdayStart = DateTime(
+          nowLocal.year,
+          nowLocal.month,
+          nowLocal.day - 1,
+          0,
+          0,
+          0,
+        );
+        final yesterdayEnd = DateTime(
+          nowLocal.year,
+          nowLocal.month,
+          nowLocal.day - 1,
+          23,
+          59,
+          59,
+          999,
+        );
+        final upcomingStart = DateTime(
+          nowLocal.year,
+          nowLocal.month,
+          nowLocal.day + 1,
+          0,
+          0,
+          0,
+        );
+        final upcomingEnd = DateTime(
+          nowLocal.year,
+          nowLocal.month,
+          nowLocal.day + 6,
+          23,
+          59,
+          59,
+          999,
+        );
+
+        final results = await Future.wait([
+          _repository.fetchEventsForDateRange(yesterdayStart, yesterdayEnd),
+          _repository.fetchEventsForDateRange(upcomingStart, upcomingEnd),
+        ]);
+        final backgroundEvents = <EventModel>[...results[0], ...results[1]];
+        if (!mounted || backgroundEvents.isEmpty) return;
 
         final favoriteIds = await CacheService.getFavoriteIds();
         final current = state.asData?.value ?? [];
-        final merged = _mergeEvents(current, upcoming, favoriteIds);
+        final merged = _mergeEvents(current, backgroundEvents, favoriteIds);
         state = AsyncValue.data(merged);
         await CacheService.saveEvents(merged);
       } catch (e) {
@@ -568,7 +614,7 @@ class FeedNotifier extends StateNotifier<AsyncValue<List<EventModel>>> {
 
   /// Carga bajo demanda los partidos y resultados de un día seleccionado
   Future<void> loadEventsForDate(DateTime date, {bool forceRefresh = false}) async {
-    final dateKey = '--';
+    final dateKey = '${date.year}-${date.month}-${date.day}';
     if (_loadingDates.contains(dateKey)) return;
     _loadingDates.add(dateKey);
 
