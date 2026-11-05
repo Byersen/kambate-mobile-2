@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../../core/widgets/event_status_chip.dart';
 import '../../../../models/event_model.dart';
 import '../../../../models/event_status.dart';
 import '../../../../models/sport_type.dart';
 import '../../../../models/ufc_card_model.dart';
 import '../../../match_detail/presentation/screens/ufc_fight_detail_screen.dart';
-import '../../../match_detail/presentation/widgets/ufc_fight_card_tile.dart';
+import '../../../match_detail/presentation/widgets/ufc_cartelera_view.dart';
 
-class UfcUpcomingCardsView extends StatefulWidget {
+class UfcUpcomingCardsView extends StatelessWidget {
   final List<EventModel> allEvents;
   final VoidCallback? onRefresh;
 
@@ -18,20 +17,55 @@ class UfcUpcomingCardsView extends StatefulWidget {
     this.onRefresh,
   });
 
-  @override
-  State<UfcUpcomingCardsView> createState() => _UfcUpcomingCardsViewState();
-}
-
-class _UfcUpcomingCardsViewState extends State<UfcUpcomingCardsView> {
-  // Guarda el cardId de las carteleras expandidas (por defecto la primera está expandida)
-  final Set<String> _expandedCardIds = {};
-
-  @override
-  void initState() {
-    super.initState();
+  void _navigateToCardFights(
+    BuildContext context,
+    UfcCardModel card,
+    EventModel refEvent,
+  ) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            backgroundColor: AppColors.surface,
+            centerTitle: true,
+            leading: IconButton(
+              icon: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: AppColors.textPrimary,
+              ),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            title: const Text(
+              'UFC',
+              style: TextStyle(
+                color: Color(0xFF1A1A1A),
+                fontWeight: FontWeight.w900,
+                fontStyle: FontStyle.italic,
+                fontSize: 26,
+                letterSpacing: 1.2,
+              ),
+            ),
+          ),
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: UfcCarteleraView(
+              event: refEvent,
+              card: card,
+              allEvents: allEvents,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
-  void _navigateToFightDetail(UfcCardModel card, UfcFightModel fight, EventModel event) {
+  void _navigateToFightDetail(
+    BuildContext context,
+    UfcCardModel card,
+    UfcFightModel fight,
+    EventModel event,
+  ) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => UfcFightDetailScreen(
@@ -45,7 +79,7 @@ class _UfcUpcomingCardsViewState extends State<UfcUpcomingCardsView> {
 
   @override
   Widget build(BuildContext context) {
-    final upcomingCards = UfcCardModel.groupUpcomingCards(widget.allEvents);
+    final upcomingCards = UfcCardModel.groupUpcomingCards(allEvents);
 
     if (upcomingCards.isEmpty) {
       return Center(
@@ -56,7 +90,7 @@ class _UfcUpcomingCardsViewState extends State<UfcUpcomingCardsView> {
             children: [
               Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   color: AppColors.surfaceMuted,
                   shape: BoxShape.circle,
                 ),
@@ -84,10 +118,10 @@ class _UfcUpcomingCardsViewState extends State<UfcUpcomingCardsView> {
                   fontSize: 14,
                 ),
               ),
-              if (widget.onRefresh != null) ...[
+              if (onRefresh != null) ...[
                 const SizedBox(height: 20),
                 OutlinedButton.icon(
-                  onPressed: widget.onRefresh,
+                  onPressed: onRefresh,
                   icon: const Icon(Icons.refresh_rounded, size: 18),
                   label: const Text('Actualizar'),
                   style: OutlinedButton.styleFrom(
@@ -110,12 +144,8 @@ class _UfcUpcomingCardsViewState extends State<UfcUpcomingCardsView> {
       itemCount: upcomingCards.length,
       itemBuilder: (context, index) {
         final card = upcomingCards[index];
-        final isFirst = index == 0;
-        final isExpanded = _expandedCardIds.contains(card.cardId) ||
-            (_expandedCardIds.isEmpty && isFirst);
 
-        // Evento de referencia de la velada para navegación
-        final refEvent = widget.allEvents.firstWhere(
+        final refEvent = allEvents.firstWhere(
           (e) =>
               e.ufcCard?.cardId == card.cardId ||
               e.league.trim().toLowerCase() == card.name.trim().toLowerCase(),
@@ -128,14 +158,20 @@ class _UfcUpcomingCardsViewState extends State<UfcUpcomingCardsView> {
           ),
         );
 
-        return _buildCardItem(card, isExpanded, refEvent);
+        return _buildCardItem(context, card, refEvent);
       },
     );
   }
 
-  Widget _buildCardItem(UfcCardModel card, bool isExpanded, EventModel refEvent) {
+  Widget _buildCardItem(
+    BuildContext context,
+    UfcCardModel card,
+    EventModel refEvent,
+  ) {
     final liveFight = card.liveFight;
-    final mainEvent = card.mainEvent;
+    final headline = _resolveHeadline(card);
+    final dateLine = card.date != null ? _formatSimpleCardDate(card.date!) : null;
+    final locationLines = _resolveLocationLines(card);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -150,9 +186,8 @@ class _UfcUpcomingCardsViewState extends State<UfcUpcomingCardsView> {
         ),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Banner de evento en vivo si la cartelera tiene combate activo
           if (card.isLive && liveFight != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
@@ -177,7 +212,8 @@ class _UfcUpcomingCardsViewState extends State<UfcUpcomingCardsView> {
                     ),
                   ),
                   InkWell(
-                    onTap: () => _navigateToFightDetail(card, liveFight, refEvent),
+                    onTap: () =>
+                        _navigateToFightDetail(context, card, liveFight, refEvent),
                     child: const Text(
                       'Ver combate >',
                       style: TextStyle(
@@ -191,216 +227,234 @@ class _UfcUpcomingCardsViewState extends State<UfcUpcomingCardsView> {
                 ],
               ),
             ),
-
-          // Cabecera interactiva para expandir/colapsar
-          InkWell(
-            onTap: () {
-              setState(() {
-                if (_expandedCardIds.contains(card.cardId)) {
-                  _expandedCardIds.remove(card.cardId);
-                } else {
-                  _expandedCardIds.add(card.cardId);
-                }
-              });
-            },
-            borderRadius: BorderRadius.circular(16),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          card.name,
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.3,
-                            color: AppColors.textPrimary,
-                          ),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              key: ValueKey('ufc-card-${card.cardId}'),
+              onTap: () => _navigateToCardFights(context, card, refEvent),
+              borderRadius: BorderRadius.circular(16),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(child: _buildBrandLogo(card)),
+                    const SizedBox(height: 18),
+                    Text(
+                      headline,
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: -0.3,
+                        color: Color(0xFF111111),
+                      ),
+                    ),
+                    if (dateLine != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        dateLine,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF111111),
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      EventStatusChip(
-                        status: card.isLive ? EventStatus.live : EventStatus.scheduled,
-                      ),
-                      const SizedBox(width: 4),
-                      Icon(
-                        isExpanded
-                            ? Icons.keyboard_arrow_up_rounded
-                            : Icons.keyboard_arrow_down_rounded,
-                        color: AppColors.textMuted,
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 6),
-
-                  // Fecha y hora
-                  if (card.formattedDate != null)
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.calendar_today_rounded,
-                          size: 13,
+                    if (locationLines.venue != null) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        locationLines.venue!,
+                        style: const TextStyle(
+                          fontSize: 13,
                           color: AppColors.textSecondary,
                         ),
-                        const SizedBox(width: 6),
-                        Text(
-                          card.formattedDate!,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                  // Sede y ubicación
-                  if (card.venue != null && card.venue!.trim().isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on_outlined,
-                          size: 13,
-                          color: AppColors.textMuted,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            [
-                              card.venue,
-                              if (card.city != null && card.city!.trim().isNotEmpty) card.city,
-                              if (card.country != null && card.country!.trim().isNotEmpty) card.country,
-                            ].join(', '),
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textMuted,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-
-                  // Combate estelar destacado si la tarjeta está colapsada
-                  if (!isExpanded && mainEvent != null) ...[
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppColors.surfaceMuted,
-                        borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(
-                            Icons.star_rounded,
-                            size: 14,
-                            color: Color(0xFFF59E0B),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              'Estelar: ${mainEvent.fighter1.name} vs. ${mainEvent.fighter2.name} (${mainEvent.weightClass})',
-                              style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: AppColors.textPrimary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
+                    ],
+                    if (locationLines.cityCountry != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        locationLines.cityCountry!,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.textSecondary,
+                        ),
                       ),
-                    ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
-
-          // Contenido desplegado: lista ordenada de combates y segmentos
-          if (isExpanded) ...[
-            const Divider(height: 1, color: AppColors.borderDark),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Cartelera principal
-                  if (card.mainFights.isNotEmpty) ...[
-                    _buildSegmentHeader('CARTELERA PRINCIPAL', card.mainFights.length),
-                    const SizedBox(height: 8),
-                    for (final fight in card.mainFights)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: UfcFightCardTile(
-                          fight: fight,
-                          onTap: () => _navigateToFightDetail(card, fight, refEvent),
-                        ),
-                      ),
-                  ],
-
-                  // Preliminares
-                  if (card.prelimFights.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    _buildSegmentHeader('PRELIMINARES', card.prelimFights.length),
-                    const SizedBox(height: 8),
-                    for (final fight in card.prelimFights)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: UfcFightCardTile(
-                          fight: fight,
-                          onTap: () => _navigateToFightDetail(card, fight, refEvent),
-                        ),
-                      ),
-                  ],
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     );
   }
 
-  Widget _buildSegmentHeader(String label, int fightCount) {
-    return Row(
-      children: [
-        Container(
-          width: 3,
-          height: 12,
-          decoration: BoxDecoration(
-            color: AppColors.ufcRed,
-            borderRadius: BorderRadius.circular(2),
+  Widget _buildBrandLogo(UfcCardModel card) {
+    final lower = card.name.toLowerCase();
+    final isFightNight =
+        lower.contains('fight night') || lower.contains('noche de combates');
+
+    if (isFightNight) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'UFC',
+            style: TextStyle(
+              color: Color(0xFF111111),
+              fontSize: 28,
+              fontWeight: FontWeight.w900,
+              fontStyle: FontStyle.italic,
+              letterSpacing: 1.0,
+              height: 1.0,
+            ),
           ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w900,
-            letterSpacing: 0.8,
-            color: AppColors.textSecondary,
+          const SizedBox(height: 2),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              const Text(
+                'FIGHT ',
+                style: TextStyle(
+                  color: Color(0xFF111111),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  fontStyle: FontStyle.italic,
+                  letterSpacing: 0.6,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.only(bottom: 1),
+                decoration: const BoxDecoration(
+                  border: Border(
+                    bottom: BorderSide(color: Color(0xFF111111), width: 2.2),
+                  ),
+                ),
+                child: const Text(
+                  'NIGHT',
+                  style: TextStyle(
+                    color: Color(0xFF111111),
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                    fontStyle: FontStyle.italic,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ),
-        const Spacer(),
-        Text(
-          '$fightCount combates',
-          style: const TextStyle(
-            fontSize: 11,
-            color: AppColors.textMuted,
-          ),
-        ),
-      ],
+        ],
+      );
+    }
+
+    return const Text(
+      'UFC',
+      style: TextStyle(
+        color: Color(0xFF111111),
+        fontSize: 30,
+        fontWeight: FontWeight.w900,
+        fontStyle: FontStyle.italic,
+        letterSpacing: 1.2,
+        height: 1.0,
+      ),
     );
+  }
+
+  String _resolveHeadline(UfcCardModel card) {
+    final raw = card.name.trim();
+    if (raw.contains(':')) {
+      final afterColon = raw.split(':').sublist(1).join(':').trim();
+      if (afterColon.isNotEmpty) {
+        return afterColon
+            .replaceAll(RegExp(r'\bvs\b\.?', caseSensitive: false), 'VS')
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .trim()
+            .toUpperCase();
+      }
+    }
+
+    final main = card.mainEvent;
+    if (main != null) {
+      String lastName(String fullName) {
+        final parts = fullName.trim().split(RegExp(r'\s+'));
+        return parts.isNotEmpty ? parts.last : fullName.trim();
+      }
+
+      final f1 = lastName(main.fighter1.name);
+      final f2 = lastName(main.fighter2.name);
+      if (f1.isNotEmpty && f2.isNotEmpty) {
+        return '$f1 VS $f2'.toUpperCase();
+      }
+    }
+
+    return raw
+        .replaceAll(RegExp(r'\bvs\b\.?', caseSensitive: false), 'VS')
+        .toUpperCase();
+  }
+
+  String _formatSimpleCardDate(DateTime date) {
+    final local = date.toLocal();
+    const weekdays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    const months = [
+      'Ene',
+      'Feb',
+      'Mar',
+      'Abr',
+      'May',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dic',
+    ];
+    final dayName = weekdays[local.weekday - 1];
+    final monthName = months[local.month - 1];
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return '$dayName, $monthName ${local.day} / $hour:$minute CHI / Cartelera Estelar';
+  }
+
+  ({String? venue, String? cityCountry}) _resolveLocationLines(UfcCardModel card) {
+    final rawVenue = card.venue?.trim();
+    final rawCity = card.city?.trim();
+    final rawCountry = card.country?.trim();
+
+    final hasExplicitCityCountry =
+        (rawCity != null && rawCity.isNotEmpty) ||
+        (rawCountry != null && rawCountry.isNotEmpty);
+
+    if (hasExplicitCityCountry) {
+      final cityCountry = [rawCity, rawCountry]
+          .where((s) => s != null && s.isNotEmpty)
+          .join(' ');
+      String? cleanVenue = rawVenue;
+      if (cleanVenue != null && cleanVenue.contains(',')) {
+        cleanVenue = cleanVenue.split(',').first.trim();
+      }
+      return (
+        venue: (cleanVenue != null && cleanVenue.isNotEmpty) ? cleanVenue : null,
+        cityCountry: cityCountry.isNotEmpty ? cityCountry : null,
+      );
+    }
+
+    if (rawVenue != null && rawVenue.isNotEmpty) {
+      if (rawVenue.contains(',')) {
+        final parts = rawVenue.split(',');
+        final v = parts.first.trim();
+        final loc = parts.sublist(1).join(' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+        return (
+          venue: v.isNotEmpty ? v : null,
+          cityCountry: loc.isNotEmpty ? loc : null,
+        );
+      }
+      return (venue: rawVenue, cityCountry: null);
+    }
+
+    return (venue: null, cityCountry: null);
   }
 }

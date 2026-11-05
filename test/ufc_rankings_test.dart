@@ -329,7 +329,7 @@ void main() {
   });
 
   group('Interfaz y widgets de Sección UFC', () {
-    testWidgets('Al entrar a UFC ofrece apartados separados para Próximas carteleras y Rankings', (tester) async {
+    testWidgets('Al entrar a UFC ofrece apartados separados para Carteleras y Rankings', (tester) async {
       final rankings = UfcRankingsModel.fromJson(sampleBackendRankingsJson());
 
       await tester.pumpWidget(
@@ -350,11 +350,12 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Verifica los dos apartados separados en el TabBar
-      expect(find.text('Próximas carteleras'), findsOneWidget);
+      // Verifica logo central UFC y los dos apartados separados en el TabBar
+      expect(find.text('UFC'), findsOneWidget);
+      expect(find.text('Carteleras'), findsOneWidget);
       expect(find.text('Rankings'), findsOneWidget);
 
-      // Pestaña inicial muestra la vista de próximas carteleras
+      // Pestaña inicial muestra la vista de carteleras
       expect(find.byType(UfcUpcomingCardsView), findsOneWidget);
 
       // Cambiar a la pestaña de Rankings
@@ -364,8 +365,8 @@ void main() {
       // Se muestra la vista de rankings
       expect(find.byType(UfcRankingsView), findsOneWidget);
 
-      // Cambiar de regreso a Próximas carteleras
-      await tester.tap(find.text('Próximas carteleras'));
+      // Cambiar de regreso a Carteleras
+      await tester.tap(find.text('Carteleras'));
       await tester.pumpAndSettle();
 
       expect(find.byType(UfcUpcomingCardsView), findsOneWidget);
@@ -415,7 +416,7 @@ void main() {
       expect(find.text('Tom Aspinall'), findsOneWidget);
     });
 
-    testWidgets('UfcUpcomingCardsView agrupa carteleras y permite navegar a combate', (tester) async {
+    testWidgets('UfcUpcomingCardsView muestra carteleras simples sin desplegar combates ni etiqueta PROGRAMADO y redirige a los combates al pulsar', (tester) async {
       final events = buildSampleUfcEvents();
 
       await tester.pumpWidget(
@@ -430,10 +431,15 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Muestra la cartelera futura UFC 310
-      expect(find.text('UFC 310: Pantoja vs. Asakura'), findsOneWidget);
+      // Muestra la cartelera futura de forma simple sin desplegar combates ni etiqueta PROGRAMADO
+      expect(find.text('PANTOJA VS ASAKURA'), findsOneWidget);
+      expect(find.text('PROGRAMADO'), findsNothing);
+      expect(find.text('Alexandre Pantoja'), findsNothing);
 
-      // Cartelera desplegada muestra combates
+      // Pulsar la cartelera redirige a los combates de esa cartelera
+      await tester.tap(find.text('PANTOJA VS ASAKURA'));
+      await tester.pumpAndSettle();
+
       expect(find.text('Alexandre Pantoja'), findsOneWidget);
       expect(find.text('Kai Asakura'), findsOneWidget);
 
@@ -443,9 +449,10 @@ void main() {
 
       expect(find.byType(UfcFightDetailScreen), findsOneWidget);
 
-      // Retorno desde el detalle regresa a la lista de carteleras
-      final backButton = find.byType(IconButton).first;
-      await tester.tap(backButton);
+      // Retorno desde el detalle de combate regresa a los combates de la cartelera y luego a la lista de carteleras
+      await tester.tap(find.byType(IconButton).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(IconButton).first);
       await tester.pumpAndSettle();
 
       expect(find.byType(UfcUpcomingCardsView), findsOneWidget);
