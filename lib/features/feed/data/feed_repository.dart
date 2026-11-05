@@ -1,5 +1,6 @@
-﻿import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart';
 import '../../../models/event_model.dart';
+import '../../../models/event_status.dart';
 import '../../../models/sport_type.dart';
 import '../../../services/cache_service.dart';
 import '../../../services/realtime_service.dart';
@@ -42,6 +43,33 @@ class FeedRepository {
       .order('startDate')
       .limit(500);
     return data.map(EventModel.fromJson).toList();
+  }
+
+  /// Obtiene los próximos encuentros de League of Legends Worlds desde Supabase.
+  Future<List<EventModel>> fetchUpcomingWorldsMatches() async {
+    final client = SupabaseService.client;
+    if (client == null) return const <EventModel>[];
+    final now = DateTime.now().toUtc();
+    final selectClause = _eventSelect
+        .replaceFirst('league:League(', 'league:League!inner(');
+    final data = await client
+        .from('Event')
+        .select(selectClause)
+        .eq('league.slug', 'worlds')
+        .gte(
+          'startDate',
+          now.subtract(const Duration(hours: 6)).toIso8601String(),
+        )
+        .lte(
+          'startDate',
+          now.add(const Duration(days: 30)).toIso8601String(),
+        )
+        .order('startDate')
+        .limit(100);
+    return data
+        .map(EventModel.fromJson)
+        .where((e) => e.status != EventStatus.finished)
+        .toList();
   }
   DateTime? lastUpdated;
 

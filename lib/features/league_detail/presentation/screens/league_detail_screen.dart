@@ -22,6 +22,9 @@ import '../../../favorites/providers/favorites_provider.dart';
 final upcomingUfcCardsProvider = FutureProvider<List<EventModel>>((ref) =>
     ref.read(feedRepositoryProvider).fetchUpcomingUfcCards());
 
+final upcomingWorldsMatchesProvider = FutureProvider<List<EventModel>>((ref) =>
+    ref.read(feedRepositoryProvider).fetchUpcomingWorldsMatches());
+
 class LeagueDetailScreen extends ConsumerStatefulWidget {
   final String leagueName;
   final SportType sport;
@@ -526,6 +529,15 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
       final seasonSlug = RegExp(r'^[0-9a-fA-F]{8}-').hasMatch(params.seasonId ?? '')
           ? null : params.seasonId;
       final worldsAsync = ref.watch(lolWorldsStageProvider(seasonSlug));
+      final upcomingWorldsAsync = ref.watch(upcomingWorldsMatchesProvider);
+      final upcomingWorlds = upcomingWorldsAsync.maybeWhen(
+        data: (list) => list.isNotEmpty
+            ? list
+            : leagueEvents.where((e) => e.status != EventStatus.finished).toList(),
+        orElse: () => leagueEvents
+            .where((e) => e.status != EventStatus.finished)
+            .toList(),
+      );
       return Scaffold(
         backgroundColor: AppColors.backgroundDark,
         appBar: AppBar(
@@ -577,16 +589,21 @@ class _LeagueDetailScreenState extends ConsumerState<LeagueDetailScreen>
                 Icons.refresh_rounded,
                 color: AppColors.textSecondary,
               ),
-              onPressed: () =>
-                  ref.refresh(lolWorldsStageProvider(seasonSlug)),
+              onPressed: () {
+                ref.invalidate(upcomingWorldsMatchesProvider);
+                ref.refresh(lolWorldsStageProvider(seasonSlug));
+              },
             ),
           ],
         ),
         body: worldsAsync.when(
           data: (stageData) => LolWorldsSwissView(
             stageData: stageData,
-            onRefresh: () =>
-                ref.refresh(lolWorldsStageProvider(seasonSlug)),
+            upcomingEvents: upcomingWorlds,
+            onRefresh: () {
+              ref.invalidate(upcomingWorldsMatchesProvider);
+              ref.refresh(lolWorldsStageProvider(seasonSlug));
+            },
           ),
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (e, _) => Center(
