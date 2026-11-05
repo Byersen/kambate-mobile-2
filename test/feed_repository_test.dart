@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:kambate_mobile/features/feed/data/feed_repository.dart';
 import 'package:kambate_mobile/models/event_model.dart';
 import 'package:kambate_mobile/models/event_status.dart';
+import 'package:kambate_mobile/models/football_detail_model.dart';
 import 'package:kambate_mobile/models/sport_type.dart';
 import 'package:kambate_mobile/models/stats_models.dart';
 import 'package:kambate_mobile/services/cache_service.dart';
@@ -27,16 +28,121 @@ void main() {
   test('El feed excluye detalles pesados y conserva el reloj en vivo', () {
     final select = FeedRepository.buildFeedSelect({SportType.soccer, SportType.nba});
     expect(select, contains('clock:extraStats->>clock'));
+    expect(select, contains('homeTeamId:extraStats->>homeTeamId'));
     expect(select, isNot(contains('FootballStats(*)')));
     expect(select, isNot(contains('NbaStats(*)')));
     final football = FootballStatsModel.fromJson({
       'id': 'stats-1',
       'clock': "42'",
       'homeGoals': 1,
+      'homeTeamId': '86',
+      'awayTeamId': '83',
     });
     expect(football.extraStats?['clock'], "42'");
+    expect(football.extraStats?['homeTeamId'], '86');
     expect(football.homeGoals, 1);
   });
+
+  test(
+    'buildFootballEventWithSummary enriquece acciones, estadísticas y alineaciones al entrar al partido',
+    () {
+      final baseEvent = EventModel.fromJson({
+        'id': 'ev-1',
+        'externalId': 'football-espn-7001',
+        'sport': 'football',
+        'status': 'LIVE',
+        'score': '1 - 0',
+        'startDate': '2026-11-05T19:00:00Z',
+        'participants': [
+          {
+            'id': 'p-home',
+            'name': 'Real Madrid',
+            'externalId': 'football-team-86',
+          },
+          {
+            'id': 'p-away',
+            'name': 'Barcelona',
+            'externalId': 'football-team-83',
+          },
+        ],
+        'footballStats': {
+          'id': 'fs-1',
+          'homeGoals': 1,
+          'awayGoals': 0,
+          'extraStats': {
+            'homeTeamId': '86',
+            'awayTeamId': '83',
+          },
+        },
+      });
+
+      final enriched = FeedRepository.buildFootballEventWithSummary(
+        baseEvent,
+        {
+          'keyEvents': [
+            {
+              'type': {'text': 'Goal'},
+              'scoringPlay': true,
+              'clock': {'displayValue': "23'"},
+              'team': {'id': '86'},
+              'participants': [
+                {
+                  'athlete': {'displayName': 'Vinícius Júnior'},
+                },
+                {
+                  'athlete': {'displayName': 'Jude Bellingham'},
+                },
+              ],
+            },
+            {
+              'type': {'text': 'Yellow Card'},
+              'scoringPlay': false,
+              'clock': {'displayValue': "41'"},
+              'team': {'id': '83'},
+              'participants': [
+                {
+                  'athlete': {'displayName': 'Gavi'},
+                },
+              ],
+            },
+          ],
+          'boxscore': {
+            'teams': [
+              {
+                'homeAway': 'home',
+                'team': {'id': '86'},
+                'statistics': [
+                  {'name': 'possessionPct', 'displayValue': '54'},
+                  {'name': 'shotsOnTarget', 'displayValue': '6'},
+                ],
+              },
+              {
+                'homeAway': 'away',
+                'team': {'id': '83'},
+                'statistics': [
+                  {'name': 'possessionPct', 'displayValue': '46'},
+                  {'name': 'shotsOnTarget', 'displayValue': '4'},
+                ],
+              },
+            ],
+          },
+        },
+      );
+
+      final parsedDetail = FootballDetailModel.parse(
+        enriched.footballStats?.extraStats?['detail'],
+      );
+      expect(parsedDetail, isNotNull);
+      expect(parsedDetail!.timeline, isNotNull);
+      expect(parsedDetail.timeline!.length, 2);
+      expect(parsedDetail.timeline!.first.kind, 'goal');
+      expect(parsedDetail.timeline!.first.player, 'Vinícius Júnior');
+      expect(parsedDetail.timeline!.first.secondaryPlayer, 'Jude Bellingham');
+      expect(parsedDetail.timeline!.last.kind, 'yellowCard');
+      expect(parsedDetail.timeline!.last.player, 'Gavi');
+      expect(parsedDetail.statistics.length, 2);
+    },
+  );
 
   final nowLocal = DateTime.now();
   final todayNoonUtc = DateTime(

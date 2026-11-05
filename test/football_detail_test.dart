@@ -94,6 +94,22 @@ class MutableRepository extends FeedRepository {
   Future<List<EventModel>> fetchRemoteEvents() async => [event];
 }
 
+class _DetailOnDemandRepository extends FeedRepository {
+  _DetailOnDemandRepository({
+    required this.feedEvent,
+    required this.detailEvent,
+  }) : super(subscribeToRealtime: false);
+
+  final EventModel feedEvent;
+  final EventModel detailEvent;
+
+  @override
+  Future<List<EventModel>> fetchRemoteEvents() async => [feedEvent];
+
+  @override
+  Future<EventModel?> getEventById(String id) async => detailEvent;
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(loadPreviewFonts);
@@ -241,12 +257,29 @@ void main() {
   }
 
   testWidgets(
-    'Presenta estadísticas y alineaciones sin cronología de jugadas',
+    'Presenta cronología, ceros reales, datos parciales y alineaciones',
     (tester) async {
       final app = await mount(tester, sample());
-      expect(find.text('Momentos del partido'), findsNothing);
+      expect(find.text('Momentos del partido'), findsOneWidget);
       expect(find.text('Estadísticas clave'), findsOneWidget);
       expect(find.text('Ver todas las estadísticas'), findsOneWidget);
+      expect(find.text('Jugador de prueba'), findsOneWidget);
+      expect(find.text('Asista: Asistente de prueba'), findsOneWidget);
+      expect(find.text('Defensa de prueba'), findsOneWidget);
+      expect(find.text('Entra de prueba'), findsOneWidget);
+      expect(find.text('para Sale de prueba'), findsOneWidget);
+      expect(find.text('Medio tiempo 1-0'), findsOneWidget);
+      expect(find.textContaining('Empieza el partido'), findsOneWidget);
+      final entraY = tester.getTopLeft(find.text('Entra de prueba')).dy;
+      final medioTiempoY = tester.getTopLeft(find.text('Medio tiempo 1-0')).dy;
+      final defensaY = tester.getTopLeft(find.text('Defensa de prueba')).dy;
+      final jugadorY = tester.getTopLeft(find.text('Jugador de prueba')).dy;
+      final empiezaY =
+          tester.getTopLeft(find.textContaining('Empieza el partido')).dy;
+      expect(entraY, lessThan(medioTiempoY));
+      expect(medioTiempoY, lessThan(defensaY));
+      expect(defensaY, lessThan(jugadorY));
+      expect(jugadorY, lessThan(empiezaY));
       await capturePreview(
         tester,
         app.preview.currentContext!.findRenderObject() as RenderRepaintBoundary,
@@ -449,11 +482,61 @@ void main() {
     },
   );
 
-  testWidgets('La cronología de jugadas no se muestra', (tester) async {
+  testWidgets('El icono de gol en la cronología es más grande', (tester) async {
     await mount(tester, sample());
     final goalIcon = find.byKey(const ValueKey('goal-incident-icon'));
-    expect(goalIcon, findsNothing);
+    expect(goalIcon, findsOneWidget);
+    expect(tester.getSize(goalIcon).width, greaterThanOrEqualTo(28));
+    final icon = tester.widget<Icon>(
+      find.descendant(of: goalIcon, matching: find.byType(Icon)),
+    );
+    expect(icon.size, greaterThanOrEqualTo(26));
   });
+
+  testWidgets(
+    'Carga bajo demanda las acciones del partido al entrar al detalle aunque el feed venga ligero o con detail vacío',
+    (tester) async {
+      final lightFeedEvent = sample(
+        withDetail: true,
+        detail: {
+          'version': 1,
+          'homeParticipantId': 'home',
+          'awayParticipantId': 'away',
+          'statistics': [],
+          'timeline': null,
+          'homeLineup': null,
+          'awayLineup': null,
+        },
+      );
+      final fullDetailedEvent = sample(withDetail: true);
+      final repository = _DetailOnDemandRepository(
+        feedEvent: lightFeedEvent,
+        detailEvent: fullDetailedEvent,
+      );
+      final container = ProviderContainer(
+        overrides: [feedRepositoryProvider.overrideWithValue(repository)],
+      );
+      addTearDown(container.dispose);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.lightTheme,
+            home: MatchDetailScreen(event: lightFeedEvent),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Momentos del partido'), findsOneWidget);
+      expect(find.text('Jugador de prueba'), findsOneWidget);
+      expect(find.text('Asista: Asistente de prueba'), findsOneWidget);
+      expect(find.text('Defensa de prueba'), findsOneWidget);
+      expect(find.text('Entra de prueba'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'La cabecera del detalle muestra fase/ronda y la fecha en que se juega',
