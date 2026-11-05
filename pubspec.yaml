@@ -1,5 +1,5 @@
 name: kambate_mobile
-description: "A new Flutter project."
+description: "OmniScore — Resultados y estadísticas multideporte en tiempo real."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -50,5 +50,6 @@ flutter:
   assets:
     - assets/fonts/OFL-Inter.txt
     - assets/images/
+    - assets/logo/
     - .env
     - .env.example
