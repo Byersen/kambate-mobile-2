@@ -524,5 +524,73 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets('Rankings femeninos muestran título en rosado y carteleras numeradas con estelar femenina muestran borde rosado', (tester) async {
+      final official = UfcRankingsModel.officialTop15Fallback();
+      final femaleOnly = UfcRankingsModel(
+        categories: official.categories
+            .where((c) => c.id == 'womens-flyweight' || c.id == 'flyweight')
+            .toList(),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: UfcRankingsView(rankings: femaleOnly),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final femaleHeader = tester.widget<Text>(find.text('PESO MOSCA FEMENINO'));
+      final maleHeader = tester.widget<Text>(find.text('PESO MOSCA'));
+      expect(femaleHeader.style?.color, equals(const Color(0xFFEC4899)));
+      expect(maleHeader.style?.color, isNot(equals(const Color(0xFFEC4899))));
+
+      // Cartelera numerada con pelea estelar femenina
+      final now = DateTime.now();
+      final femaleMainEvents = [
+        EventModel(
+          id: 'ufc-312-f1',
+          externalId: 'ufc-312-f1',
+          sport: SportType.ufc,
+          league: 'UFC 312: Shevchenko vs. Grasso',
+          venue: 'T-Mobile Arena, Las Vegas',
+          startTime: now.add(const Duration(days: 10)),
+          status: EventStatus.scheduled,
+          fighter1: const FighterModel(
+            id: 'f-shev',
+            name: 'Valentina Shevchenko',
+            weightClass: 'Peso mosca femenino',
+          ),
+          fighter2: const FighterModel(
+            id: 'f-gras',
+            name: 'Alexa Grasso',
+            weightClass: 'Peso mosca femenino',
+          ),
+        ),
+      ];
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: UfcUpcomingCardsView(allEvents: femaleMainEvents),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('UFC 312'), findsOneWidget);
+      final containers = tester.widgetList<Container>(find.byType(Container));
+      final hasPinkBorder = containers.any((c) {
+        final dec = c.decoration;
+        if (dec is BoxDecoration && dec.border is Border) {
+          final b = dec.border as Border;
+          return b.top.color == const Color(0xFFEC4899);
+        }
+        return false;
+      });
+      expect(hasPinkBorder, isTrue);
+    });
   });
 }

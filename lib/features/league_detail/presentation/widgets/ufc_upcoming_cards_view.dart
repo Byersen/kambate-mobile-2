@@ -4,6 +4,7 @@ import '../../../../models/event_model.dart';
 import '../../../../models/event_status.dart';
 import '../../../../models/sport_type.dart';
 import '../../../../models/ufc_card_model.dart';
+import '../../../../models/ufc_rankings_model.dart';
 import '../../../match_detail/presentation/screens/ufc_fight_detail_screen.dart';
 import '../../../match_detail/presentation/widgets/ufc_cartelera_view.dart';
 
@@ -18,6 +19,7 @@ class UfcUpcomingCardsView extends StatelessWidget {
   });
 
   static const Color _numberedGoldBorder = Color(0xFFD4AF37);
+  static const Color _numberedFemalePinkBorder = Color(0xFFEC4899);
 
   void _navigateToCardFights(
     BuildContext context,
@@ -173,6 +175,7 @@ class UfcUpcomingCardsView extends StatelessWidget {
     final liveFight = card.liveFight;
     final cardNumber = _extractCardNumber(card);
     final isNumbered = cardNumber != null;
+    final isFemaleMain = _isFemaleMainEvent(card);
     final headline = _resolveHeadline(card);
     final dateLine = card.date != null ? _formatSimpleCardDate(card.date!) : null;
     final locationLines = _resolveLocationLines(card);
@@ -184,7 +187,7 @@ class UfcUpcomingCardsView extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: isNumbered
-              ? _numberedGoldBorder
+              ? (isFemaleMain ? _numberedFemalePinkBorder : _numberedGoldBorder)
               : (card.isLive
                   ? AppColors.ufcRed.withValues(alpha: 0.6)
                   : AppColors.borderDark),
@@ -309,6 +312,52 @@ class UfcUpcomingCardsView extends StatelessWidget {
     if (idMatch != null) return idMatch.group(1);
 
     return null;
+  }
+
+  bool _isFemaleMainEvent(UfcCardModel card) {
+    final main =
+        card.mainEvent ?? (card.fights.isNotEmpty ? card.fights.first : null);
+    final weightInfo =
+        '${main?.weightClass ?? ''} ${main?.taleOfTheTape?.division ?? ''}'
+            .toLowerCase();
+
+    if (weightInfo.contains('femenin') ||
+        weightInfo.contains('women') ||
+        weightInfo.contains('mujer') ||
+        weightInfo.contains('strawweight') ||
+        weightInfo.contains('peso paja')) {
+      return true;
+    }
+
+    final namesToCheck = <String>[
+      if (main != null) main.fighter1.name.toLowerCase(),
+      if (main != null) main.fighter2.name.toLowerCase(),
+      card.name.toLowerCase(),
+    ];
+
+    final femaleCategories = UfcRankingsModel.officialTop15Fallback()
+        .categories
+        .where((c) => (c.gender?.toUpperCase() ?? '') == 'FEMALE');
+
+    for (final cat in femaleCategories) {
+      final femaleFighters = <String>[
+        if (cat.champion != null) cat.champion!.name.toLowerCase(),
+        for (final r in cat.ranks) r.name.toLowerCase(),
+      ];
+      for (final femaleName in femaleFighters) {
+        final parts = femaleName.split(RegExp(r'\s+'));
+        final lastName = parts.isNotEmpty ? parts.last : femaleName;
+        for (final target in namesToCheck) {
+          if (target.contains(femaleName) ||
+              (lastName.length >= 4 &&
+                  RegExp('\\b${RegExp.escape(lastName)}\\b').hasMatch(target))) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
   }
 
   Widget _buildBrandLogo(UfcCardModel card, String? cardNumber) {
