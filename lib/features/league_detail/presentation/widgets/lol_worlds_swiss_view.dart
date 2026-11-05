@@ -1,19 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../models/event_model.dart';
+import '../../../../models/event_status.dart';
 import '../../../../models/lol_worlds_stage_model.dart';
+import '../../../../models/sport_type.dart';
+import '../../../../models/stats_models.dart';
+import '../../../../models/team_model.dart';
 
 /// Vista especializada para la competición Worlds de League of Legends y su formato suizo.
 /// Presenta:
-/// 1. Pestaña "Tabla": Tabla de clasificación suiza con récord W-L, diferencia y estado de avance.
-/// 2. Pestaña "Cuadro Suizo": Diagrama horizontal interactivo con todas las rondas y cubos (R1 a R5 + Clasificados y Eliminados),
+/// 1. Pestaña "Partidos": Próximos encuentros agrupados por día con el diseño nativo de Kambate.
+/// 2. Pestaña "Tabla": Tabla de clasificación suiza con récord W-L, diferencia y estado de avance.
+/// 3. Pestaña "Cuadro Suizo": Diagrama horizontal interactivo con todas las rondas y cubos (R1 a R5 + Clasificados y Eliminados),
 ///    utilizando la paleta de colores y tokens nativos de Kambate.
 class LolWorldsSwissView extends StatefulWidget {
   final LolWorldsStageModel stageData;
+  final List<EventModel> upcomingEvents;
   final VoidCallback onRefresh;
 
   const LolWorldsSwissView({
     super.key,
     required this.stageData,
+    this.upcomingEvents = const [],
     required this.onRefresh,
   });
 
@@ -37,7 +46,7 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _transformationController = TransformationController();
     _transformationController.addListener(_onTransformationChanged);
 
@@ -132,28 +141,34 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
     final data = widget.stageData;
 
     // Si la fuente no tiene cobertura, credenciales no configuradas o está vacía
-    if (!data.hasCoverage || data.isUnconfigured || data.isEmpty) {
+    if ((!data.hasCoverage || data.isUnconfigured || data.isEmpty) &&
+        widget.upcomingEvents.isEmpty) {
       return _buildNoCoverageView(data);
     }
 
     return Column(
       children: [
-        _buildStageHeaderBanner(data),
-        TabBar(
-          controller: _tabController,
-          indicatorColor: AppColors.primary,
-          labelColor: AppColors.primary,
-          unselectedLabelColor: AppColors.textMuted,
-          labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-          tabs: const [
-            Tab(text: 'Tabla'),
-            Tab(text: 'Cuadro Suizo'),
-          ],
+        Container(
+          color: AppColors.surfaceDark,
+          child: TabBar(
+            controller: _tabController,
+            indicatorColor: AppColors.primary,
+            labelColor: AppColors.primary,
+            unselectedLabelColor: AppColors.textMuted,
+            labelStyle:
+                const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+            tabs: const [
+              Tab(text: 'Partidos'),
+              Tab(text: 'Tabla'),
+              Tab(text: 'Cuadro Suizo'),
+            ],
+          ),
         ),
         Expanded(
           child: TabBarView(
             controller: _tabController,
             children: [
+              _buildUpcomingMatchesTab(data),
               _buildStandingsTab(data),
               _buildMatchesTab(data),
             ],
@@ -163,117 +178,683 @@ class _LolWorldsSwissViewState extends State<LolWorldsSwissView>
     );
   }
 
-  Widget _buildStageHeaderBanner(LolWorldsStageModel data) {
-    final stage = data.stage;
-    final stageName = stage?.name ?? 'Etapa Actual';
-    final seasonName = data.season.name;
-    final isSwiss = stage?.isSwiss ?? true;
+  // =========================================================================
+  // PESTAÑA 1: PARTIDOS FUTUROS / PRÓXIMOS ENCUENTROS
+  // =========================================================================
 
-    return Container(
-      margin: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.cardBorderDark),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(
-              Icons.sports_esports_rounded,
-              color: AppColors.primary,
-              size: 20,
-            ),
+  List<EventModel> _resolveUpcomingEvents(LolWorldsStageModel data) {
+    final Map<String, EventModel> byKey = {};
+
+    for (final ev in widget.upcomingEvents) {
+      if (ev.status == EventStatus.finished) continue;
+      final key = ev.externalId ?? ev.id;
+      byKey[key] = ev;
+    }
+
+    for (final m in data.matches) {
+      if (m.isFinished) continue;
+      final key = m.externalId ?? 'pandascore-lol-match-${m.id}';
+      if (!byKey.containsKey(key) && !byKey.containsKey(m.id)) {
+        byKey[key] = EventModel(
+          id: m.id,
+          externalId: m.externalId,
+          sport: SportType.lol,
+          league: data.competition.name,
+          status: m.isLive ? EventStatus.live : EventStatus.scheduled,
+          startTime: m.startTime,
+          score: m.isLive
+              ? '${m.homeTeam.score ?? 0} - ${m.awayTeam.score ?? 0}'
+              : null,
+          homeScore: m.homeTeam.score,
+          awayScore: m.awayTeam.score,
+          homeTeam: TeamModel(
+            id: m.homeTeam.id ?? 'home',
+            name: m.homeTeam.name,
+            shortName: m.homeTeam.code,
+            logoUrl: m.homeTeam.logoUrl,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  stageName.toUpperCase(),
-                  key: const ValueKey('lol-worlds-stage-title'),
-                  style: const TextStyle(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '$seasonName${isSwiss ? ' • Formato Suizo' : ''}',
-                  style: const TextStyle(
-                    color: AppColors.textMuted,
-                    fontSize: 12,
-                  ),
+          awayTeam: TeamModel(
+            id: m.awayTeam.id ?? 'away',
+            name: m.awayTeam.name,
+            shortName: m.awayTeam.code,
+            logoUrl: m.awayTeam.logoUrl,
+          ),
+          esportsStats: EsportsStatsModel(
+            id: 'stats-${m.id}',
+            eventId: m.id,
+            homeScore: m.homeTeam.score,
+            awayScore: m.awayTeam.score,
+            format: m.format,
+            map: m.format,
+            extraStats: {
+              if (m.roundName != null) 'phase': m.roundName,
+              if (m.format != null) 'format': m.format,
+            },
+          ),
+        );
+      }
+    }
+
+    final list = byKey.values.toList()
+      ..sort((a, b) => a.startTime.compareTo(b.startTime));
+    return list;
+  }
+
+  Widget _buildUpcomingMatchesTab(LolWorldsStageModel data) {
+    final upcoming = _resolveUpcomingEvents(data);
+
+    if (upcoming.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: () async => widget.onRefresh(),
+        color: AppColors.primary,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(32.0),
+          children: [
+            const SizedBox(height: 60),
+            Icon(
+              Icons.event_available_rounded,
+              size: 44,
+              color: AppColors.textMuted.withValues(alpha: 0.5),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'No hay próximos partidos programados',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Consulta la Tabla o el Cuadro Suizo para ver los resultados de la competición.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textMuted, fontSize: 12.5),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Agrupar partidos por fecha calendario local
+    final List<({DateTime day, String headerLabel, List<EventModel> events})>
+        dayGroups = [];
+    for (final ev in upcoming) {
+      final local = ev.startTime.toLocal();
+      final dayDate = DateTime(local.year, local.month, local.day);
+      if (dayGroups.isEmpty || dayGroups.last.day != dayDate) {
+        dayGroups.add((
+          day: dayDate,
+          headerLabel: _formatUpcomingDayHeader(local),
+          events: [ev],
+        ));
+      } else {
+        dayGroups.last.events.add(ev);
+      }
+    }
+
+    return RefreshIndicator(
+      onRefresh: () async => widget.onRefresh(),
+      color: AppColors.primary,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+        itemCount: dayGroups.length,
+        itemBuilder: (context, index) {
+          final group = dayGroups[index];
+          return Container(
+            key: ValueKey(
+              'lol-worlds-day-group-${group.day.toIso8601String()}',
+            ),
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
-          ),
-          if (stage != null) _buildStageStatusBadge(stage.status),
-        ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  group.headerLabel,
+                  style: const TextStyle(
+                    color: AppColors.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                for (int i = 0; i < group.events.length; i++) ...[
+                  if (i > 0) const SizedBox(height: 10),
+                  _buildUpcomingWorldsMatchCard(
+                    context,
+                    group.events[i],
+                    data,
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildStageStatusBadge(String status) {
-    final s = status.toLowerCase();
-    final bool isLive = s == 'in_progress' || s == 'live';
-    final bool isFinished = s == 'completed' || s == 'finished';
+  Widget _buildUpcomingWorldsMatchCard(
+    BuildContext context,
+    EventModel event,
+    LolWorldsStageModel stageData,
+  ) {
+    final isLive = event.isLive;
+    final timeInfo = _format12HourTime(event.startTime);
+    final homeAbbr = _resolveTeamCode(
+      event.homeTeam?.name,
+      event.homeTeam?.shortName,
+      stageData,
+    );
+    final awayAbbr = _resolveTeamCode(
+      event.awayTeam?.name,
+      event.awayTeam?.shortName,
+      stageData,
+    );
+    final isHomeTbd = homeAbbr.toUpperCase() == 'TBD' ||
+        (event.homeTeam?.name.toUpperCase() ?? 'TBD') == 'TBD';
+    final isAwayTbd = awayAbbr.toUpperCase() == 'TBD' ||
+        (event.awayTeam?.name.toUpperCase() ?? 'TBD') == 'TBD';
+    final phaseLabel = _resolveSpanishPhaseSubtitle(event);
+    final formatLabel = _resolveMatchFormat(event);
 
-    final text = isLive
-        ? 'EN CURSO'
-        : isFinished
-            ? 'FINALIZADA'
-            : 'PROGRAMADA';
-
-    final color = isLive
-        ? AppColors.error
-        : isFinished
-            ? AppColors.textMuted
-            : AppColors.primary;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (isLive) ...[
-            Container(
-              width: 6,
-              height: 6,
-              decoration: const BoxDecoration(
-                color: AppColors.error,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(width: 5),
-          ],
-          Text(
-            text,
-            style: TextStyle(
-              color: color,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
-              letterSpacing: 0.5,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: ValueKey('lol-upcoming-match-${event.id}'),
+        onTap: () => context.push('/detail/${event.id}', extra: event),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.background,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isLive
+                  ? AppColors.error.withValues(alpha: 0.6)
+                  : AppColors.border,
+              width: isLive ? 1.4 : 1.0,
             ),
           ),
-        ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Fila principal: Hora + Enfrentamiento centrado
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 16,
+                ),
+                child: Row(
+                  children: [
+                    // Hora a la izquierda
+                    SizedBox(
+                      width: 86,
+                      child: isLive
+                          ? Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: const BoxDecoration(
+                                    color: AppColors.error,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Flexible(
+                                  child: Text(
+                                    'EN VIVO',
+                                    style: TextStyle(
+                                      color: AppColors.error,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : RichText(
+                              text: TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: timeInfo.hourMinute,
+                                    style: const TextStyle(
+                                      color: AppColors.textPrimary,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: -0.3,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text: ' ${timeInfo.period}',
+                                    style: const TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                    ),
+                    // Enfrentamiento centrado: CODE [Logo] / [Logo] CODE
+                    Expanded(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    homeAbbr,
+                                    textAlign: TextAlign.end,
+                                    style: TextStyle(
+                                      color: isHomeTbd
+                                          ? AppColors.textSecondary
+                                          : AppColors.textPrimary,
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.3,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                _buildUpcomingTeamBadge(
+                                  logoUrl: event.homeTeam?.logoUrl,
+                                  isTbd: isHomeTbd,
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            child: isLive && event.score != null
+                                ? Text(
+                                    event.score!,
+                                    style: const TextStyle(
+                                      color: AppColors.error,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  )
+                                : Text(
+                                    '/',
+                                    style: TextStyle(
+                                      color: AppColors.textMuted
+                                          .withValues(alpha: 0.6),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                          ),
+                          Expanded(
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.start,
+                              children: [
+                                _buildUpcomingTeamBadge(
+                                  logoUrl: event.awayTeam?.logoUrl,
+                                  isTbd: isAwayTbd,
+                                ),
+                                const SizedBox(width: 10),
+                                Flexible(
+                                  child: Text(
+                                    awayAbbr,
+                                    textAlign: TextAlign.start,
+                                    style: TextStyle(
+                                      color: isAwayTbd
+                                          ? AppColors.textSecondary
+                                          : AppColors.textPrimary,
+                                      fontSize: 14.5,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.3,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Balance visual derecho para centrar el versus respecto a la tarjeta
+                    const SizedBox(width: 24),
+                  ],
+                ),
+              ),
+              // Barra inferior: Logo Worlds + Fase + Formato (Bo5/Bo3/Bo1)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: const BoxDecoration(
+                  color: AppColors.surfaceMuted,
+                  borderRadius: BorderRadius.vertical(
+                    bottom: Radius.circular(9),
+                  ),
+                  border: Border(
+                    top: BorderSide(color: AppColors.border, width: 0.8),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(color: AppColors.border, width: 0.8),
+                      ),
+                      child: Image.network(
+                        'https://cdn-api.pandascore.co/images/league/image/297/worlds-png',
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.sports_esports,
+                          size: 13,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Text(
+                        phaseLabel,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Text(
+                      formatLabel,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
+  }
+
+  Widget _buildUpcomingTeamBadge({
+    required String? logoUrl,
+    required bool isTbd,
+  }) {
+    if (isTbd || logoUrl == null || logoUrl.trim().isEmpty) {
+      return Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: AppColors.surfaceMuted,
+          border: Border.all(color: AppColors.textMuted.withValues(alpha: 0.45)),
+        ),
+        alignment: Alignment.center,
+        child: Container(
+          width: 10,
+          height: 1.8,
+          decoration: BoxDecoration(
+            color: AppColors.textMuted,
+            borderRadius: BorderRadius.circular(1),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: 28,
+      height: 28,
+      child: Image.network(
+        logoUrl,
+        width: 28,
+        height: 28,
+        fit: BoxFit.contain,
+        errorBuilder: (_, __, ___) => Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppColors.surfaceMuted,
+            border: Border.all(color: AppColors.border),
+          ),
+          child: const Icon(
+            Icons.shield_outlined,
+            size: 16,
+            color: AppColors.textMuted,
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _formatUpcomingDayHeader(DateTime dateTime) {
+    final localTarget = dateTime.toLocal();
+    final localNow = DateTime.now();
+    final todayNoon = DateTime(localNow.year, localNow.month, localNow.day, 12);
+    final targetNoon = DateTime(
+      localTarget.year,
+      localTarget.month,
+      localTarget.day,
+      12,
+    );
+    final diffInDays = (targetNoon.difference(todayNoon).inHours / 24).round();
+
+    if (diffInDays == 0) {
+      return localTarget.isAfter(localNow) ? 'Más tarde hoy' : 'Hoy';
+    } else if (diffInDays == 1) {
+      return 'Mañana';
+    } else if (diffInDays == -1) {
+      return 'Ayer';
+    }
+
+    const weekdays = [
+      'lunes',
+      'martes',
+      'miércoles',
+      'jueves',
+      'viernes',
+      'sábado',
+      'domingo',
+    ];
+    const months = [
+      'ene',
+      'feb',
+      'mar',
+      'abr',
+      'may',
+      'jun',
+      'jul',
+      'ago',
+      'sep',
+      'oct',
+      'nov',
+      'dic',
+    ];
+    final weekday = weekdays[(localTarget.weekday - 1) % 7];
+    final month = months[(localTarget.month - 1) % 12];
+    return '$weekday ${localTarget.day} $month';
+  }
+
+  ({String hourMinute, String period}) _format12HourTime(DateTime date) {
+    final local = date.toLocal();
+    final isPm = local.hour >= 12;
+    final hour12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
+    final minStr = local.minute.toString().padLeft(2, '0');
+    return (
+      hourMinute: '$hour12:$minStr',
+      period: isPm ? 'p.m.' : 'a.m.',
+    );
+  }
+
+  String _resolveTeamCode(
+    String? teamName,
+    String? shortName,
+    LolWorldsStageModel stageData,
+  ) {
+    if (shortName != null && shortName.trim().isNotEmpty) {
+      return shortName.trim().toUpperCase();
+    }
+    final clean = (teamName ?? '').trim();
+    if (clean.isEmpty || clean.toUpperCase() == 'TBD') return 'TBD';
+
+    final lower = clean.toLowerCase();
+
+    // Buscar en standings de la etapa suiza
+    for (final s in stageData.swissStandings) {
+      if (s.teamName.trim().toLowerCase() == lower &&
+          s.teamCode != null &&
+          s.teamCode!.trim().isNotEmpty) {
+        return s.teamCode!.trim().toUpperCase();
+      }
+    }
+
+    // Buscar en partidos de la etapa suiza
+    for (final m in stageData.matches) {
+      if (m.homeTeam.name.trim().toLowerCase() == lower &&
+          m.homeTeam.code != null &&
+          m.homeTeam.code!.trim().isNotEmpty) {
+        return m.homeTeam.code!.trim().toUpperCase();
+      }
+      if (m.awayTeam.name.trim().toLowerCase() == lower &&
+          m.awayTeam.code != null &&
+          m.awayTeam.code!.trim().isNotEmpty) {
+        return m.awayTeam.code!.trim().toUpperCase();
+      }
+    }
+
+    // Mapa de siglas conocidas de equipos internacionales de LoL
+    const knownCodes = <String, String>{
+      'dplus kia': 'DK',
+      'bilibili gaming': 'BLG',
+      'karmine corp': 'KC',
+      't1': 'T1',
+      'gen.g': 'GEN',
+      'geng': 'GEN',
+      'invictus gaming': 'IG',
+      'top esports': 'TES',
+      'hanwha life esports': 'HLE',
+      'g2 esports': 'G2',
+      'team liquid': 'TL',
+      'movistar koi': 'MKOI',
+      'mad lions koi': 'MDK',
+      'ctbc flying oyster': 'CFO',
+      'lyon': 'LY',
+      'los': 'LOS',
+      "anyone's legend": 'AL',
+      'team secret whales': 'TSW',
+      'fnatic': 'FNC',
+      'cloud9': 'C9',
+      'flyquest': 'FLY',
+      'weibo gaming': 'WBG',
+      'jd gaming': 'JDG',
+      'lng esports': 'LNG',
+      'kt rolster': 'KT',
+      'drx': 'DRX',
+      'edward gaming': 'EDG',
+      'royal never give up': 'RNG',
+      'psg talon': 'PSG',
+      'gam esports': 'GAM',
+      'pain gaming': 'PNG',
+      'loud': 'LLL',
+    };
+    if (knownCodes.containsKey(lower)) {
+      return knownCodes[lower]!;
+    }
+
+    if (clean.length <= 4) return clean.toUpperCase();
+    final words = clean.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    if (words.length >= 2) {
+      return words.map((w) => w[0]).take(4).join().toUpperCase();
+    }
+    return clean.substring(0, 3).toUpperCase();
+  }
+
+  String _resolveSpanishPhaseSubtitle(EventModel event) {
+    final extra = event.esportsStats?.extraStats;
+    final rawPhase = extra?['phase']?.toString() ?? event.roundOrPhase ?? '';
+    final rawTournament = extra?['tournament']?.toString() ?? '';
+    final combined = '$rawPhase $rawTournament'.toLowerCase();
+
+    String stagePart = 'Fase de Grupos';
+    if (combined.contains('quarterfinal') || combined.contains('cuartos')) {
+      stagePart = 'Cuartos de Final';
+    } else if (combined.contains('semifinal')) {
+      stagePart = 'Semifinales';
+    } else if (combined.contains('grand final') ||
+        RegExp(r'\bfinals?\b').hasMatch(combined)) {
+      stagePart = 'Final';
+    } else if (combined.contains('play-in') || combined.contains('play in')) {
+      stagePart = 'Play-In';
+    } else if (combined.contains('swiss') || combined.contains('suiza')) {
+      stagePart = 'Etapa Suiza';
+    } else if (combined.contains('playoff')) {
+      stagePart = 'Playoffs';
+    } else if (rawPhase.isNotEmpty) {
+      final beforeColon = rawPhase.split(':').first.trim();
+      final roundMatch = RegExp(
+        r'^round\s*(\d+)$',
+        caseSensitive: false,
+      ).firstMatch(beforeColon);
+      if (roundMatch != null) {
+        stagePart = 'Ronda ${roundMatch.group(1)}';
+      } else if (beforeColon.isNotEmpty) {
+        stagePart = beforeColon;
+      }
+    }
+
+    return 'Worlds • $stagePart';
+  }
+
+  String _resolveMatchFormat(EventModel event) {
+    final extraFormat = event.esportsStats?.extraStats?['format']?.toString();
+    if (extraFormat != null && extraFormat.trim().isNotEmpty) {
+      return extraFormat.trim();
+    }
+    final statFormat = event.esportsStats?.format ?? event.esportsStats?.map;
+    if (statFormat != null && statFormat.trim().isNotEmpty) {
+      return statFormat.trim();
+    }
+    final numGames = event.esportsStats?.extraStats?['numberOfGames'];
+    if (numGames is int && numGames > 0) {
+      return 'Bo$numGames';
+    }
+    return 'Bo5';
   }
 
   // =========================================================================

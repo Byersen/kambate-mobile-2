@@ -4,8 +4,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kambate_mobile/features/league_detail/presentation/screens/league_detail_screen.dart';
 import 'package:kambate_mobile/features/league_detail/presentation/widgets/lol_worlds_swiss_view.dart';
 import 'package:kambate_mobile/features/league_detail/providers/lol_worlds_provider.dart';
+import 'package:kambate_mobile/models/event_model.dart';
+import 'package:kambate_mobile/models/event_status.dart';
 import 'package:kambate_mobile/models/lol_worlds_stage_model.dart';
 import 'package:kambate_mobile/models/sport_type.dart';
+import 'package:kambate_mobile/models/stats_models.dart';
+import 'package:kambate_mobile/models/team_model.dart';
 
 void main() {
   group('LolWorldsSwissView & LeagueDetailScreen Worlds (Tarea 30)', () {
@@ -135,12 +139,56 @@ void main() {
           'La fuente oficial de Worlds requiere credenciales de API (LOL_ESPORTS_API_KEY o PANDASCORE_API_KEY) no configuradas en el entorno.',
     );
 
-    testWidgets('Muestra cabecera de etapa, selector de rondas, partidos y formato Bo1/Bo3', (tester) async {
+    testWidgets('No muestra el banner de etapa finalizada y muestra pestañas Partidos, Tabla y Cuadro Suizo', (tester) async {
+      final upcomingPlayoffs = [
+        EventModel(
+          id: 'qf-1',
+          externalId: 'pandascore-lol-match-1711013',
+          sport: SportType.lol,
+          league: 'League of Legends World Championship',
+          status: EventStatus.scheduled,
+          startTime: DateTime.now().add(const Duration(hours: 3)),
+          homeTeam: const TeamModel(id: 'dk', name: 'Dplus KIA', shortName: 'DK'),
+          awayTeam: const TeamModel(id: 'blg', name: 'Bilibili Gaming', shortName: 'BLG'),
+          esportsStats: const EsportsStatsModel(
+            id: 'es-1',
+            format: 'Bo5',
+            map: 'Bo5',
+            extraStats: {
+              'phase': 'Quarterfinal 1: DK vs BLG',
+              'tournament': 'Playoffs',
+              'format': 'Bo5',
+            },
+          ),
+        ),
+        EventModel(
+          id: 'sf-1',
+          externalId: 'pandascore-lol-match-1711019',
+          sport: SportType.lol,
+          league: 'League of Legends World Championship',
+          status: EventStatus.scheduled,
+          startTime: DateTime.now().add(const Duration(days: 3)),
+          homeTeam: const TeamModel(id: 'tbd1', name: 'TBD'),
+          awayTeam: const TeamModel(id: 'tbd2', name: 'TBD'),
+          esportsStats: const EsportsStatsModel(
+            id: 'es-2',
+            format: 'Bo5',
+            map: 'Bo5',
+            extraStats: {
+              'phase': 'Semifinal 1: TBD vs TBD',
+              'tournament': 'Playoffs',
+              'format': 'Bo5',
+            },
+          ),
+        ),
+      ];
+
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: LolWorldsSwissView(
               stageData: activeSwissStageData,
+              upcomingEvents: upcomingPlayoffs,
               onRefresh: () {},
             ),
           ),
@@ -148,11 +196,23 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Cabecera de etapa
-      expect(find.byKey(const ValueKey('lol-worlds-stage-title')), findsOneWidget);
-      expect(find.text('ETAPA SUIZA'), findsOneWidget);
-      expect(find.text('Worlds 2026 • Formato Suizo'), findsOneWidget);
-      expect(find.text('EN CURSO'), findsOneWidget);
+      // No debe mostrar el banner superior de etapa/group stage finalizado
+      expect(find.byKey(const ValueKey('lol-worlds-stage-title')), findsNothing);
+      expect(find.text('FINALIZADA'), findsNothing);
+
+      // Pestañas en orden: Partidos (antes de Tabla), Tabla, Cuadro Suizo
+      expect(find.text('Partidos'), findsOneWidget);
+      expect(find.text('Tabla'), findsOneWidget);
+      expect(find.text('Cuadro Suizo'), findsOneWidget);
+
+      // En la primera pestaña ("Partidos") se muestran los partidos futuros agrupados por fecha
+      expect(find.byKey(const ValueKey('lol-upcoming-match-qf-1')), findsOneWidget);
+      expect(find.text('DK'), findsOneWidget);
+      expect(find.text('BLG'), findsOneWidget);
+      expect(find.text('Worlds • Cuartos de Final'), findsOneWidget);
+      expect(find.text('Worlds • Semifinales'), findsOneWidget);
+      expect(find.text('TBD'), findsNWidgets(2));
+      expect(find.text('Bo5'), findsWidgets);
 
       // Cambiar a la pestaña "Cuadro Suizo"
       await tester.tap(find.text('Cuadro Suizo'));
@@ -186,7 +246,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Pestaña "Tabla" (por defecto es la primera)
+      // Cambiar a la pestaña "Tabla"
+      await tester.tap(find.text('Tabla'));
+      await tester.pumpAndSettle();
+
       expect(find.text('EQUIPO'), findsOneWidget);
       expect(find.text('RÉCORD'), findsOneWidget);
       expect(find.text('DIF'), findsOneWidget);
@@ -243,6 +306,9 @@ void main() {
             lolWorldsStageProvider('2026').overrideWith(
               (ref) => Future.value(activeSwissStageData),
             ),
+            upcomingWorldsMatchesProvider.overrideWith(
+              (ref) => Future.value(const <EventModel>[]),
+            ),
           ],
           child: const MaterialApp(
             home: LeagueDetailScreen(
@@ -258,7 +324,8 @@ void main() {
 
       expect(find.text('WORLDS'), findsOneWidget);
       expect(find.byType(LolWorldsSwissView), findsOneWidget);
-      expect(find.text('ETAPA SUIZA'), findsOneWidget);
+      expect(find.text('Partidos'), findsOneWidget);
+      expect(find.text('Tabla'), findsOneWidget);
     });
 
     testWidgets('Renderiza formato broadcast suizo con columnas y badges de ADVANCES/ELIMINATED', (tester) async {
