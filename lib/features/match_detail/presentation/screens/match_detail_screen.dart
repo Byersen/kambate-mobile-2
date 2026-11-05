@@ -18,7 +18,8 @@ import '../widgets/ufc_detail_view.dart';
 import '../widgets/valorant_detail_view.dart';
 import '../widgets/valorant_match_header.dart';
 
-final matchDetailProvider = FutureProvider.family<EventModel?, String>((ref, id) {
+final matchDetailProvider =
+    FutureProvider.autoDispose.family<EventModel?, String>((ref, id) {
   return ref.read(feedRepositoryProvider).getEventById(id);
 });
 
@@ -26,6 +27,70 @@ class MatchDetailScreen extends ConsumerWidget {
   final EventModel event;
 
   const MatchDetailScreen({super.key, required this.event});
+
+  static bool _hasDetailData(EventModel candidate) {
+    final footballExtra = candidate.footballStats?.extraStats;
+    final footballDetail = footballExtra?['detail'];
+    final hasFootballDetail = footballDetail is Map<String, dynamic> &&
+        ((footballDetail['timeline'] is List &&
+                (footballDetail['timeline'] as List).isNotEmpty) ||
+            (footballDetail['statistics'] is List &&
+                (footballDetail['statistics'] as List).isNotEmpty) ||
+            footballDetail['homeLineup'] != null ||
+            footballDetail['awayLineup'] != null ||
+            (footballExtra?['timeline'] is List &&
+                (footballExtra!['timeline'] as List).isNotEmpty));
+
+    final nbaDetail = candidate.nbaStats?.extraStats?['detail'];
+    final hasNbaDetail = nbaDetail is Map<String, dynamic> &&
+        ((nbaDetail['periods'] is List &&
+                (nbaDetail['periods'] as List).isNotEmpty) ||
+            (nbaDetail['statistics'] is List &&
+                (nbaDetail['statistics'] as List).isNotEmpty) ||
+            nbaDetail['homePlayers'] != null ||
+            nbaDetail['awayPlayers'] != null);
+
+    return hasFootballDetail ||
+        hasNbaDetail ||
+        candidate.ufcStats?.extraStats?['card'] != null ||
+        candidate.esportsStats?.extraStats?['detail'] != null;
+  }
+
+  static EventModel _mergeDetailWithLiveFeed(
+    EventModel feedEvent,
+    EventModel? detailEvent,
+  ) {
+    if (detailEvent == null) return feedEvent;
+    final detailHasRichData = _hasDetailData(detailEvent);
+    final feedHasRichData = _hasDetailData(feedEvent);
+
+    if (!detailHasRichData && feedHasRichData) {
+      return feedEvent;
+    }
+
+    // Usar el evento detallado como base y sincronizar el estado/marcador más reciente del feed
+    final preferFeedScore = feedEvent.status != detailEvent.status ||
+        (feedEvent.score != null &&
+            feedEvent.score!.isNotEmpty &&
+            feedEvent.score != detailEvent.score);
+
+    return detailEvent.copyWith(
+      isFavorite: feedEvent.isFavorite,
+      status: preferFeedScore ? feedEvent.status : detailEvent.status,
+      score: preferFeedScore
+          ? (feedEvent.score ?? detailEvent.score)
+          : detailEvent.score,
+      homeScore: preferFeedScore
+          ? (feedEvent.homeScore ?? detailEvent.homeScore)
+          : detailEvent.homeScore,
+      awayScore: preferFeedScore
+          ? (feedEvent.awayScore ?? detailEvent.awayScore)
+          : detailEvent.awayScore,
+      currentPeriod: feedEvent.status != detailEvent.status
+          ? feedEvent.currentPeriod
+          : (feedEvent.currentPeriod ?? detailEvent.currentPeriod),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -36,13 +101,10 @@ class MatchDetailScreen extends ConsumerWidget {
       orElse: () => event,
     );
     final detailAsync = ref.watch(matchDetailProvider(event.id));
-    final feedHasDetail = feedEvent.footballStats?.extraStats?['detail'] != null ||
-        feedEvent.nbaStats?.extraStats?['detail'] != null ||
-        feedEvent.ufcStats?.extraStats?['card'] != null ||
-        feedEvent.esportsStats?.extraStats?['detail'] != null;
-    final currentEvent = feedHasDetail
-        ? feedEvent
-        : (detailAsync.asData?.value ?? feedEvent);
+    final currentEvent = _mergeDetailWithLiveFeed(
+      feedEvent,
+      detailAsync.asData?.value,
+    );
 
     return Scaffold(
       appBar: AppBar(

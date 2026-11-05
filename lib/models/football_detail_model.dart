@@ -17,18 +17,36 @@ class FootballDetailModel {
     this.awayLineup,
   });
 
-  static FootballDetailModel? parse(Object? value) {
+  static FootballDetailModel? parse(
+    Object? value, {
+    Map<String, dynamic>? extraStats,
+  }) {
     if (value is! Map<String, dynamic> || value['version'] != 1) return null;
     final home = _text(value['homeParticipantId']);
     final away = _text(value['awayParticipantId']);
     if (home == null || away == null || home == away) return null;
+
+    List<FootballIncident>? timeline;
+    if (value['timeline'] is List) {
+      timeline = _items(value['timeline'], FootballIncident.parse);
+    } else if (extraStats != null && extraStats['timeline'] is List) {
+      final homeTeamId = _text(extraStats['homeTeamId']);
+      final awayTeamId = _text(extraStats['awayTeamId']);
+      timeline = _items(
+        extraStats['timeline'],
+        (item) => FootballIncident.parse(
+          item,
+          homeTeamId: homeTeamId,
+          awayTeamId: awayTeamId,
+        ),
+      );
+    }
+
     return FootballDetailModel(
       homeParticipantId: home,
       awayParticipantId: away,
       statistics: _items(value['statistics'], FootballStatistic.parse),
-      timeline: value['timeline'] is List
-          ? _items(value['timeline'], FootballIncident.parse)
-          : null,
+      timeline: timeline,
       homeLineup: FootballLineup.parse(value['homeLineup']),
       awayLineup: FootballLineup.parse(value['awayLineup']),
     );
@@ -91,19 +109,39 @@ class FootballIncident {
     this.secondaryPlayer,
   );
 
-  static FootballIncident? parse(Map<String, dynamic> json) {
-    final kind = json['kind'];
-    final side = json['side'];
-    if (!['goal', 'yellowCard', 'redCard', 'substitution'].contains(kind) ||
-        !['home', 'away'].contains(side)) {
+  static FootballIncident? parse(
+    Map<String, dynamic> json, {
+    String? homeTeamId,
+    String? awayTeamId,
+  }) {
+    final rawKind = _text(json['kind']) ?? _text(json['type']);
+    final kind = switch (rawKind) {
+      'goal' || 'penaltyGoal' || 'ownGoal' => 'goal',
+      'yellowCard' => 'yellowCard',
+      'redCard' => 'redCard',
+      'substitution' => 'substitution',
+      _ => null,
+    };
+    var side = _text(json['side']);
+    if (side == null) {
+      final teamId = _text(json['teamId']);
+      if (teamId != null) {
+        if (homeTeamId != null && teamId == homeTeamId) {
+          side = 'home';
+        } else if (awayTeamId != null && teamId == awayTeamId) {
+          side = 'away';
+        }
+      }
+    }
+    if (kind == null || !['home', 'away'].contains(side)) {
       return null;
     }
     return FootballIncident(
-      kind as String,
-      side as String,
+      kind,
+      side!,
       _text(json['minute']),
-      _text(json['player']),
-      _text(json['secondaryPlayer']),
+      _text(json['player']) ?? _text(json['playerName']),
+      _text(json['secondaryPlayer']) ?? _text(json['assistName']),
     );
   }
 }
