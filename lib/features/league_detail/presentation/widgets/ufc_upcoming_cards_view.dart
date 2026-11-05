@@ -17,6 +17,8 @@ class UfcUpcomingCardsView extends StatelessWidget {
     this.onRefresh,
   });
 
+  static const Color _numberedGoldBorder = Color(0xFFD4AF37);
+
   void _navigateToCardFights(
     BuildContext context,
     UfcCardModel card,
@@ -169,6 +171,8 @@ class UfcUpcomingCardsView extends StatelessWidget {
     EventModel refEvent,
   ) {
     final liveFight = card.liveFight;
+    final cardNumber = _extractCardNumber(card);
+    final isNumbered = cardNumber != null;
     final headline = _resolveHeadline(card);
     final dateLine = card.date != null ? _formatSimpleCardDate(card.date!) : null;
     final locationLines = _resolveLocationLines(card);
@@ -179,10 +183,12 @@ class UfcUpcomingCardsView extends StatelessWidget {
         color: AppColors.surfaceDark,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: card.isLive
-              ? AppColors.ufcRed.withValues(alpha: 0.6)
-              : AppColors.borderDark,
-          width: card.isLive ? 1.5 : 1.0,
+          color: isNumbered
+              ? _numberedGoldBorder
+              : (card.isLive
+                  ? AppColors.ufcRed.withValues(alpha: 0.6)
+                  : AppColors.borderDark),
+          width: isNumbered ? 1.8 : (card.isLive ? 1.5 : 1.0),
         ),
       ),
       child: Column(
@@ -193,7 +199,7 @@ class UfcUpcomingCardsView extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: const BoxDecoration(
                 color: AppColors.ufcRed,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(14)),
               ),
               child: Row(
                 children: [
@@ -238,19 +244,22 @@ class UfcUpcomingCardsView extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(child: _buildBrandLogo(card)),
-                    const SizedBox(height: 18),
-                    Text(
-                      headline,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: -0.3,
-                        color: Color(0xFF111111),
+                    Center(child: _buildBrandLogo(card, cardNumber)),
+                    const SizedBox(height: 16),
+                    Center(
+                      child: Text(
+                        headline,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.3,
+                          color: Color(0xFF111111),
+                        ),
                       ),
                     ),
                     if (dateLine != null) ...[
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 10),
                       Text(
                         dateLine,
                         style: const TextStyle(
@@ -290,7 +299,19 @@ class UfcUpcomingCardsView extends StatelessWidget {
     );
   }
 
-  Widget _buildBrandLogo(UfcCardModel card) {
+  String? _extractCardNumber(UfcCardModel card) {
+    final nameMatch =
+        RegExp(r'\bUFC\s+(\d+)\b', caseSensitive: false).firstMatch(card.name);
+    if (nameMatch != null) return nameMatch.group(1);
+
+    final idMatch = RegExp(r'^ufc-(?:card-)?(\d{2,4})$', caseSensitive: false)
+        .firstMatch(card.cardId.trim());
+    if (idMatch != null) return idMatch.group(1);
+
+    return null;
+  }
+
+  Widget _buildBrandLogo(UfcCardModel card, String? cardNumber) {
     final lower = card.name.toLowerCase();
     final isFightNight =
         lower.contains('fight night') || lower.contains('noche de combates');
@@ -350,9 +371,10 @@ class UfcUpcomingCardsView extends StatelessWidget {
       );
     }
 
-    return const Text(
-      'UFC',
-      style: TextStyle(
+    final brandText = cardNumber != null ? 'UFC $cardNumber' : 'UFC';
+    return Text(
+      brandText,
+      style: const TextStyle(
         color: Color(0xFF111111),
         fontSize: 30,
         fontWeight: FontWeight.w900,
