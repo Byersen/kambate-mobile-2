@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/constants/app_constants.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'services/cache_service.dart';
@@ -25,19 +26,21 @@ Future<void> main() async {
   final String initialLocation = onboardingCompleted ? '/feed' : '/onboarding';
   final router = createRouter(initialLocation: initialLocation);
 
-  runApp(ProviderScope(child: KambateApp(router: router)));
+  runApp(ProviderScope(child: OmniScoreApp(router: router)));
 }
 
-class KambateApp extends ConsumerStatefulWidget {
+typedef KambateApp = OmniScoreApp;
+
+class OmniScoreApp extends ConsumerStatefulWidget {
   final dynamic router;
 
-  const KambateApp({super.key, required this.router});
+  const OmniScoreApp({super.key, required this.router});
 
   @override
-  ConsumerState<KambateApp> createState() => _KambateAppState();
+  ConsumerState<OmniScoreApp> createState() => _OmniScoreAppState();
 }
 
-class _KambateAppState extends ConsumerState<KambateApp>
+class _OmniScoreAppState extends ConsumerState<OmniScoreApp>
     with WidgetsBindingObserver {
   @override
   void initState() {
@@ -64,7 +67,7 @@ class _KambateAppState extends ConsumerState<KambateApp>
   @override
   Widget build(BuildContext context) {
     return MaterialApp.router(
-      title: 'Kambate',
+      title: AppConstants.appName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       routerConfig: widget.router,
